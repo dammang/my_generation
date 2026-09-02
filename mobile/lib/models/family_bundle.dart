@@ -99,6 +99,7 @@ class FamilyBundle {
     required this.children,
     required this.siblings,
     required this.unions,
+    this.fromCache = false,
   });
 
   final PersonSummary person;
@@ -107,6 +108,10 @@ class FamilyBundle {
   final List<PersonSummary> children;
   final List<PersonSummary> siblings;
   final List<FamilyUnion> unions;
+
+  /// Assembled from the device. Marriages are not grouped offline, so the
+  /// screen must not imply that a flat list of children is the whole truth.
+  final bool fromCache;
 
   bool get isEmpty =>
       parents.isEmpty &&

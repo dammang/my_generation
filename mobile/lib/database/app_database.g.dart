@@ -1573,6 +1573,16 @@ class $SyncQueueTable extends SyncQueue
         type: DriftSqlType.string,
         requiredDuringInsert: true,
       );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('add_relative'),
+  );
   static const VerificationMeta _methodMeta = const VerificationMeta('method');
   @override
   late final GeneratedColumn<String> method = GeneratedColumn<String>(
@@ -1603,6 +1613,28 @@ class $SyncQueueTable extends SyncQueue
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subjectUlidMeta = const VerificationMeta(
+    'subjectUlid',
+  );
+  @override
+  late final GeneratedColumn<String> subjectUlid = GeneratedColumn<String>(
+    'subject_ulid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _subjectLabelMeta = const VerificationMeta(
+    'subjectLabel',
+  );
+  @override
+  late final GeneratedColumn<String> subjectLabel = GeneratedColumn<String>(
+    'subject_label',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
@@ -1652,9 +1684,12 @@ class $SyncQueueTable extends SyncQueue
   List<GeneratedColumn> get $columns => [
     id,
     clientOperationId,
+    kind,
     method,
     endpoint,
     payload,
+    subjectUlid,
+    subjectLabel,
     status,
     attempts,
     lastError,
@@ -1686,6 +1721,12 @@ class $SyncQueueTable extends SyncQueue
     } else if (isInserting) {
       context.missing(_clientOperationIdMeta);
     }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    }
     if (data.containsKey('method')) {
       context.handle(
         _methodMeta,
@@ -1709,6 +1750,24 @@ class $SyncQueueTable extends SyncQueue
       );
     } else if (isInserting) {
       context.missing(_payloadMeta);
+    }
+    if (data.containsKey('subject_ulid')) {
+      context.handle(
+        _subjectUlidMeta,
+        subjectUlid.isAcceptableOrUnknown(
+          data['subject_ulid']!,
+          _subjectUlidMeta,
+        ),
+      );
+    }
+    if (data.containsKey('subject_label')) {
+      context.handle(
+        _subjectLabelMeta,
+        subjectLabel.isAcceptableOrUnknown(
+          data['subject_label']!,
+          _subjectLabelMeta,
+        ),
+      );
     }
     if (data.containsKey('status')) {
       context.handle(
@@ -1753,6 +1812,10 @@ class $SyncQueueTable extends SyncQueue
         DriftSqlType.string,
         data['${effectivePrefix}client_operation_id'],
       )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
       method: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}method'],
@@ -1765,6 +1828,14 @@ class $SyncQueueTable extends SyncQueue
         DriftSqlType.string,
         data['${effectivePrefix}payload'],
       )!,
+      subjectUlid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subject_ulid'],
+      ),
+      subjectLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subject_label'],
+      ),
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -1793,9 +1864,19 @@ class $SyncQueueTable extends SyncQueue
 class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
   final int id;
   final String clientOperationId;
+
+  /// Which typed operation this is — add_relative, add_event, edit_person.
+  /// The batch endpoint is typed rather than a request forwarder, so the queue
+  /// stores intent rather than a serialised HTTP call.
+  final String kind;
   final String method;
   final String endpoint;
   final String payload;
+
+  /// The person this operation is about, so the queue can be shown as
+  /// "waiting: a father for Ngul Muan" rather than as a row of json.
+  final String? subjectUlid;
+  final String? subjectLabel;
   final String status;
   final int attempts;
   final String? lastError;
@@ -1803,9 +1884,12 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
   const QueuedOperation({
     required this.id,
     required this.clientOperationId,
+    required this.kind,
     required this.method,
     required this.endpoint,
     required this.payload,
+    this.subjectUlid,
+    this.subjectLabel,
     required this.status,
     required this.attempts,
     this.lastError,
@@ -1816,9 +1900,16 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['client_operation_id'] = Variable<String>(clientOperationId);
+    map['kind'] = Variable<String>(kind);
     map['method'] = Variable<String>(method);
     map['endpoint'] = Variable<String>(endpoint);
     map['payload'] = Variable<String>(payload);
+    if (!nullToAbsent || subjectUlid != null) {
+      map['subject_ulid'] = Variable<String>(subjectUlid);
+    }
+    if (!nullToAbsent || subjectLabel != null) {
+      map['subject_label'] = Variable<String>(subjectLabel);
+    }
     map['status'] = Variable<String>(status);
     map['attempts'] = Variable<int>(attempts);
     if (!nullToAbsent || lastError != null) {
@@ -1832,9 +1923,16 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
     return SyncQueueCompanion(
       id: Value(id),
       clientOperationId: Value(clientOperationId),
+      kind: Value(kind),
       method: Value(method),
       endpoint: Value(endpoint),
       payload: Value(payload),
+      subjectUlid: subjectUlid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(subjectUlid),
+      subjectLabel: subjectLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(subjectLabel),
       status: Value(status),
       attempts: Value(attempts),
       lastError: lastError == null && nullToAbsent
@@ -1852,9 +1950,12 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
     return QueuedOperation(
       id: serializer.fromJson<int>(json['id']),
       clientOperationId: serializer.fromJson<String>(json['clientOperationId']),
+      kind: serializer.fromJson<String>(json['kind']),
       method: serializer.fromJson<String>(json['method']),
       endpoint: serializer.fromJson<String>(json['endpoint']),
       payload: serializer.fromJson<String>(json['payload']),
+      subjectUlid: serializer.fromJson<String?>(json['subjectUlid']),
+      subjectLabel: serializer.fromJson<String?>(json['subjectLabel']),
       status: serializer.fromJson<String>(json['status']),
       attempts: serializer.fromJson<int>(json['attempts']),
       lastError: serializer.fromJson<String?>(json['lastError']),
@@ -1867,9 +1968,12 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'clientOperationId': serializer.toJson<String>(clientOperationId),
+      'kind': serializer.toJson<String>(kind),
       'method': serializer.toJson<String>(method),
       'endpoint': serializer.toJson<String>(endpoint),
       'payload': serializer.toJson<String>(payload),
+      'subjectUlid': serializer.toJson<String?>(subjectUlid),
+      'subjectLabel': serializer.toJson<String?>(subjectLabel),
       'status': serializer.toJson<String>(status),
       'attempts': serializer.toJson<int>(attempts),
       'lastError': serializer.toJson<String?>(lastError),
@@ -1880,9 +1984,12 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
   QueuedOperation copyWith({
     int? id,
     String? clientOperationId,
+    String? kind,
     String? method,
     String? endpoint,
     String? payload,
+    Value<String?> subjectUlid = const Value.absent(),
+    Value<String?> subjectLabel = const Value.absent(),
     String? status,
     int? attempts,
     Value<String?> lastError = const Value.absent(),
@@ -1890,9 +1997,12 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
   }) => QueuedOperation(
     id: id ?? this.id,
     clientOperationId: clientOperationId ?? this.clientOperationId,
+    kind: kind ?? this.kind,
     method: method ?? this.method,
     endpoint: endpoint ?? this.endpoint,
     payload: payload ?? this.payload,
+    subjectUlid: subjectUlid.present ? subjectUlid.value : this.subjectUlid,
+    subjectLabel: subjectLabel.present ? subjectLabel.value : this.subjectLabel,
     status: status ?? this.status,
     attempts: attempts ?? this.attempts,
     lastError: lastError.present ? lastError.value : this.lastError,
@@ -1904,9 +2014,16 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
       clientOperationId: data.clientOperationId.present
           ? data.clientOperationId.value
           : this.clientOperationId,
+      kind: data.kind.present ? data.kind.value : this.kind,
       method: data.method.present ? data.method.value : this.method,
       endpoint: data.endpoint.present ? data.endpoint.value : this.endpoint,
       payload: data.payload.present ? data.payload.value : this.payload,
+      subjectUlid: data.subjectUlid.present
+          ? data.subjectUlid.value
+          : this.subjectUlid,
+      subjectLabel: data.subjectLabel.present
+          ? data.subjectLabel.value
+          : this.subjectLabel,
       status: data.status.present ? data.status.value : this.status,
       attempts: data.attempts.present ? data.attempts.value : this.attempts,
       lastError: data.lastError.present ? data.lastError.value : this.lastError,
@@ -1919,9 +2036,12 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
     return (StringBuffer('QueuedOperation(')
           ..write('id: $id, ')
           ..write('clientOperationId: $clientOperationId, ')
+          ..write('kind: $kind, ')
           ..write('method: $method, ')
           ..write('endpoint: $endpoint, ')
           ..write('payload: $payload, ')
+          ..write('subjectUlid: $subjectUlid, ')
+          ..write('subjectLabel: $subjectLabel, ')
           ..write('status: $status, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
@@ -1934,9 +2054,12 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
   int get hashCode => Object.hash(
     id,
     clientOperationId,
+    kind,
     method,
     endpoint,
     payload,
+    subjectUlid,
+    subjectLabel,
     status,
     attempts,
     lastError,
@@ -1948,9 +2071,12 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
       (other is QueuedOperation &&
           other.id == this.id &&
           other.clientOperationId == this.clientOperationId &&
+          other.kind == this.kind &&
           other.method == this.method &&
           other.endpoint == this.endpoint &&
           other.payload == this.payload &&
+          other.subjectUlid == this.subjectUlid &&
+          other.subjectLabel == this.subjectLabel &&
           other.status == this.status &&
           other.attempts == this.attempts &&
           other.lastError == this.lastError &&
@@ -1960,9 +2086,12 @@ class QueuedOperation extends DataClass implements Insertable<QueuedOperation> {
 class SyncQueueCompanion extends UpdateCompanion<QueuedOperation> {
   final Value<int> id;
   final Value<String> clientOperationId;
+  final Value<String> kind;
   final Value<String> method;
   final Value<String> endpoint;
   final Value<String> payload;
+  final Value<String?> subjectUlid;
+  final Value<String?> subjectLabel;
   final Value<String> status;
   final Value<int> attempts;
   final Value<String?> lastError;
@@ -1970,9 +2099,12 @@ class SyncQueueCompanion extends UpdateCompanion<QueuedOperation> {
   const SyncQueueCompanion({
     this.id = const Value.absent(),
     this.clientOperationId = const Value.absent(),
+    this.kind = const Value.absent(),
     this.method = const Value.absent(),
     this.endpoint = const Value.absent(),
     this.payload = const Value.absent(),
+    this.subjectUlid = const Value.absent(),
+    this.subjectLabel = const Value.absent(),
     this.status = const Value.absent(),
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
@@ -1981,9 +2113,12 @@ class SyncQueueCompanion extends UpdateCompanion<QueuedOperation> {
   SyncQueueCompanion.insert({
     this.id = const Value.absent(),
     required String clientOperationId,
+    this.kind = const Value.absent(),
     required String method,
     required String endpoint,
     required String payload,
+    this.subjectUlid = const Value.absent(),
+    this.subjectLabel = const Value.absent(),
     this.status = const Value.absent(),
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
@@ -1996,9 +2131,12 @@ class SyncQueueCompanion extends UpdateCompanion<QueuedOperation> {
   static Insertable<QueuedOperation> custom({
     Expression<int>? id,
     Expression<String>? clientOperationId,
+    Expression<String>? kind,
     Expression<String>? method,
     Expression<String>? endpoint,
     Expression<String>? payload,
+    Expression<String>? subjectUlid,
+    Expression<String>? subjectLabel,
     Expression<String>? status,
     Expression<int>? attempts,
     Expression<String>? lastError,
@@ -2007,9 +2145,12 @@ class SyncQueueCompanion extends UpdateCompanion<QueuedOperation> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (clientOperationId != null) 'client_operation_id': clientOperationId,
+      if (kind != null) 'kind': kind,
       if (method != null) 'method': method,
       if (endpoint != null) 'endpoint': endpoint,
       if (payload != null) 'payload': payload,
+      if (subjectUlid != null) 'subject_ulid': subjectUlid,
+      if (subjectLabel != null) 'subject_label': subjectLabel,
       if (status != null) 'status': status,
       if (attempts != null) 'attempts': attempts,
       if (lastError != null) 'last_error': lastError,
@@ -2020,9 +2161,12 @@ class SyncQueueCompanion extends UpdateCompanion<QueuedOperation> {
   SyncQueueCompanion copyWith({
     Value<int>? id,
     Value<String>? clientOperationId,
+    Value<String>? kind,
     Value<String>? method,
     Value<String>? endpoint,
     Value<String>? payload,
+    Value<String?>? subjectUlid,
+    Value<String?>? subjectLabel,
     Value<String>? status,
     Value<int>? attempts,
     Value<String?>? lastError,
@@ -2031,9 +2175,12 @@ class SyncQueueCompanion extends UpdateCompanion<QueuedOperation> {
     return SyncQueueCompanion(
       id: id ?? this.id,
       clientOperationId: clientOperationId ?? this.clientOperationId,
+      kind: kind ?? this.kind,
       method: method ?? this.method,
       endpoint: endpoint ?? this.endpoint,
       payload: payload ?? this.payload,
+      subjectUlid: subjectUlid ?? this.subjectUlid,
+      subjectLabel: subjectLabel ?? this.subjectLabel,
       status: status ?? this.status,
       attempts: attempts ?? this.attempts,
       lastError: lastError ?? this.lastError,
@@ -2050,6 +2197,9 @@ class SyncQueueCompanion extends UpdateCompanion<QueuedOperation> {
     if (clientOperationId.present) {
       map['client_operation_id'] = Variable<String>(clientOperationId.value);
     }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
     if (method.present) {
       map['method'] = Variable<String>(method.value);
     }
@@ -2058,6 +2208,12 @@ class SyncQueueCompanion extends UpdateCompanion<QueuedOperation> {
     }
     if (payload.present) {
       map['payload'] = Variable<String>(payload.value);
+    }
+    if (subjectUlid.present) {
+      map['subject_ulid'] = Variable<String>(subjectUlid.value);
+    }
+    if (subjectLabel.present) {
+      map['subject_label'] = Variable<String>(subjectLabel.value);
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
@@ -2079,9 +2235,12 @@ class SyncQueueCompanion extends UpdateCompanion<QueuedOperation> {
     return (StringBuffer('SyncQueueCompanion(')
           ..write('id: $id, ')
           ..write('clientOperationId: $clientOperationId, ')
+          ..write('kind: $kind, ')
           ..write('method: $method, ')
           ..write('endpoint: $endpoint, ')
           ..write('payload: $payload, ')
+          ..write('subjectUlid: $subjectUlid, ')
+          ..write('subjectLabel: $subjectLabel, ')
           ..write('status: $status, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
@@ -2888,9 +3047,12 @@ typedef $$SyncQueueTableCreateCompanionBuilder =
     SyncQueueCompanion Function({
       Value<int> id,
       required String clientOperationId,
+      Value<String> kind,
       required String method,
       required String endpoint,
       required String payload,
+      Value<String?> subjectUlid,
+      Value<String?> subjectLabel,
       Value<String> status,
       Value<int> attempts,
       Value<String?> lastError,
@@ -2900,9 +3062,12 @@ typedef $$SyncQueueTableUpdateCompanionBuilder =
     SyncQueueCompanion Function({
       Value<int> id,
       Value<String> clientOperationId,
+      Value<String> kind,
       Value<String> method,
       Value<String> endpoint,
       Value<String> payload,
+      Value<String?> subjectUlid,
+      Value<String?> subjectLabel,
       Value<String> status,
       Value<int> attempts,
       Value<String?> lastError,
@@ -2928,6 +3093,11 @@ class $$SyncQueueTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get method => $composableBuilder(
     column: $table.method,
     builder: (column) => ColumnFilters(column),
@@ -2940,6 +3110,16 @@ class $$SyncQueueTableFilterComposer
 
   ColumnFilters<String> get payload => $composableBuilder(
     column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subjectUlid => $composableBuilder(
+    column: $table.subjectUlid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subjectLabel => $composableBuilder(
+    column: $table.subjectLabel,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2983,6 +3163,11 @@ class $$SyncQueueTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get method => $composableBuilder(
     column: $table.method,
     builder: (column) => ColumnOrderings(column),
@@ -2995,6 +3180,16 @@ class $$SyncQueueTableOrderingComposer
 
   ColumnOrderings<String> get payload => $composableBuilder(
     column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subjectUlid => $composableBuilder(
+    column: $table.subjectUlid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subjectLabel => $composableBuilder(
+    column: $table.subjectLabel,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3036,6 +3231,9 @@ class $$SyncQueueTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
   GeneratedColumn<String> get method =>
       $composableBuilder(column: $table.method, builder: (column) => column);
 
@@ -3044,6 +3242,16 @@ class $$SyncQueueTableAnnotationComposer
 
   GeneratedColumn<String> get payload =>
       $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<String> get subjectUlid => $composableBuilder(
+    column: $table.subjectUlid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subjectLabel => $composableBuilder(
+    column: $table.subjectLabel,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -3091,9 +3299,12 @@ class $$SyncQueueTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> clientOperationId = const Value.absent(),
+                Value<String> kind = const Value.absent(),
                 Value<String> method = const Value.absent(),
                 Value<String> endpoint = const Value.absent(),
                 Value<String> payload = const Value.absent(),
+                Value<String?> subjectUlid = const Value.absent(),
+                Value<String?> subjectLabel = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> attempts = const Value.absent(),
                 Value<String?> lastError = const Value.absent(),
@@ -3101,9 +3312,12 @@ class $$SyncQueueTableTableManager
               }) => SyncQueueCompanion(
                 id: id,
                 clientOperationId: clientOperationId,
+                kind: kind,
                 method: method,
                 endpoint: endpoint,
                 payload: payload,
+                subjectUlid: subjectUlid,
+                subjectLabel: subjectLabel,
                 status: status,
                 attempts: attempts,
                 lastError: lastError,
@@ -3113,9 +3327,12 @@ class $$SyncQueueTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String clientOperationId,
+                Value<String> kind = const Value.absent(),
                 required String method,
                 required String endpoint,
                 required String payload,
+                Value<String?> subjectUlid = const Value.absent(),
+                Value<String?> subjectLabel = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> attempts = const Value.absent(),
                 Value<String?> lastError = const Value.absent(),
@@ -3123,9 +3340,12 @@ class $$SyncQueueTableTableManager
               }) => SyncQueueCompanion.insert(
                 id: id,
                 clientOperationId: clientOperationId,
+                kind: kind,
                 method: method,
                 endpoint: endpoint,
                 payload: payload,
+                subjectUlid: subjectUlid,
+                subjectLabel: subjectLabel,
                 status: status,
                 attempts: attempts,
                 lastError: lastError,

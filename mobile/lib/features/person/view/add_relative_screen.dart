@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/api_exception.dart';
-import '../../../core/network/api_envelope.dart';
-import '../../../models/person_summary.dart';
+import '../../../core/ulid.dart';
 import '../../../providers/person_provider.dart';
+import '../../../providers/sync_provider.dart';
+import '../../../repositories/person_repository.dart';
 import '../../../widgets/form_banner.dart';
 
 /// A union the contributor must choose between.
@@ -115,21 +116,35 @@ class _AddRelativeScreenState extends ConsumerState<AddRelativeScreen> {
             relation: _relation,
             unionUlid: _unionUlid,
             subtype: _isParentOrChild ? _subtype : null,
-            person: {
-              'first_name': _firstName.text.trim(),
-              'last_name': ?_nullIfBlank(_lastName.text),
-              'native_name': ?_nullIfBlank(_nativeName.text),
-              'gender': _gender,
-              'birth': ?_nullIfBlank(_birth.text),
-              'death': ?_nullIfBlank(_death.text),
-            },
+            person: _personPayload(),
           );
 
       // The profile, the family lists and the tree are all now stale.
-      invalidatePerson(ref, widget.anchorUlid, alsoUlid: result.person.ulid);
+      invalidatePerson(ref, widget.anchorUlid, alsoUlid: result.person?.ulid);
 
       if (mounted) Navigator.of(context).pop(result);
     } on ApiException catch (error) {
+      // No connection is not a failure — it is a later. The write is kept and
+      // sent when the server can be reached, which is the whole point of
+      // filling this in on a bus.
+      if (error.isOffline) {
+        await ref.read(syncControllerProvider.notifier).enqueue(
+              kind: 'add_relative',
+              subjectUlid: widget.anchorUlid,
+              subjectLabel: widget.anchorName,
+              payload: {
+                'anchor_ulid': widget.anchorUlid,
+                'relation': _relation,
+                'subtype': _isParentOrChild ? _subtype : null,
+                'person': _personPayload(),
+              },
+            );
+
+        if (mounted) Navigator.of(context).pop(const AddRelativeResult.queued());
+
+        return;
+      }
+
       // Not a failure to report and forget: the server is telling the
       // contributor which marriage it needs, and it sent the options as data.
       if (error.code == 'UNION_AMBIGUOUS') {
@@ -161,6 +176,27 @@ class _AddRelativeScreenState extends ConsumerState<AddRelativeScreen> {
         )
         .toList(growable: false);
   }
+
+  /// Built in one place so the request sent now and the one queued for later
+  /// can never disagree about what was typed.
+  Map<String, dynamic> _personPayload() => {
+        // Minted here so a person created offline is referable before the
+        // server has ever seen them — an event about a grandfather added on a
+        // plane needs to be able to name him.
+        'ulid': _newUlid(),
+        'first_name': _firstName.text.trim(),
+        'last_name': ?_nullIfBlank(_lastName.text),
+        'native_name': ?_nullIfBlank(_nativeName.text),
+        'gender': _gender,
+        'birth': ?_nullIfBlank(_birth.text),
+        'death': ?_nullIfBlank(_death.text),
+      };
+
+  String? _pendingUlid;
+
+  /// Stable across a retry: submitting twice must not mint two identities for
+  /// the same person.
+  String _newUlid() => _pendingUlid ??= Ulid.generate();
 
   static String? _nullIfBlank(String value) =>
       value.trim().isEmpty ? null : value.trim();
@@ -359,11 +395,26 @@ class _AddRelativeScreenState extends ConsumerState<AddRelativeScreen> {
 /// once, without the write being refused.
 void showAddRelativeOutcome(
   BuildContext context, {
-  required PersonSummary person,
-  required bool created,
-  required List<ApiWarning> warnings,
+  required AddRelativeResult result,
 }) {
   final messenger = ScaffoldMessenger.of(context);
+
+  if (result.queued) {
+    // Not "added". The server has never seen this, and saying otherwise is how
+    // somebody finds out a week later that it never arrived.
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Saved on this device. It will be sent when you are back online.'),
+        duration: Duration(seconds: 4),
+      ),
+    );
+
+    return;
+  }
+
+  final person = result.person!;
+  final created = result.created;
+  final warnings = result.warnings;
 
   if (warnings.isEmpty) {
     messenger.showSnackBar(

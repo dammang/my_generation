@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\ProfileClaimController;
 use App\Http\Controllers\Api\V1\RelationshipController;
 use App\Http\Controllers\Api\V1\RevisionController;
 use App\Http\Controllers\Api\V1\ScopeRoleController;
+use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TreeController;
 use App\Http\Controllers\Api\V1\TribeController;
 use App\Http\Controllers\Api\V1\UnionController;
@@ -79,6 +80,10 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::post('change-requests/{change_request}/reject', [ChangeRequestController::class, 'reject'])->name('changes.reject');
             Route::post('change-requests/{change_request}/withdraw', [ChangeRequestController::class, 'withdraw'])->name('changes.withdraw');
 
+            // Drains a phone's offline queue in one round trip. Each operation
+            // carries its own id, so replaying the batch is safe.
+            Route::post('sync/batch', [SyncController::class, 'batch'])->name('sync.batch');
+
             Route::post('disputes', [DisputeController::class, 'store'])->name('disputes.store');
             Route::post('disputes/{dispute}/resolve', [DisputeController::class, 'resolve'])->name('disputes.resolve');
             Route::get('event-types', [PersonEventController::class, 'types'])->name('event-types.index');
@@ -119,7 +124,8 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::get('tree/{person}/path-to/{other}', [TreeController::class, 'pathTo'])->name('tree.path');
         });
 
-        Route::middleware('throttle:write')->group(function (): void {
+        // Every write is replay-safe when the client sends an operation id.
+        Route::middleware(['throttle:write', 'idempotent'])->group(function (): void {
             // ── Genealogy ────────────────────────────────────────────────
             Route::post('people', [PersonController::class, 'store'])->name('people.store');
             Route::patch('people/{person}', [PersonController::class, 'update'])->name('people.update');

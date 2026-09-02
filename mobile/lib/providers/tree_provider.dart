@@ -1,11 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/errors/api_exception.dart';
 import '../models/tree_graph.dart';
 import '../repositories/tree_repository.dart';
 import 'app_providers.dart';
 
 final treeRepositoryProvider = Provider<TreeRepository>(
-  (ref) => TreeRepository(ref.watch(apiClientProvider)),
+  (ref) => TreeRepository(ref.watch(apiClientProvider), ref.watch(treeCacheProvider)),
 );
 
 /// What the tree screen is currently asking for.
@@ -74,9 +75,28 @@ final treeProvider = FutureProvider<TreeGraph>((ref) async {
 
   if (query == null) return TreeGraph.empty;
 
-  return ref.watch(treeRepositoryProvider).tree(
-        query.focusUlid,
-        ancestors: query.ancestors,
-        descendants: query.descendants,
-      );
+  final repository = ref.watch(treeRepositoryProvider);
+
+  try {
+    return await repository.tree(
+      query.focusUlid,
+      ancestors: query.ancestors,
+      descendants: query.descendants,
+    );
+  } on ApiException catch (error) {
+    // Only an unreachable server falls back to the device. A 403 or a 404 is
+    // the server's answer and must stand — serving a cached copy of a record
+    // somebody has since lost access to would be a leak with extra steps.
+    if (!error.isOffline) rethrow;
+
+    final cached = await repository.cached(
+      query.focusUlid,
+      ancestors: query.ancestors,
+      descendants: query.descendants,
+    );
+
+    if (cached == null) throw const NothingCachedException();
+
+    return cached;
+  }
 });

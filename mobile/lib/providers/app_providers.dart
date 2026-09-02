@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/network/api_client.dart';
 import '../core/network/auth_interceptor.dart';
 import '../database/app_database.dart';
+import '../database/tree_cache_dao.dart';
 import '../repositories/auth_repository.dart';
+import '../repositories/sync_queue_repository.dart';
 import '../services/secure_storage_service.dart';
 
 /// Wiring. Deliberately explicit rather than generated: the graph is small, and
@@ -49,6 +51,17 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     dio: ref.watch(dioProvider),
     authInterceptor: ref.watch(authInterceptorProvider),
+  );
+});
+
+final treeCacheProvider = Provider<TreeCacheDao>((ref) {
+  return TreeCacheDao(ref.watch(appDatabaseProvider));
+});
+
+final syncQueueProvider = Provider<SyncQueueRepository>((ref) {
+  return SyncQueueRepository(
+    ref.watch(appDatabaseProvider),
+    ref.watch(apiClientProvider),
   );
 });
 

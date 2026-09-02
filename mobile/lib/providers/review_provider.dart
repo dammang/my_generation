@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/errors/api_exception.dart';
 import '../models/dispute.dart';
 import '../models/revision.dart';
 import '../repositories/review_repository.dart';
@@ -23,12 +24,24 @@ final reviewQueueProvider = FutureProvider.family<ReviewQueue, String>((ref, fil
   return ref.watch(reviewRepositoryProvider).changeRequests(filter: filter);
 });
 
-final historyProvider = FutureProvider.family<History, String>((ref, ulid) {
-  return ref.watch(reviewRepositoryProvider).history(ulid);
+final historyProvider = FutureProvider.family<History, String>((ref, ulid) async {
+  try {
+    return await ref.watch(reviewRepositoryProvider).history(ulid);
+  } on ApiException catch (error) {
+    if (!error.isOffline) rethrow;
+
+    return const History.notOnDevice();
+  }
 });
 
-final disputesProvider = FutureProvider.family<List<Dispute>, String>((ref, ulid) {
-  return ref.watch(reviewRepositoryProvider).disputes(ulid);
+final disputesProvider = FutureProvider.family<List<Dispute>, String>((ref, ulid) async {
+  try {
+    return await ref.watch(reviewRepositoryProvider).disputes(ulid);
+  } on ApiException catch (error) {
+    if (!error.isOffline) rethrow;
+
+    return const [];
+  }
 });
 
 /// Whether to offer the review queue at all.

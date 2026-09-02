@@ -89,6 +89,7 @@ class TreeGraph {
     this.nodeCount = 0,
     this.truncated = false,
     this.graphVersion = 0,
+    this.fromCache = false,
   });
 
   final String focusUlid;
@@ -105,6 +106,12 @@ class TreeGraph {
   final int nodeCount;
   final bool truncated;
   final int graphVersion;
+
+  /// Rebuilt from the device rather than fetched. The screen says so: a tree
+  /// assembled from whatever happens to be cached is necessarily partial, and
+  /// presenting a fragment as the whole family is the offline failure that
+  /// actually misleads people.
+  final bool fromCache;
 
   PersonSummary? person(String ulid) => people[ulid];
 

@@ -28,6 +28,15 @@ class StorePersonRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // Client-minted, so a person created offline can be referred to
+            // before the server has ever seen them.
+            'ulid' => [
+                'sometimes',
+                'string',
+                'size:26',
+                'regex:/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/',
+                Rule::unique('people', 'ulid'),
+            ],
             'first_name' => ['sometimes', 'nullable', 'string', 'max:120'],
             'middle_name' => ['sometimes', 'nullable', 'string', 'max:120'],
             'last_name' => ['sometimes', 'nullable', 'string', 'max:120'],

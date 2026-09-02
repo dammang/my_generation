@@ -66,9 +66,21 @@ class CachedUnions extends Table {
 class SyncQueue extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get clientOperationId => text()();
+
+  /// Which typed operation this is — add_relative, add_event, edit_person.
+  /// The batch endpoint is typed rather than a request forwarder, so the queue
+  /// stores intent rather than a serialised HTTP call.
+  TextColumn get kind => text().withDefault(const Constant('add_relative'))();
+
   TextColumn get method => text()();
   TextColumn get endpoint => text()();
   TextColumn get payload => text()();
+
+  /// The person this operation is about, so the queue can be shown as
+  /// "waiting: a father for Ngul Muan" rather than as a row of json.
+  TextColumn get subjectUlid => text().nullable()();
+  TextColumn get subjectLabel => text().nullable()();
+
   TextColumn get status => text().withDefault(const Constant('pending'))();
   IntColumn get attempts => integer().withDefault(const Constant(0))();
   TextColumn get lastError => text().nullable()();
@@ -80,7 +92,21 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            // The queue stores intent for the typed batch endpoint, not a
+            // serialised HTTP call, and needs to be describable to a person.
+            await m.addColumn(syncQueue, syncQueue.kind);
+            await m.addColumn(syncQueue, syncQueue.subjectUlid);
+            await m.addColumn(syncQueue, syncQueue.subjectLabel);
+          }
+        },
+      );
 
   static QueryExecutor _open() => driftDatabase(name: 'my_generation');
 

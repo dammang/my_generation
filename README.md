@@ -24,7 +24,8 @@ the schema.
 | 11 — Flutter tree: layout engine, canvas, expand, Go to Me | ✅ Complete |
 | 12 — Person profile, family tabs, timeline, Add Relative flow | ✅ Complete |
 | 13 — Contribution and verification UI | ✅ Complete |
-| 14 — Offline sync | Next |
+| 14 — Offline sync | ✅ Complete |
+| 15 — Testing, optimisation, hardening | Next |
 
 ## Requirements
 
@@ -119,6 +120,35 @@ than O(n²). Scores are normalised by the evidence actually available — the co
 duplicate is a record a second contributor added with no relatives attached yet, and
 scoring it against the full weight set would mean it never clears the threshold however
 exactly the name and dates agree.
+
+## Offline is a first-class state, not a failure
+
+The device stores a **graph**, not response snapshots. Caching whole responses
+would mean only the exact trees somebody had already opened could be reopened;
+storing people and edges lets any cached person become a focus, which is what
+somebody on a plane actually wants. Only what the server already chose to show
+that viewer is stored, in the masked form it sent — going offline can never
+widen what somebody can read.
+
+A retried write is harmless because the client mints two identifiers itself:
+
+| | |
+|---|---|
+| **Operation id** (uuid) | The server's ledger is keyed on it. Claiming the key *before* the work runs makes the unique index the lock, so two racing retries cannot both execute |
+| **Person ulid** | A person created offline is referable before the server has ever seen them, so an event about a grandfather added on a plane can name him — and there is no id-mapping table |
+
+The batch endpoint is **typed**, not a request forwarder. Re-dispatching
+arbitrary paths through the router would create a second way into every endpoint
+with its own chances to get authorization wrong.
+
+Four states that must never be confused, because each needs different words:
+
+| State | What it means |
+|---|---|
+| Empty | Nothing recorded — invites a contribution |
+| Withheld | Hidden by privacy — must not invite one |
+| Not on device | The phone has no copy — a fact about the device, not the family |
+| Rejected | The server refused a queued write — kept, never silently discarded |
 
 ## Verification is a gate, not a badge
 

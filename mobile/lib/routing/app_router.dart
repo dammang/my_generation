@@ -13,6 +13,7 @@ import '../features/onboarding/claim_profile_screen.dart';
 import '../features/onboarding/join_tribe_screen.dart';
 import '../features/person/view/person_screen.dart';
 import '../features/review/view/review_queue_screen.dart';
+import '../features/sync/view/pending_changes_screen.dart';
 import '../features/tree/view/tree_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
@@ -32,6 +33,7 @@ class Routes {
   /// A profile is addressable so a link to one survives being shared — the
   /// ulid is the public identifier precisely so it can appear in a URL.
   static const String contributions = '/contributions';
+  static const String pendingChanges = '/pending';
 
   static const String person = '/person';
 
@@ -76,6 +78,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.joinTribe, builder: (_, _) => const JoinTribeScreen()),
       GoRoute(path: Routes.claimProfile, builder: (_, _) => const ClaimProfileScreen()),
       GoRoute(path: Routes.home, builder: (_, _) => const HomeScreen()),
+      GoRoute(
+        path: Routes.pendingChanges,
+        builder: (_, _) => const PendingChangesScreen(),
+      ),
       GoRoute(
         path: Routes.contributions,
         builder: (_, state) => ReviewQueueScreen(

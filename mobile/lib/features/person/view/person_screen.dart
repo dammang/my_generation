@@ -106,12 +106,7 @@ class _LoadedState extends ConsumerState<_Loaded>
 
     if (result == null || !mounted) return;
 
-    showAddRelativeOutcome(
-      context,
-      person: result.person,
-      created: result.created,
-      warnings: result.warnings,
-    );
+    showAddRelativeOutcome(context, result: result);
   }
 
   Future<void> _edit() async {
@@ -303,9 +298,15 @@ class _OverviewTab extends StatelessWidget {
       children: [
         if (facts.isEmpty && detail.biography == null)
           Text(
-            person.redacted
-                ? 'The details of this record are not shown to you.'
-                : 'Nothing has been recorded about this person yet.',
+            detail.fromCache
+                // Absent, not empty: only what a tree response carried is
+                // stored, so "nothing recorded" would be a lie about the
+                // record rather than a statement about the device.
+                ? 'Only the basics are saved on this device. Connect to see '
+                    'the full record.'
+                : person.redacted
+                    ? 'The details of this record are not shown to you.'
+                    : 'Nothing has been recorded about this person yet.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

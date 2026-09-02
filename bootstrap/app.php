@@ -3,6 +3,7 @@
 use App\Exceptions\ApiException;
 use App\Http\Middleware\FlushRequestScopedState;
 use App\Http\Middleware\ForceJsonResponse;
+use App\Http\Middleware\IdempotentWrites;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -25,6 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [FlushRequestScopedState::class, ForceJsonResponse::class]);
+
+        // Aliased rather than global: it needs the authenticated user, and
+        // global api middleware runs before auth:sanctum has resolved one.
+        $middleware->alias(['idempotent' => IdempotentWrites::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

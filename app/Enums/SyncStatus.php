@@ -13,6 +13,9 @@ enum SyncStatus: string
 {
     use HasLabel;
 
+    /** Claimed, but not yet finished. The row is the lock. */
+    case Pending = 'pending';
+
     case Applied = 'applied';
     case Rejected = 'rejected';
     case Duplicate = 'duplicate';

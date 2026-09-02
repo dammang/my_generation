@@ -29,6 +29,17 @@ class FamilyTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
       children: [
+        if (bundle.fromCache)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
+            child: Text(
+              'Saved on this device. Marriages are not grouped offline, so '
+              'children are listed together.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
         _Section(
           title: 'Parents',
           people: bundle.parents,
@@ -36,6 +47,7 @@ class FamilyTab extends StatelessWidget {
           addLabel: 'Add a parent',
           onAdd: () => onAddRelative('parent'),
           onOpenPerson: onOpenPerson,
+          fromCache: bundle.fromCache,
         ),
         _Section(
           title: 'Siblings',
@@ -44,6 +56,7 @@ class FamilyTab extends StatelessWidget {
           addLabel: 'Add a sibling',
           onAdd: () => onAddRelative('sibling'),
           onOpenPerson: onOpenPerson,
+          fromCache: bundle.fromCache,
           // Siblings are derived from shared parents, so this is worth saying:
           // without parents on record there is nothing to derive them from.
           note: bundle.parents.isEmpty && bundle.siblings.isEmpty
@@ -66,6 +79,7 @@ class FamilyTab extends StatelessWidget {
             addLabel: 'Add a spouse',
             onAdd: () => onAddRelative('spouse'),
             onOpenPerson: onOpenPerson,
+            fromCache: bundle.fromCache,
           ),
         if (unattached.isNotEmpty)
           _Section(
@@ -77,6 +91,7 @@ class FamilyTab extends StatelessWidget {
             addLabel: 'Add a child',
             onAdd: () => onAddRelative('child'),
             onOpenPerson: onOpenPerson,
+            fromCache: bundle.fromCache,
           ),
         if (unattached.isEmpty && bundle.unions.isEmpty)
           _Section(
@@ -86,6 +101,7 @@ class FamilyTab extends StatelessWidget {
             addLabel: 'Add a child',
             onAdd: () => onAddRelative('child'),
             onOpenPerson: onOpenPerson,
+            fromCache: bundle.fromCache,
           ),
       ],
     );
@@ -164,6 +180,7 @@ class _Section extends StatelessWidget {
     required this.addLabel,
     required this.onAdd,
     required this.onOpenPerson,
+    required this.fromCache,
     this.note,
   });
 
@@ -173,6 +190,11 @@ class _Section extends StatelessWidget {
   final String addLabel;
   final VoidCallback onAdd;
   final void Function(PersonSummary person) onOpenPerson;
+
+  /// Offline an empty list means "not saved here", not "none exist". Saying
+  /// "no siblings recorded" to somebody whose phone simply never cached them
+  /// is a claim about their family, not about the device.
+  final bool fromCache;
   final String? note;
 
   @override
@@ -187,7 +209,7 @@ class _Section extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
             child: Text(
-              note ?? emptyLabel,
+              fromCache ? 'Not saved on this device' : (note ?? emptyLabel),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

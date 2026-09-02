@@ -27,9 +27,16 @@ class AuthSignedOut extends AuthState {
 }
 
 class AuthSignedIn extends AuthState {
-  const AuthSignedIn(this.user);
+  const AuthSignedIn(this.user, {this.offline = false});
 
   final ApiUser user;
+
+  /// Entered on a remembered account because the server could not be reached.
+  ///
+  /// Its permissions are as stale as the device is old, which is fine: they
+  /// decide what the app *offers*, never what is allowed. Every write is still
+  /// authorised by the server when it finally arrives.
+  final bool offline;
 }
 
 class AuthNotifier extends Notifier<AuthState> {
@@ -69,8 +76,18 @@ class AuthNotifier extends Notifier<AuthState> {
         return;
       }
 
-      // Offline or a server problem: the token may well still be good, so the
-      // person is not signed out over a bad connection.
+      // Offline: the token may well still be good, so the person is not signed
+      // out over a bad connection — and more importantly they are not locked
+      // out of a tree already saved on their own device. Being unable to open
+      // the app on a plane is the offline failure that matters most, and it is
+      // the one a login gate causes.
+      final remembered = await _repository.cachedAccount();
+
+      if (error.isOffline && remembered != null) {
+        state = AuthSignedIn(remembered, offline: true);
+        return;
+      }
+
       rethrow;
     }
   }

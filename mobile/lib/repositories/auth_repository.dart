@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../core/constants/api_paths.dart';
 import '../core/network/api_client.dart';
 import '../database/app_database.dart';
@@ -68,7 +70,30 @@ class AuthRepository {
       parse: (data) => (data as Map).cast<String, dynamic>(),
     );
 
-    return ApiUser.fromJson(envelope.data!);
+    final user = ApiUser.fromJson(envelope.data!);
+
+    await _storage.writeAccount(jsonEncode(user.toJson()));
+
+    return user;
+  }
+
+  /// The last account the server confirmed, for opening the app without a
+  /// connection.
+  ///
+  /// Its permissions are as stale as the device is old, which is fine: they
+  /// decide what to *offer*, never what is allowed. Every write is still
+  /// authorised by the server when it eventually arrives.
+  Future<ApiUser?> cachedAccount() async {
+    final raw = await _storage.readAccount();
+
+    if (raw == null) return null;
+
+    try {
+      return ApiUser.fromJson((jsonDecode(raw) as Map).cast<String, dynamic>());
+    } catch (_) {
+      // A stored account from an older build. Not worth failing startup over.
+      return null;
+    }
   }
 
   Future<void> logout() async {

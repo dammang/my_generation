@@ -106,14 +106,27 @@ class PersonEvent {
 /// invites a contribution; "hidden" tells the truth about why the screen is
 /// blank, and inviting a contribution there would be a lie.
 class Timeline {
-  const Timeline({required this.events, required this.withheld});
+  const Timeline({
+    required this.events,
+    required this.withheld,
+    this.unavailableOffline = false,
+  });
 
-  const Timeline.withheldFrom() : events = const [], withheld = true;
+  const Timeline.withheldFrom() : events = const [], withheld = true, unavailableOffline = false;
+
+  /// Not withheld and not empty — simply not saved on this device. Three
+  /// different facts, and telling somebody a life is "private" when the phone
+  /// merely has no copy would be a lie about their own family.
+  const Timeline.notOnDevice()
+      : events = const [],
+        withheld = false,
+        unavailableOffline = true;
 
   final List<PersonEvent> events;
   final bool withheld;
+  final bool unavailableOffline;
 
-  bool get isEmpty => events.isEmpty && !withheld;
+  bool get isEmpty => events.isEmpty && !withheld && !unavailableOffline;
 }
 
 /// An entry in the event vocabulary, for the "add an event" picker.

@@ -24,6 +24,19 @@ class AddRelativeRequest extends FormRequest
         return [
             'relation' => ['required', 'string', Rule::in(AddRelative::RELATIONS)],
             'person' => ['required', 'array'],
+
+            // A ULID the client generated for itself. Offline, a new person has
+            // to be referable before the server has ever seen them — an event
+            // recorded about a grandfather added on a plane needs to name him.
+            // ULIDs are globally unique by construction, so letting the client
+            // mint one removes the whole id-mapping problem.
+            'person.ulid' => [
+                'sometimes',
+                'string',
+                'size:26',
+                'regex:/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/',
+                Rule::unique('people', 'ulid'),
+            ],
             'person.first_name' => ['sometimes', 'nullable', 'string', 'max:120'],
             'person.middle_name' => ['sometimes', 'nullable', 'string', 'max:120'],
             'person.last_name' => ['sometimes', 'nullable', 'string', 'max:120'],

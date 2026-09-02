@@ -15,6 +15,7 @@ class PersonDetail {
     this.clanName,
     this.branchName,
     this.mergedIntoUlid,
+    this.fromCache = false,
   });
 
   final PersonSummary summary;
@@ -29,6 +30,11 @@ class PersonDetail {
   /// shared link should not rot because two records turned out to be one
   /// person — but the profile says where the person actually lives now.
   final String? mergedIntoUlid;
+
+  /// Rebuilt from the device. Only what a tree response carried is stored, so
+  /// the biography and places are absent rather than empty — the screen says
+  /// "not saved on this device" instead of "nothing recorded".
+  final bool fromCache;
 
   String get ulid => summary.ulid;
   String get displayName => summary.displayName;

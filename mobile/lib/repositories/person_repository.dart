@@ -16,13 +16,24 @@ class AddRelativeResult {
     required this.person,
     required this.created,
     this.warnings = const [],
+    this.queued = false,
   });
 
-  final PersonSummary person;
+  /// Recorded on the device, waiting for a connection. Reported honestly:
+  /// saying "added" for something the server has never seen is how somebody
+  /// discovers a week later that it never arrived.
+  const AddRelativeResult.queued()
+      : person = null,
+        created = true,
+        warnings = const [],
+        queued = true;
+
+  final PersonSummary? person;
 
   /// False when the server matched an existing person instead of creating one.
   final bool created;
   final List<ApiWarning> warnings;
+  final bool queued;
 }
 
 class PersonRepository {

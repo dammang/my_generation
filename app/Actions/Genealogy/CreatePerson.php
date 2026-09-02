@@ -32,10 +32,20 @@ class CreatePerson
                 'death' => $attributes['death'] ?? null,
             ];
 
-            unset($attributes['birth'], $attributes['death']);
+            // Set explicitly rather than mass-assigned: the public identifier
+            // is not something a stray request field should be able to choose.
+            // A client may supply one so a person created offline is referable
+            // before the server has ever seen them; HasUlid only mints one when
+            // the attribute is empty.
+            $ulid = $attributes['ulid'] ?? null;
+            unset($attributes['birth'], $attributes['death'], $attributes['ulid']);
 
             $person = new Person($attributes);
             $person->created_by = $author->getKey();
+
+            if (is_string($ulid) && $ulid !== '') {
+                $person->ulid = $ulid;
+            }
 
             foreach ($dates as $prefix => $expression) {
                 if ($expression !== null) {

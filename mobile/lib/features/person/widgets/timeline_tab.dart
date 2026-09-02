@@ -23,6 +23,14 @@ class TimelineTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    if (timeline.unavailableOffline) {
+      return _Empty(
+        icon: Icons.cloud_off,
+        title: 'Not saved on this device',
+        message: 'Life events are not kept offline. Connect to see them.',
+      );
+    }
+
     if (timeline.withheld) {
       return _Empty(
         icon: Icons.lock_outline,

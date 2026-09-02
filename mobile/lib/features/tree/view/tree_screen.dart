@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../../../routing/app_router.dart';
 import '../../person/view/person_screen.dart';
+import '../../sync/widgets/sync_banner.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import '../../../core/errors/api_exception.dart';
@@ -132,7 +136,10 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
           ),
         ],
       ),
-      body: tree.when(
+      body: Column(
+        children: [
+          SyncBanner(onTap: () => context.push(Routes.pendingChanges)),
+          Expanded(child: tree.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _Error(
           message: error is ApiException ? error.message : 'Could not load the tree.',
@@ -175,6 +182,8 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
             },
           );
         },
+          )),
+        ],
       ),
     );
   }
@@ -225,7 +234,11 @@ class _Legend extends StatelessWidget {
                     Text(
                       '${graph.nodeCount} people · '
                       '${graph.ancestorsDepth} up, ${graph.descendantsDepth} down'
-                      '${graph.truncated ? ' · showing the nearest' : ''}',
+                      '${graph.truncated ? ' · showing the nearest' : ''}'
+                      // A tree rebuilt from the device is necessarily partial.
+                      // Presenting a fragment as the whole family is the
+                      // offline failure that actually misleads people.
+                      '${graph.fromCache ? ' · saved on this device' : ''}',
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

@@ -71,12 +71,28 @@ class RevisionEntry {
 
 /// A record's history, or the fact that it is not being shown.
 class History {
-  const History({required this.entries, required this.withheld});
+  const History({
+    required this.entries,
+    required this.withheld,
+    this.unavailableOffline = false,
+  });
 
-  const History.withheldFrom() : entries = const [], withheld = true;
+  const History.withheldFrom()
+      : entries = const [],
+        withheld = true,
+        unavailableOffline = false;
+
+  /// History is never cached: it is large, it changes, and it is the least
+  /// useful thing to read on a plane. Saying so is better than an empty list
+  /// that reads as "nothing has ever been corrected".
+  const History.notOnDevice()
+      : entries = const [],
+        withheld = false,
+        unavailableOffline = true;
 
   final List<RevisionEntry> entries;
   final bool withheld;
+  final bool unavailableOffline;
 
-  bool get isEmpty => entries.isEmpty && !withheld;
+  bool get isEmpty => entries.isEmpty && !withheld && !unavailableOffline;
 }

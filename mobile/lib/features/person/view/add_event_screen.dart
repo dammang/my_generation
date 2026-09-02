@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/api_exception.dart';
 import '../../../providers/person_provider.dart';
+import '../../../providers/sync_provider.dart';
 import '../../../widgets/form_banner.dart';
 
 /// Recording something that happened.
@@ -101,6 +102,34 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen> {
 
       if (mounted) Navigator.of(context).pop(true);
     } on ApiException catch (error) {
+      if (error.isOffline) {
+        await ref.read(syncControllerProvider.notifier).enqueue(
+              kind: 'add_event',
+              subjectUlid: widget.personUlid,
+              subjectLabel: widget.personName,
+              payload: {
+                'person_ulid': widget.personUlid,
+                'event_type': _type,
+                'title': _title.text.trim().isEmpty ? null : _title.text.trim(),
+                'description':
+                    _description.text.trim().isEmpty ? null : _description.text.trim(),
+                'date': _date.text.trim().isEmpty ? null : _date.text.trim(),
+              },
+            );
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved on this device. It will be sent when you are back online.'),
+          ),
+        );
+
+        Navigator.of(context).pop(true);
+
+        return;
+      }
+
       setState(() {
         _saving = false;
         _error = error.message;

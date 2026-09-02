@@ -12,17 +12,24 @@ import 'package:my_generation/repositories/auth_repository.dart';
 /// failure to check it is not proof of its absence either. Signing somebody out
 /// because their train went into a tunnel would be its own bug.
 class _FakeAuthRepository implements AuthRepository {
-  _FakeAuthRepository({this.token, this.user, this.error});
+  _FakeAuthRepository({this.token, this.user, this.error, this.remembered});
 
   final String? token;
   final ApiUser? user;
   final Object? error;
+
+  /// The last account the server confirmed, kept so the app can be opened
+  /// without a connection.
+  final ApiUser? remembered;
 
   int meCalls = 0;
   bool loggedOut = false;
 
   @override
   Future<bool> hasToken() async => token != null;
+
+  @override
+  Future<ApiUser?> cachedAccount() async => remembered;
 
   @override
   Future<ApiUser> me() async {
@@ -126,6 +133,45 @@ void main() {
     final state = container.read(authProvider);
     expect(state, isA<AuthSignedOut>());
     expect((state as AuthSignedOut).message, contains('session has ended'));
+  });
+
+  test('a remembered account opens the app offline', () async {
+    // Being unable to open the app on a plane is the offline failure that
+    // matters most, and a login gate is what causes it. The tree is already on
+    // the device; the door must not be the thing that stops them.
+    final repository = _FakeAuthRepository(
+      token: 'stored',
+      error: const ApiException(message: 'Cannot reach My Generation.'),
+      remembered: _user(),
+    );
+
+    final container = _containerWith(repository);
+    addTearDown(container.dispose);
+
+    await container.read(authProvider.notifier).restore();
+
+    final state = container.read(authProvider);
+
+    expect(state, isA<AuthSignedIn>());
+    expect((state as AuthSignedIn).offline, isTrue);
+    expect(state.user.ulid, _user().ulid);
+  });
+
+  test('offline with nothing remembered still surfaces the failure', () async {
+    // No cached account means there is nothing to show. Pretending otherwise
+    // would put somebody in an app with no data and no explanation.
+    final repository = _FakeAuthRepository(
+      token: 'stored',
+      error: const ApiException(message: 'Cannot reach My Generation.'),
+    );
+
+    final container = _containerWith(repository);
+    addTearDown(container.dispose);
+
+    await expectLater(
+      container.read(authProvider.notifier).restore(),
+      throwsA(isA<ApiException>()),
+    );
   });
 
   test('being offline does not sign anybody out', () async {

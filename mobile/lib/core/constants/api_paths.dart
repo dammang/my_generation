@@ -34,6 +34,9 @@ class ApiPaths {
   static String personDisputes(String ulid) => '$prefix/people/$ulid/disputes';
   static String personVerify(String ulid) => '$prefix/people/$ulid/verify';
 
+  // Sync
+  static const String syncBatch = '$prefix/sync/batch';
+
   // Review
   static const String changeRequests = '$prefix/change-requests';
   static String changeRequest(String ulid) => '$prefix/change-requests/$ulid';

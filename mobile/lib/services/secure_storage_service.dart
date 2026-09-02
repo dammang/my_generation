@@ -23,6 +23,13 @@ class SecureStorageService {
   static const _tokenKey = 'auth_token';
   static const _userUlidKey = 'auth_user_ulid';
 
+  /// The last account the server confirmed.
+  ///
+  /// Kept so the app can be opened without a connection. It sits beside the
+  /// token in the keystore because it is the same kind of secret: knowing who
+  /// somebody is and what they can reach is account data, not a UI preference.
+  static const _accountKey = 'auth_account';
+
   Future<String?> readToken() => _storage.read(key: _tokenKey);
 
   Future<void> writeToken(String token) => _storage.write(key: _tokenKey, value: token);
@@ -31,9 +38,14 @@ class SecureStorageService {
 
   Future<void> writeUserUlid(String ulid) => _storage.write(key: _userUlidKey, value: ulid);
 
+  Future<String?> readAccount() => _storage.read(key: _accountKey);
+
+  Future<void> writeAccount(String json) => _storage.write(key: _accountKey, value: json);
+
   /// Called on sign-out and whenever the server rejects the token.
   Future<void> clear() async {
     await _storage.delete(key: _tokenKey);
     await _storage.delete(key: _userUlidKey);
+    await _storage.delete(key: _accountKey);
   }
 }

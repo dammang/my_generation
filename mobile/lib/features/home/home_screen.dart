@@ -7,6 +7,7 @@ import '../../core/constants/api_paths.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../routing/app_router.dart';
+import '../sync/widgets/sync_banner.dart';
 
 /// A placeholder home.
 ///
@@ -39,13 +40,19 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await ref.read(authProvider.notifier).refresh();
-          ref.invalidate(myMembershipsProvider);
-          ref.invalidate(myClaimsProvider);
-        },
-        child: ListView(
+      body: Column(
+        children: [
+          // Above everything else: what has not reached the server yet changes
+          // how the rest of the screen should be read.
+          SyncBanner(onTap: () => context.push(Routes.pendingChanges)),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await ref.read(authProvider.notifier).refresh();
+                ref.invalidate(myMembershipsProvider);
+                ref.invalidate(myClaimsProvider);
+              },
+              child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
             Card(
@@ -211,8 +218,11 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ),
-          ],
-        ),
+              ],
+            ),
+            ),
+          ),
+        ],
       ),
     );
   }
