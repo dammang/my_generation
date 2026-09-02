@@ -11,7 +11,7 @@ Each phase ends with something runnable and tested. Nothing is merged as a TODO.
 | **5** ✅ | Tribe / Clan / Family Branch / Place / Generation API + scoped roles | **Done.** 45 routes; clans nest to any depth with re-parenting that repaths the scope spine; membership requests; role assignment with an escalation guard. 174 tests passing |
 | **6** ✅ | People, names, relationships, unions, `AddRelative`, integrity rules | **Done.** 62 routes. Add Father/Mother/Spouse/Son/Brother from one endpoint; cycles rejected with the offending path named; warnings returned alongside successful writes. 204 tests passing |
 | **7** ✅ | Tree API: traversal, depth caps, lineage, path-finder, caching, statistics | **Done.** Measured on 100,469 people / 200,918 edges: default depth p95 **43ms** cold, 13ms warm. Query-count budget test passes. 229 tests passing |
-| **8** | Filament admin: resources, relation managers, dashboard, verification queue, merge UI | An admin can review a change request and merge a duplicate end to end |
+| **8** ✅ | Filament admin: resources, dashboard, verification queue, merge UI | **Done.** 14 resources, 2 dashboard widgets, verification queue with inline diffs, reversible merge with a field-by-field comparison. Verified in the browser. 262 tests passing |
 | **9** | Flutter foundation: theme, routing, Dio, Drift, Riverpod, l10n | App builds on iOS + Android, hits `/auth/me` against local Laravel |
 | **10** | Flutter auth + onboarding (pick tribe/clan, claim profile) | Login persists across restart; token in secure storage |
 | **11** | Flutter tree: layout engine, canvas, cards, expand/collapse, Go to Me | Pinch/pan/expand on a real 500-person tree from the API |

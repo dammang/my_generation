@@ -63,6 +63,20 @@ class Person extends Model
     ];
 
     /**
+     * Columns the observers recompute on every save.
+     *
+     * A change request targeting one of these would appear to be accepted and
+     * then silently do nothing, because the observer overwrites it before the
+     * row is written. Proposals naming them are refused with an explanation
+     * instead.
+     *
+     * @var array<int, string>
+     */
+    public const DERIVED_ATTRIBUTES = [
+        'birth_year', 'death_year', 'sort_name', 'is_living',
+    ];
+
+    /**
      * Fields whose every change is written to the revision ledger.
      * Counters, derived years and cache flags are deliberately absent —
      * they are not genealogical claims and would bury the real history.

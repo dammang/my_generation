@@ -18,7 +18,8 @@ the schema.
 | 5 — Tribe / clan / family branch / place APIs, scoped roles | ✅ Complete |
 | 6 — People, names, relationships, unions, Add Relative | ✅ Complete |
 | 7 — Tree API: traversal, lineage, caching, statistics | ✅ Complete |
-| 8 — Filament admin, verification queue, merge UI | Next |
+| 8 — Filament admin, verification queue, merge UI | ✅ Complete |
+| 9 — Flutter foundation: theme, routing, Dio, Drift, Riverpod | Next |
 
 ## Requirements
 
@@ -72,6 +73,35 @@ Domain behaviour is `.env`-driven through `config/genealogy.php`: traversal dept
 and node budgets, living-person inference, privacy defaults, the contribution trust
 ramp, duplicate-matching weights and the transliteration ruleset. None of it requires a
 code change to tune.
+
+## Admin panel
+
+Filament at `/admin`. Access needs an administrative or verifying role — membership alone
+is not standing to see the verification queue, merging or role assignment. Every resource
+runs the same policies as the API; the panel is not a privacy bypass.
+
+Two screens carry real work:
+
+**Verification queue.** Pending proposals with the diff rendered inline — a reviewer
+decides on evidence, not on a record id. Approving re-checks permission at apply time and
+compares the record against the snapshot taken when the proposal was filed; one that moved
+in between is marked superseded and the reviewer sees the conflict.
+
+**Possible duplicates.** Scored candidates with the reasoning in plain English
+("same phonetic name · birth years agree · same birthplace"), because `0.91` is not
+evidence. The merge modal offers a choice only where the two records actually disagree.
+Merges are reversible: every repointed foreign key is logged and the loser survives as a
+tombstone so old links still resolve.
+
+```bash
+php artisan genealogy:scan-duplicates --rebuild-keys
+```
+
+Duplicate detection blocks on shared match keys before scoring, so it is O(n·k) rather
+than O(n²). Scores are normalised by the evidence actually available — the commonest real
+duplicate is a record a second contributor added with no relatives attached yet, and
+scoring it against the full weight set would mean it never clears the threshold however
+exactly the name and dates agree.
 
 ## Traversal, and why it is not a recursive CTE
 

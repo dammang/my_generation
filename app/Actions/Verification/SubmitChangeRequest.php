@@ -6,6 +6,7 @@ namespace App\Actions\Verification;
 
 use App\Enums\ChangeRequestOperation;
 use App\Enums\ChangeRequestStatus;
+use App\Exceptions\GenealogyRuleException;
 use App\Models\ChangeRequest;
 use App\Models\Scope;
 use App\Models\User;
@@ -37,6 +38,8 @@ class SubmitChangeRequest
         ?ChangeRequest $parent = null,
         ?string $targetType = null,
     ): ChangeRequest {
+        $this->assertNotDerived($target, $payload);
+
         $snapshot = null;
         $diff = null;
 
@@ -60,6 +63,29 @@ class SubmitChangeRequest
             'client_operation_id' => $clientOperationId,
             'requested_by' => $requester->getKey(),
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function assertNotDerived(?Model $target, array $payload): void
+    {
+        if ($target === null || ! defined($target::class.'::DERIVED_ATTRIBUTES')) {
+            return;
+        }
+
+        $offending = array_intersect(array_keys($payload), $target::DERIVED_ATTRIBUTES);
+
+        if ($offending === []) {
+            return;
+        }
+
+        throw new GenealogyRuleException(
+            'These fields are derived from others and cannot be proposed directly: '
+                .implode(', ', $offending).'.',
+            'DERIVED_FIELD_NOT_PROPOSABLE',
+            ['payload' => array_values($offending)],
+        );
     }
 
     /**
