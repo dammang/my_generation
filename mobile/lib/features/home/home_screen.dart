@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../core/constants/api_paths.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/onboarding_provider.dart';
+import '../../routing/app_router.dart';
 
 /// A placeholder home.
 ///
@@ -36,7 +40,11 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.read(authProvider.notifier).refresh(),
+        onRefresh: () async {
+          await ref.read(authProvider.notifier).refresh();
+          ref.invalidate(myMembershipsProvider);
+          ref.invalidate(myClaimsProvider);
+        },
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
@@ -66,6 +74,18 @@ class HomeScreen extends ConsumerWidget {
                           : 'Not yet linked to a person',
                       icon: user.hasClaimedPerson ? Icons.link : Icons.link_off,
                     ),
+                    // A record usually exists before its subject opens the app,
+                    // so this is an ordinary next step rather than an error to
+                    // be corrected.
+                    if (!user.hasClaimedPerson) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () => context.push(Routes.claimProfile),
+                        icon: const Icon(Icons.person_search_outlined),
+                        label: const Text('Find myself in the archive'),
+                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -101,6 +121,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
+            _PendingRequests(),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -122,6 +143,70 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Requests that are waiting on somebody else.
+///
+/// Pending grants nothing, and silence about it reads as the request having
+/// been lost. Showing the wait is kinder than showing nothing.
+class _PendingRequests extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final memberships = ref.watch(myMembershipsProvider);
+    final claims = ref.watch(myClaimsProvider);
+
+    final pending = <String>[
+      ...memberships.maybeWhen(
+        data: (list) => list.where((m) => m.isPending).map(
+              (m) => 'Joining ${m.scopeName ?? 'a tribe'}',
+            ),
+        orElse: () => const <String>[],
+      ),
+      ...claims.maybeWhen(
+        data: (list) => list.where((c) => c.isPending).map(
+              (c) => 'Being recognised as ${c.personName ?? 'a person'}',
+            ),
+        orElse: () => const <String>[],
+      ),
+    ];
+
+    if (pending.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Waiting for approval', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(
+                'Someone in your family needs to confirm these.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final item in pending)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.schedule, size: 18, color: theme.colorScheme.tertiary),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(item, style: theme.textTheme.bodyLarge)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

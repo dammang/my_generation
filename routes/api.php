@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\MembershipController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PersonController;
 use App\Http\Controllers\Api\V1\PlaceController;
+use App\Http\Controllers\Api\V1\ProfileClaimController;
 use App\Http\Controllers\Api\V1\RelationshipController;
 use App\Http\Controllers\Api\V1\ScopeRoleController;
 use App\Http\Controllers\Api\V1\TreeController;
@@ -85,6 +86,7 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
 
             // ── Membership ───────────────────────────────────────────────
             Route::get('memberships', [MembershipController::class, 'index'])->name('memberships.index');
+            Route::get('profile-claims', [ProfileClaimController::class, 'index'])->name('claims.index');
             Route::get('scope-members', [MembershipController::class, 'forScope'])->name('memberships.scope');
         });
 
@@ -143,6 +145,11 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::post('memberships/{membership}/approve', [MembershipController::class, 'approve'])->name('memberships.approve');
             Route::post('memberships/{membership}/reject', [MembershipController::class, 'reject'])->name('memberships.reject');
             Route::delete('memberships/{membership}', [MembershipController::class, 'destroy'])->name('memberships.destroy');
+
+            Route::post('profile-claims', [ProfileClaimController::class, 'store'])->name('claims.store');
+            Route::post('profile-claims/{profile_claim}/approve', [ProfileClaimController::class, 'approve'])->name('claims.approve');
+            Route::post('profile-claims/{profile_claim}/reject', [ProfileClaimController::class, 'reject'])->name('claims.reject');
+            Route::delete('profile-claims/{profile_claim}', [ProfileClaimController::class, 'destroy'])->name('claims.destroy');
 
             Route::post('scope-roles', [ScopeRoleController::class, 'store'])->name('scope-roles.store');
             Route::delete('scope-roles', [ScopeRoleController::class, 'destroy'])->name('scope-roles.destroy');

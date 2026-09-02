@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_generation/core/constants/api_paths.dart';
 import 'package:my_generation/core/network/api_envelope.dart';
 import 'package:my_generation/models/api_user.dart';
+import 'package:my_generation/models/membership.dart';
+import 'package:my_generation/models/tribe_summary.dart';
 import 'package:my_generation/models/person_summary.dart';
 
 /// Checks the client's parsing against a real running server.
@@ -160,6 +162,61 @@ void main() {
     // client must render the source's own wording rather than reformatting.
     final dated = people.where((p) => p.birthDisplay != null);
     expect(dated, isNotEmpty);
+  }, skip: skipReason);
+
+  test('a new account can register, join a tribe and see it pending', () async {
+    if (!_enabled) return;
+
+    // The whole joining flow, against the real server. Registration returns a
+    // token directly, so a new user is signed in without a second round trip
+    // against the auth throttle.
+    final email = 'contract-${DateTime.now().microsecondsSinceEpoch}@example.test';
+
+    final registered = await dio.post(ApiPaths.register, data: {
+      'name': 'Contract Test',
+      'email': email,
+      'password': 'correct-horse-9',
+      'password_confirmation': 'correct-horse-9',
+      'device_name': 'contract-test',
+    });
+
+    expect(registered.statusCode, 201);
+
+    final newToken = registered.data['data']['token'] as String;
+    final auth = Options(headers: {'Authorization': 'Bearer $newToken'});
+
+    // Registration never links the account to a genealogy record.
+    final user = ApiUser.fromJson(
+      (registered.data['data']['user'] as Map).cast<String, dynamic>(),
+    );
+    expect(user.hasClaimedPerson, isFalse);
+    expect(user.tribeIds, isEmpty, reason: 'A new account belongs to nothing yet');
+
+    final tribes = await dio.get(ApiPaths.tribes, options: auth);
+    final tribeList = (tribes.data['data'] as List)
+        .map((t) => TribeSummary.fromJson((t as Map).cast<String, dynamic>()))
+        .toList();
+
+    expect(tribeList, isNotEmpty, reason: 'Tribes are public enough to be joinable');
+
+    final membership = await dio.post(
+      ApiPaths.memberships,
+      data: {'scope_type': 'tribe', 'scope_ulid': tribeList.first.ulid},
+      options: auth,
+    );
+
+    expect(membership.statusCode, 201);
+
+    final created = Membership.fromJson(
+      (membership.data['data'] as Map).cast<String, dynamic>(),
+    );
+
+    expect(created.isPending, isTrue);
+    expect(created.isActive, isFalse, reason: 'Asking is not belonging');
+
+    // And a pending membership still grants nothing.
+    final people = await dio.get(ApiPaths.people, options: auth);
+    expect((people.data['data'] as List), isEmpty);
   }, skip: skipReason);
 
   test('a tree response parses into layered people and edges', () async {

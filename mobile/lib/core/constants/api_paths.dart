@@ -37,6 +37,7 @@ class ApiPaths {
   // Organisation
   static const String tribes = '$prefix/tribes';
   static const String memberships = '$prefix/memberships';
+  static const String profileClaims = '$prefix/profile-claims';
 }
 
 /// Resolves the API host for whatever the app is running on.

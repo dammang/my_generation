@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../core/errors/api_exception.dart';
+import '../../routing/app_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_logo.dart';
 
@@ -138,6 +141,20 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2.4),
                             )
                           : const Text('Sign in'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: _busy ? null : () => context.push(Routes.forgotPassword),
+                      child: const Text('I forgot my password'),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(),
+                    ),
+                    OutlinedButton(
+                      onPressed: _busy ? null : () => context.push(Routes.register),
+                      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                      child: const Text('Create an account'),
                     ),
                   ],
                 ),

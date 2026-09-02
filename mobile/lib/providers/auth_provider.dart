@@ -74,6 +74,11 @@ class AuthNotifier extends Notifier<AuthState> {
     state = AuthSignedIn(await _repository.login(email: email, password: password));
   }
 
+  /// Accepts a user the repository has already authenticated — registration
+  /// signs in as part of creating the account, so it should not sign in twice
+  /// and spend an attempt against the auth throttle.
+  void adopt(ApiUser user) => state = AuthSignedIn(user);
+
   Future<void> signOut() async {
     await _repository.logout();
     state = const AuthSignedOut();

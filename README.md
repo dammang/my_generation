@@ -20,7 +20,8 @@ the schema.
 | 7 — Tree API: traversal, lineage, caching, statistics | ✅ Complete |
 | 8 — Filament admin, verification queue, merge UI | ✅ Complete |
 | 9 — Flutter foundation: theme, routing, Dio, Drift, Riverpod | ✅ Complete |
-| 10 — Flutter auth and onboarding | Next |
+| 10 — Flutter auth and onboarding | ✅ Complete |
+| 11 — Flutter tree: layout engine, canvas, expand, Go to Me | Next |
 
 ## Requirements
 
@@ -181,6 +182,24 @@ would lose the record, and the transcription is more often wrong than the family
 
 Thresholds live in `config/genealogy.php`, because what counts as implausible differs by
 era and community.
+
+## Claiming a profile
+
+A genealogy record usually exists before its subject ever opens the app — an
+uncle added them years ago. `POST /api/v1/profile-claims` is how an account asks
+to be recognised as one, and it is deliberately a **request**:
+
+- Approving also makes the claimant close kin of everybody around that person,
+  so it widens what they can see across a family.
+- A deceased person cannot be claimed, nor one somebody is already verified as,
+  nor one the claimant cannot already see — claiming must not become a way to
+  discover who exists.
+- Nobody may decide their own claim, or a family admin could quietly claim any
+  living relative.
+- Eligibility is re-checked at approval time, not submission: somebody else may
+  have been verified as that person while the claim sat in the queue.
+- `users.person_id` is written in exactly one place, and every approval is
+  audited.
 
 ## Belonging vs capability
 
