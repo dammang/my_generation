@@ -20,6 +20,19 @@ class DuplicateCandidate extends Model
 
     protected $table = 'duplicate_candidates';
 
+    /**
+     * In-memory defaults mirroring the column defaults.
+     *
+     * A model created without these reports null for columns the database
+     * would have filled, until it is reloaded — which surfaces as a fatal
+     * error the moment a resource reads ->value on a null enum.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => DuplicateStatus::Open->value,
+    ];
+
     /** @var list<string> */
     protected $fillable = [
         'person_a_id',

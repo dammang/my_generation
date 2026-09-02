@@ -42,7 +42,7 @@ class ScopedPermissionTest extends TestCase
 
         DB::table('scope_role_user')->insert([
             'user_id' => $user->id,
-            'role_id' => Role::findByName($role)->id,
+            'role_id' => Role::findByName($role, 'web')->id,
             'scope_id' => $scope->id,
             'granted_at' => now(),
         ]);

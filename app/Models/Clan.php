@@ -30,6 +30,22 @@ class Clan extends Model
     protected $table = 'clans';
 
     /**
+     * In-memory defaults mirroring the column defaults.
+     *
+     * A model created without these reports null for columns the database
+     * would have filled, until it is reloaded — which surfaces as a fatal
+     * error the moment a resource reads ->value on a null enum.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => RecordStatus::Active->value,
+        'depth' => 0,
+        'people_count' => 0,
+        'path' => '',
+    ];
+
+    /**
      * Fields whose every change is written to the revision ledger.
      * Counters, derived years and cache flags are deliberately absent —
      * they are not genealogical claims and would bury the real history.

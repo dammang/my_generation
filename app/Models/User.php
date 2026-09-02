@@ -24,6 +24,15 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, HasRoles, HasUlid, Notifiable, SoftDeletesWithUniqueness;
 
+    /**
+     * Roles and permissions are seeded for the `web` guard. Sanctum
+     * authenticates through the `sanctum` guard and makes it the default for
+     * the rest of the request, at which point an unpinned Spatie lookup asks
+     * for roles under a guard that has none. Pinning it makes role checks
+     * answer the same way whoever is asking.
+     */
+    protected string $guard_name = 'web';
+
     /** @var list<string> */
     protected $fillable = [
         'name',

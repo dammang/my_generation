@@ -4,18 +4,33 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\ChangeRequest;
+use App\Models\Citation;
 use App\Models\Clan;
+use App\Models\Dispute;
+use App\Models\DisputeClaim;
+use App\Models\DuplicateCandidate;
 use App\Models\FamilyBranch;
+use App\Models\Generation;
 use App\Models\Media;
+use App\Models\Membership;
 use App\Models\OralHistory;
 use App\Models\Person;
+use App\Models\PersonAffiliation;
 use App\Models\PersonEvent;
+use App\Models\PersonMerge;
 use App\Models\PersonName;
+use App\Models\Place;
+use App\Models\ProfileClaim;
 use App\Models\Relationship;
+use App\Models\Revision;
+use App\Models\Scope;
+use App\Models\ShareLink;
 use App\Models\Source;
 use App\Models\Story;
 use App\Models\Tribe;
 use App\Models\Union;
+use App\Models\UnionChild;
 use App\Models\User;
 use App\Services\Privacy\ViewerScope;
 use App\Services\Privacy\ViewerScopeResolver;
@@ -59,26 +74,49 @@ class AppServiceProvider extends ServiceProvider
         // budget quietly becomes unbounded.
         Model::preventLazyLoading(! $this->app->isProduction());
 
-        // Stable morph aliases. Without them, polymorphic columns store fully
-        // qualified class names, and moving or renaming a class silently
-        // orphans every revision, citation and dispute pointing at it.
         $this->configureRateLimiting();
         $this->configureGates();
 
+        // Stable morph aliases. Without them, polymorphic columns store fully
+        // qualified class names, and moving or renaming a class silently
+        // orphans every revision, citation, dispute and audit entry pointing
+        // at it.
+        //
+        // The map is enforced, so it must list every model that can appear in
+        // a polymorphic column — audit_logs.auditable_type alone can point at
+        // most of the domain. A model missing here throws on write rather than
+        // storing a class name, which is the behaviour we want: it fails at
+        // the first attempt instead of quietly producing rows nobody can
+        // resolve later.
         Relation::enforceMorphMap([
             'person' => Person::class,
+            'person_name' => PersonName::class,
+            'person_affiliation' => PersonAffiliation::class,
             'relationship' => Relationship::class,
             'union' => Union::class,
+            'union_child' => UnionChild::class,
             'person_event' => PersonEvent::class,
-            'person_name' => PersonName::class,
             'story' => Story::class,
             'source' => Source::class,
+            'citation' => Citation::class,
             'media' => Media::class,
+            'oral_history' => OralHistory::class,
             'tribe' => Tribe::class,
             'clan' => Clan::class,
             'family_branch' => FamilyBranch::class,
+            'generation' => Generation::class,
+            'place' => Place::class,
+            'scope' => Scope::class,
             'user' => User::class,
-            'oral_history' => OralHistory::class,
+            'membership' => Membership::class,
+            'profile_claim' => ProfileClaim::class,
+            'change_request' => ChangeRequest::class,
+            'dispute' => Dispute::class,
+            'dispute_claim' => DisputeClaim::class,
+            'duplicate_candidate' => DuplicateCandidate::class,
+            'person_merge' => PersonMerge::class,
+            'share_link' => ShareLink::class,
+            'revision' => Revision::class,
         ]);
     }
 

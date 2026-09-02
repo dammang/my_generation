@@ -15,7 +15,8 @@ the schema.
 | 2 — Migrations, enums, concerns, factories, seeders | ✅ Complete |
 | 3 — Models, relations, observers, revision + edge projection | ✅ Complete |
 | 4 — Sanctum auth, API envelope, ViewerScope, policies | ✅ Complete |
-| 5 — Tribe / clan / family branch / place APIs, scoped roles | Next |
+| 5 — Tribe / clan / family branch / place APIs, scoped roles | ✅ Complete |
+| 6 — People, names, relationships, unions, Add Relative | Next |
 
 ## Requirements
 
@@ -69,6 +70,28 @@ Domain behaviour is `.env`-driven through `config/genealogy.php`: traversal dept
 and node budgets, living-person inference, privacy defaults, the contribution trust
 ramp, duplicate-matching weights and the transliteration ruleset. None of it requires a
 code change to tune.
+
+## Belonging vs capability
+
+Two separate things, deliberately kept apart:
+
+| | Table | Grants |
+|---|---|---|
+| **Membership** | `memberships` | Visibility of records scoped to that tribe, clan or branch. Nothing else. |
+| **Role** | `scope_role_user` | Permission to act, within one scope and everything beneath it. |
+
+A pending membership grants nothing at all. Approving one busts the applicant's cached
+entitlements immediately rather than at the next TTL expiry.
+
+Role assignment carries two guards, both in `AssignScopedRole` so they apply to Filament
+and any future caller as well as the API:
+
+1. The granter must hold `roles.assign` at the target scope.
+2. The granter may not grant a permission they do not themselves hold there — otherwise a
+   family admin with `roles.assign` could mint a tribe admin and escape their own scope in
+   one call.
+
+`super-admin` is not grantable from a scoped endpoint at all.
 
 ## How privacy is enforced
 

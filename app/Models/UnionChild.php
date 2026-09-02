@@ -21,6 +21,19 @@ class UnionChild extends Model
 {
     protected $table = 'union_children';
 
+    /**
+     * In-memory defaults mirroring the column defaults.
+     *
+     * A model created without these reports null for columns the database
+     * would have filled, until it is reloaded — which surfaces as a fatal
+     * error the moment a resource reads ->value on a null enum.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'relationship_type' => ChildRelationshipType::Biological->value,
+    ];
+
     /** @var list<string> */
     protected $fillable = [
         'union_id',

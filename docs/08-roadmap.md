@@ -8,7 +8,7 @@ Each phase ends with something runnable and tested. Nothing is merged as a TODO.
 | **2** ✅ | Migrations, enums, model concerns, factories, seeders | **Done.** 47 migrations / 55 tables / 147 FKs / 3 CHECK constraints / 7 full-text indexes. `migrate:fresh --seed` green; 40 tests passing |
 | **3** ✅ | Models, relations, observers, revision + edge projection | **Done.** Relations on all 37 models; 8 observers; live edge projection; field-level revision ledger; morph map; 83 tests passing |
 | **4** ✅ | Sanctum auth, envelope, error handling, ViewerScope, policies | **Done.** Auth flows, one response envelope, six throttle buckets, ViewerScope + PermissionResolver + PersonVisibilityResolver, 10 policies, privacy pushed into SQL. 143 tests passing |
-| **5** | Tribe / Clan / Family Branch / Place / Generation API + scoped roles | Full CRUD with policies; clan hierarchy of arbitrary depth; membership requests |
+| **5** ✅ | Tribe / Clan / Family Branch / Place / Generation API + scoped roles | **Done.** 45 routes; clans nest to any depth with re-parenting that repaths the scope spine; membership requests; role assignment with an escalation guard. 174 tests passing |
 | **6** | People, names, relationships, unions, `AddRelative`, integrity rules | Add Father/Mother/Spouse/Son from one endpoint; cycle rejected; warnings returned |
 | **7** | Tree API: traversal, depth caps, lineage, path-finder, caching, statistics | p95 < 200ms on a 100k-person seeded set; query-count budget test passes |
 | **8** | Filament admin: resources, relation managers, dashboard, verification queue, merge UI | An admin can review a change request and merge a duplicate end to end |
