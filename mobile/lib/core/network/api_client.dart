@@ -101,6 +101,10 @@ class ApiClient {
           statusCode: response.statusCode,
           code: json['code'] as String?,
           errors: _errors(json['errors']),
+          // Domain failures arrive here, not through DioException: every
+          // status under 500 is a valid response. Dropping meta on this path
+          // would strip the detail the UI needs to offer a way out.
+          meta: (json['meta'] as Map?)?.cast<String, dynamic>() ?? const {},
         );
       }
 

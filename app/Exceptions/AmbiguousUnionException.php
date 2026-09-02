@@ -22,8 +22,17 @@ class AmbiguousUnionException extends GenealogyRuleException
     public function errors(): array
     {
         return ['union_ulid' => array_map(
-            fn (array $choice) => $choice['label'].' ('.$choice['ulid'].')',
+            fn (array $choice) => $choice['label'],
             $this->choices,
         )];
+    }
+
+    /**
+     * The client builds a picker from this. Embedding the ulid in the human
+     * message would force it to parse an id back out of a sentence.
+     */
+    public function context(): array
+    {
+        return ['choices' => $this->choices];
     }
 }

@@ -17,6 +17,7 @@ class TreeCanvas extends StatefulWidget {
     required this.layout,
     required this.controller,
     required this.onPersonTap,
+    required this.onPersonLongPress,
     required this.onExpand,
   });
 
@@ -24,6 +25,7 @@ class TreeCanvas extends StatefulWidget {
   final TreeLayout layout;
   final TransformationController controller;
   final void Function(String ulid) onPersonTap;
+  final void Function(String ulid) onPersonLongPress;
   final void Function(String ulid, bool ancestors) onExpand;
 
   @override
@@ -117,6 +119,7 @@ class _TreeCanvasState extends State<TreeCanvas> {
           isFocus: node.ulid == widget.graph.focusUlid,
           expandable: expandable,
           onTap: () => widget.onPersonTap(node.ulid),
+          onLongPress: () => widget.onPersonLongPress(node.ulid),
         ),
       ),
 

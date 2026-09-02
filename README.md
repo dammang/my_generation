@@ -22,7 +22,8 @@ the schema.
 | 9 — Flutter foundation: theme, routing, Dio, Drift, Riverpod | ✅ Complete |
 | 10 — Flutter auth and onboarding | ✅ Complete |
 | 11 — Flutter tree: layout engine, canvas, expand, Go to Me | ✅ Complete |
-| 12 — Person profile, family tabs, timeline, Add Relative flow | Next |
+| 12 — Person profile, family tabs, timeline, Add Relative flow | ✅ Complete |
+| 13 — Contribution and verification UI | Next |
 
 ## Requirements
 
@@ -117,6 +118,21 @@ than O(n²). Scores are normalised by the evidence actually available — the co
 duplicate is a record a second contributor added with no relatives attached yet, and
 scoring it against the full weight set would mean it never clears the threshold however
 exactly the name and dates agree.
+
+## Refusals that lead somewhere
+
+A server that refuses a write owes the client enough to fix it. When a child is
+added to somebody with two marriages, the server will not guess which one — but
+it returns the unions as **data**, not as a sentence with the ids embedded:
+
+```json
+{ "success": false, "code": "UNION_AMBIGUOUS",
+  "meta": { "choices": [ { "ulid": "01J…", "label": "Marriage to Ngun Hlei" } ] } }
+```
+
+The app turns that into a question with two radio buttons. The alternative —
+parsing an id back out of `"Marriage to Ngun Hlei (01J…)"` — is not error
+handling, it is scraping your own API.
 
 ## The chart
 

@@ -11,6 +11,7 @@ import '../features/connection/startup_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/claim_profile_screen.dart';
 import '../features/onboarding/join_tribe_screen.dart';
+import '../features/person/view/person_screen.dart';
 import '../features/tree/view/tree_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
@@ -26,6 +27,12 @@ class Routes {
   static const String claimProfile = '/claim';
   static const String home = '/home';
   static const String tree = '/tree';
+
+  /// A profile is addressable so a link to one survives being shared — the
+  /// ulid is the public identifier precisely so it can appear in a URL.
+  static const String person = '/person';
+
+  static String personPath(String ulid) => '$person/$ulid';
 }
 
 /// Routing follows the auth state rather than the other way round.
@@ -67,6 +74,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.claimProfile, builder: (_, _) => const ClaimProfileScreen()),
       GoRoute(path: Routes.home, builder: (_, _) => const HomeScreen()),
       GoRoute(
+        path: '${Routes.person}/:ulid',
+        builder: (_, state) => PersonScreen(
+          ulid: state.pathParameters['ulid']!,
+          initialTab: PersonScreen.tabIndexFor(state.uri.queryParameters['tab']),
+        ),
+      ),
+      GoRoute(
         path: Routes.tree,
         builder: (_, state) => TreeScreen(initialUlid: state.uri.queryParameters['person']),
       ),
@@ -89,17 +103,19 @@ String? _afterSignIn(Ref ref, String location) {
     return location == Routes.joinTribe ? null : Routes.joinTribe;
   }
 
-  const signedInRoutes = {Routes.home, Routes.joinTribe, Routes.claimProfile, Routes.tree};
-
-  if (signedInRoutes.contains(location)) return null;
-
   // Debug-only: open straight onto a named screen, so a reload does not mean
   // tapping back to where you were.
   if (kDebugMode && Env.devRoute.isNotEmpty && location == Routes.startup) {
     return Env.devRoute;
   }
 
-  return Routes.home;
+  // Anywhere except the doors somebody has already come through. A whitelist
+  // of signed-in routes has to be edited for every new screen, and forgetting
+  // shows up as that screen silently bouncing to home — which reads as the
+  // screen being broken rather than the list being stale.
+  const entryRoutes = {Routes.startup, Routes.signIn, Routes.register, Routes.forgotPassword};
+
+  return entryRoutes.contains(location) ? Routes.home : null;
 }
 
 /// Bridges Riverpod's auth state to GoRouter's listener contract.

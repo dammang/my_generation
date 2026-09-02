@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../person/view/person_screen.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import '../../../core/errors/api_exception.dart';
@@ -89,6 +91,14 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     ref.read(treeQueryProvider.notifier).recentre(ulid);
   }
 
+  /// Opens the full record. Reached by long-press on a card and by tapping
+  /// the legend, so it is discoverable without making every tap navigate.
+  void _openProfile(String ulid) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PersonScreen(ulid: ulid)),
+    );
+  }
+
   void _onExpand(String ulid, bool ancestors) {
     setState(() => _centredOn = null);
 
@@ -152,9 +162,14 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                     layout: layout,
                     controller: _controller,
                     onPersonTap: _onPersonTap,
+                    onPersonLongPress: _openProfile,
                     onExpand: _onExpand,
                   ),
-                  _Legend(graph: graph, layout: layout),
+                  _Legend(
+                    graph: graph,
+                    layout: layout,
+                    onOpenProfile: _openProfile,
+                  ),
                 ],
               );
             },
@@ -170,10 +185,15 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
 /// The truncation notice matters: a tree that quietly stops is indistinguishable
 /// from a family that ends there.
 class _Legend extends StatelessWidget {
-  const _Legend({required this.graph, required this.layout});
+  const _Legend({
+    required this.graph,
+    required this.layout,
+    required this.onOpenProfile,
+  });
 
   final TreeGraph graph;
   final TreeLayout layout;
+  final void Function(String ulid) onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +205,10 @@ class _Legend extends StatelessWidget {
       right: 12,
       bottom: 12,
       child: Card(
-        child: Padding(
+        child: InkWell(
+          onTap: focus == null ? null : () => onOpenProfile(focus.ulid),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
@@ -215,7 +238,13 @@ class _Legend extends StatelessWidget {
                   label: Text(focus!.generationLabel!),
                   visualDensity: VisualDensity.compact,
                 ),
+              if (focus != null)
+                Icon(
+                  Icons.chevron_right,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
             ],
+          ),
           ),
         ),
       ),

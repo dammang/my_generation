@@ -11,6 +11,7 @@ class ApiException implements Exception {
     this.statusCode,
     this.code,
     this.errors = const {},
+    this.meta = const {},
   });
 
   final String message;
@@ -21,6 +22,11 @@ class ApiException implements Exception {
 
   /// Field-level validation messages, keyed by field name.
   final Map<String, List<String>> errors;
+
+  /// Structured detail for a failure the UI can help the user recover from —
+  /// `UNION_AMBIGUOUS` carries the unions to choose between. Parsing ids out of
+  /// a human sentence is not recovery, so the server sends them as data.
+  final Map<String, dynamic> meta;
 
   bool get isUnauthenticated => statusCode == 401;
   bool get isForbidden => statusCode == 403;
@@ -44,6 +50,7 @@ class ApiException implements Exception {
         statusCode: response?.statusCode,
         code: json['code'] as String?,
         errors: _parseErrors(json['errors']),
+        meta: (json['meta'] as Map?)?.cast<String, dynamic>() ?? const {},
       );
     }
 

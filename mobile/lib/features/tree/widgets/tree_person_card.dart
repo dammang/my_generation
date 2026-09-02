@@ -17,6 +17,7 @@ class TreePersonCard extends StatelessWidget {
     required this.isFocus,
     required this.expandable,
     this.onTap,
+    this.onLongPress,
     this.onExpand,
   });
 
@@ -24,6 +25,11 @@ class TreePersonCard extends StatelessWidget {
   final bool isFocus;
   final Expandable expandable;
   final VoidCallback? onTap;
+
+  /// Opens the profile. Long-press rather than tap because on a chart a tap
+  /// means "move here", and stealing that for navigation makes the tree
+  /// tiring to read.
+  final VoidCallback? onLongPress;
   final void Function(bool ancestors)? onExpand;
 
   @override
@@ -43,6 +49,7 @@ class TreePersonCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

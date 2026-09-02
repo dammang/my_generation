@@ -86,6 +86,11 @@ GET    /api/v1/people/{ulid}
 PATCH  /api/v1/people/{ulid}
 DELETE /api/v1/people/{ulid}              soft delete, people.delete
 GET    /api/v1/people/{ulid}/family       parents, spouses, children, siblings — one call
+GET    /api/v1/people/{ulid}/timeline     the chronicle, oldest first; meta.withheld when masked
+POST   /api/v1/person-events              record an event
+PATCH  /api/v1/person-events/{ulid}       correct one (revisioned)
+DELETE /api/v1/person-events/{ulid}
+GET    /api/v1/event-types                the event vocabulary, incl. tribe additions
 GET    /api/v1/people/{ulid}/timeline     person_events, chronological
 GET    /api/v1/people/{ulid}/media
 GET    /api/v1/people/{ulid}/sources      citations grouped by field

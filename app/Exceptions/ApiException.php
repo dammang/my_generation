@@ -29,8 +29,25 @@ abstract class ApiException extends RuntimeException
         return $this->errors;
     }
 
+    /**
+     * Structured detail for a client that can act on the failure. Empty by
+     * default: most failures are fully described by their code and message.
+     *
+     * @return array<string, mixed>
+     */
+    public function context(): array
+    {
+        return [];
+    }
+
     public function render(): JsonResponse
     {
-        return ApiResponse::error($this->getMessage(), $this->status(), $this->errors(), $this->errorCode());
+        return ApiResponse::error(
+            $this->getMessage(),
+            $this->status(),
+            $this->errors(),
+            $this->errorCode(),
+            $this->context(),
+        );
     }
 }

@@ -28,6 +28,11 @@ class ApiPaths {
   static String person(String ulid) => '$prefix/people/$ulid';
   static String personFamily(String ulid) => '$prefix/people/$ulid/family';
   static String personRelatives(String ulid) => '$prefix/people/$ulid/relatives';
+  static String personTimeline(String ulid) => '$prefix/people/$ulid/timeline';
+
+  // Chronicle
+  static const String personEvents = '$prefix/person-events';
+  static const String eventTypes = '$prefix/event-types';
 
   // Tree
   static String tree(String ulid) => '$prefix/tree/$ulid';

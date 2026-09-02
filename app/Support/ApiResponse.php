@@ -72,18 +72,33 @@ final class ApiResponse
     /**
      * @param  array<string, array<int, string>>  $errors
      */
+    /**
+     * @param  array<string, array<int, string>>  $errors
+     * @param  array<string, mixed>  $meta  Structured detail the client needs to
+     *                                      recover — the unions it must choose
+     *                                      between, the duplicate it may have
+     *                                      meant. Without this a client has to
+     *                                      parse ids back out of a sentence.
+     */
     public static function error(
         string $message,
         int $status = 400,
         array $errors = [],
         ?string $code = null,
+        array $meta = [],
     ): JsonResponse {
-        return response()->json([
+        $payload = [
             'success' => false,
             'message' => $message,
             'errors' => (object) $errors,
             'code' => $code ?? self::codeForStatus($status),
-        ], $status);
+        ];
+
+        if ($meta !== []) {
+            $payload['meta'] = $meta;
+        }
+
+        return response()->json($payload, $status);
     }
 
     /**

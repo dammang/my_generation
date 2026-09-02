@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\GenerationController;
 use App\Http\Controllers\Api\V1\MembershipController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PersonController;
+use App\Http\Controllers\Api\V1\PersonEventController;
 use App\Http\Controllers\Api\V1\PlaceController;
 use App\Http\Controllers\Api\V1\ProfileClaimController;
 use App\Http\Controllers\Api\V1\RelationshipController;
@@ -63,6 +64,8 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::get('people/{person}', [PersonController::class, 'show'])->name('people.show');
             Route::get('people/{person}/family', [PersonController::class, 'family'])->name('people.family');
             Route::get('people/{person}/names', [PersonController::class, 'names'])->name('people.names');
+            Route::get('people/{person}/timeline', [PersonEventController::class, 'timeline'])->name('people.timeline');
+            Route::get('event-types', [PersonEventController::class, 'types'])->name('event-types.index');
             Route::get('unions/{union}', [UnionController::class, 'show'])->name('unions.show');
 
             // ── Organisation ─────────────────────────────────────────────
@@ -112,6 +115,10 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
 
             Route::post('people/{person}/names', [PersonController::class, 'storeName'])->name('people.names.store');
             Route::delete('people/{person}/names/{person_name}', [PersonController::class, 'destroyName'])->name('people.names.destroy');
+
+            Route::post('person-events', [PersonEventController::class, 'store'])->name('events.store');
+            Route::patch('person-events/{person_event}', [PersonEventController::class, 'update'])->name('events.update');
+            Route::delete('person-events/{person_event}', [PersonEventController::class, 'destroy'])->name('events.destroy');
 
             Route::post('relationships', [RelationshipController::class, 'store'])->name('relationships.store');
             Route::patch('relationships/{relationship}', [RelationshipController::class, 'update'])->name('relationships.update');
