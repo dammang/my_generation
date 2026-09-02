@@ -14,7 +14,7 @@ Each phase ends with something runnable and tested. Nothing is merged as a TODO.
 | **8** ✅ | Filament admin: resources, dashboard, verification queue, merge UI | **Done.** 14 resources, 2 dashboard widgets, verification queue with inline diffs, reversible merge with a field-by-field comparison. Verified in the browser. 262 tests passing |
 | **9** ✅ | Flutter foundation: theme, routing, Dio, Drift, Riverpod, l10n | **Done.** Builds for iOS and Android, runs on the simulator, and `/auth/me` verified by live contract tests against a running Laravel. 12 unit + 6 contract tests |
 | **10** ✅ | Flutter auth + onboarding (pick tribe/clan, claim profile) | **Done.** Register, sign in, password reset, join a tribe, claim a profile. Session survives restart. Laravel 274 tests; Flutter 33 + 7 contract tests |
-| **11** | Flutter tree: layout engine, canvas, cards, expand/collapse, Go to Me | Pinch/pan/expand on a real 500-person tree from the API |
+| **11** ✅ | Flutter tree: layout engine, canvas, cards, expand/collapse, Go to Me | **Done.** Rendered on the simulator against a 645-person seeded graph. Layout engine is a pure function with 21 unit tests; contract tests lay out a real response and assert no overlaps |
 | **12** | Flutter person profile, family tabs, timeline, Add Relative flow | A user adds a grandfather from the phone and sees the tree update |
 | **13** | Contribution & verification UI (both sides) + revision history | Contributor submits, verifier approves, history shows the diff |
 | **14** | Offline: Drift mirror, sync queue, idempotent batch, conflict surfacing | Airplane mode: browse cached tree, add a relative, sync on reconnect |

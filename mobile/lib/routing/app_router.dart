@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+
+import '../config/env.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +11,7 @@ import '../features/connection/startup_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/claim_profile_screen.dart';
 import '../features/onboarding/join_tribe_screen.dart';
+import '../features/tree/view/tree_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
 
@@ -22,6 +25,7 @@ class Routes {
   static const String joinTribe = '/join';
   static const String claimProfile = '/claim';
   static const String home = '/home';
+  static const String tree = '/tree';
 }
 
 /// Routing follows the auth state rather than the other way round.
@@ -62,6 +66,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.joinTribe, builder: (_, _) => const JoinTribeScreen()),
       GoRoute(path: Routes.claimProfile, builder: (_, _) => const ClaimProfileScreen()),
       GoRoute(path: Routes.home, builder: (_, _) => const HomeScreen()),
+      GoRoute(
+        path: Routes.tree,
+        builder: (_, state) => TreeScreen(initialUlid: state.uri.queryParameters['person']),
+      ),
     ],
   );
 });
@@ -81,9 +89,17 @@ String? _afterSignIn(Ref ref, String location) {
     return location == Routes.joinTribe ? null : Routes.joinTribe;
   }
 
-  const signedInRoutes = {Routes.home, Routes.joinTribe, Routes.claimProfile};
+  const signedInRoutes = {Routes.home, Routes.joinTribe, Routes.claimProfile, Routes.tree};
 
-  return signedInRoutes.contains(location) ? null : Routes.home;
+  if (signedInRoutes.contains(location)) return null;
+
+  // Debug-only: open straight onto a named screen, so a reload does not mean
+  // tapping back to where you were.
+  if (kDebugMode && Env.devRoute.isNotEmpty && location == Routes.startup) {
+    return Env.devRoute;
+  }
+
+  return Routes.home;
 }
 
 /// Bridges Riverpod's auth state to GoRouter's listener contract.

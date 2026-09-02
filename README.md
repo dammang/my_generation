@@ -21,7 +21,8 @@ the schema.
 | 8 — Filament admin, verification queue, merge UI | ✅ Complete |
 | 9 — Flutter foundation: theme, routing, Dio, Drift, Riverpod | ✅ Complete |
 | 10 — Flutter auth and onboarding | ✅ Complete |
-| 11 — Flutter tree: layout engine, canvas, expand, Go to Me | Next |
+| 11 — Flutter tree: layout engine, canvas, expand, Go to Me | ✅ Complete |
+| 12 — Person profile, family tabs, timeline, Add Relative flow | Next |
 
 ## Requirements
 
@@ -116,6 +117,24 @@ than O(n²). Scores are normalised by the evidence actually available — the co
 duplicate is a record a second contributor added with no relatives attached yet, and
 scoring it against the full weight set would mean it never clears the threshold however
 exactly the name and dates agree.
+
+## The chart
+
+The client's layout engine is a **pure function** of the graph — no widgets, no
+state, no framework — because layout is the part most likely to be wrong in a way
+nobody notices: a sibling drawn under the wrong couple still looks like a family
+tree. Being pure is what lets the contract tests lay out a real server response
+and assert that no two cards overlap.
+
+What the chart draws is meaning, not decoration:
+
+| | |
+|---|---|
+| No partner bar for a single parent | There is nobody to join them to; a bar would imply a partner nobody recorded |
+| No sibling bar for an only child | A zero-width bar is a smudge, not information |
+| Dashed drops for adoptive and step links | The chart must not silently assert biology |
+| Masked people still occupy their position | Hiding the node would misrepresent everyone else's lineage |
+| The legend says when a tree was truncated | A chart that quietly stops looks like a family that ends there |
 
 ## Traversal, and why it is not a recursive CTE
 

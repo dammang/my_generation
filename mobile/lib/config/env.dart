@@ -27,4 +27,17 @@ class Env {
     'LOG_REQUESTS',
     defaultValue: false,
   );
+
+  /// A token to start the app already signed in, for development.
+  ///
+  /// Ignored entirely outside debug builds — the check is on kDebugMode, not on
+  /// the value being absent, so shipping a build that happens to carry one
+  /// still cannot use it. Useful on a simulator, where typing credentials is
+  /// slow and automated UI checks cannot type at all.
+  static const String devToken = String.fromEnvironment('DEV_TOKEN', defaultValue: '');
+
+  /// A route to open on launch, for development. Debug builds only, like
+  /// [devToken] — it exists so a screen deep in the app can be reached without
+  /// tapping through to it every reload.
+  static const String devRoute = String.fromEnvironment('DEV_ROUTE', defaultValue: '');
 }

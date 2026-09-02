@@ -121,6 +121,39 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
+            Card(
+              child: InkWell(
+                onTap: () => context.push(Routes.tree),
+                borderRadius: BorderRadius.circular(14),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      Icon(Icons.account_tree_outlined, size: 32, color: theme.colorScheme.primary),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Family tree', style: theme.textTheme.titleLarge),
+                            Text(
+                              user.hasClaimedPerson
+                                  ? 'Start from ${user.personName}'
+                                  : 'Browse the people you can see',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             _PendingRequests(),
             Card(
               child: Padding(

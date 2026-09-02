@@ -5,7 +5,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_generation/core/constants/api_paths.dart';
 import 'package:my_generation/core/network/api_envelope.dart';
+import 'dart:ui';
+
+import 'package:my_generation/features/tree/layout/tree_layout_engine.dart';
 import 'package:my_generation/models/api_user.dart';
+import 'package:my_generation/models/tree_graph.dart';
 import 'package:my_generation/models/membership.dart';
 import 'package:my_generation/models/tribe_summary.dart';
 import 'package:my_generation/models/person_summary.dart';
@@ -129,8 +133,10 @@ void main() {
     expect(user.email, 'admin@mygeneration.test');
     expect(user.isSuperAdmin, isTrue);
     expect(user.can('anything'), isTrue, reason: 'A super admin needs no listed permission');
-    // A user is not a person: the seeded admin has claimed nobody.
-    expect(user.hasClaimedPerson, isFalse);
+    // A user is not a person. Whether this particular account has been linked
+    // depends on what the database has been used for, so the contract point is
+    // that the field is optional and parses either way.
+    expect(user.personUlid, anyOf(isNull, isA<String>()));
   }, skip: skipReason);
 
   test('people parse into PersonSummary, already masked by the server', () async {
@@ -217,6 +223,55 @@ void main() {
     // And a pending membership still grants nothing.
     final people = await dio.get(ApiPaths.people, options: auth);
     expect((people.data['data'] as List), isEmpty);
+  }, skip: skipReason);
+
+  test('a real tree parses and lays out without a screen', () async {
+    if (!_enabled) return;
+
+    final token = await signIn();
+    final auth = Options(headers: {'Authorization': 'Bearer $token'});
+
+    final list = await dio.get(ApiPaths.people, queryParameters: {'per_page': 1}, options: auth);
+    final ulid = (list.data['data'] as List).first['ulid'] as String;
+
+    final response = await dio.get(
+      ApiPaths.tree(ulid),
+      queryParameters: {'ancestors': 3, 'descendants': 2},
+      options: auth,
+    );
+
+    final graph = TreeGraph.fromResponse(
+      (response.data['data'] as Map).cast<String, dynamic>(),
+      (response.data['meta'] as Map).cast<String, dynamic>(),
+    );
+
+    // The layout engine is a pure function, so a real server response can be
+    // laid out in a plain test — which is the cheapest way to find out that a
+    // shape the seeder produces breaks it.
+    final layout = const TreeLayoutEngine().layout(graph);
+
+    expect(layout.nodes.keys.toSet(), graph.people.keys.toSet(),
+        reason: 'Every person returned gets a position');
+    expect(layout.focusRect, isNot(Rect.zero));
+    expect(layout.canvasSize.width > 0 && layout.canvasSize.height > 0, isTrue);
+
+    for (final node in layout.nodes.values) {
+      expect(node.rect.left >= 0 && node.rect.top >= 0, isTrue);
+      expect(node.rect.right <= layout.canvasSize.width, isTrue);
+    }
+
+    // Nothing overlaps: two people drawn on top of each other is the failure
+    // mode a screenshot would not necessarily reveal.
+    final boxes = layout.nodes.values.toList();
+    for (var i = 0; i < boxes.length; i++) {
+      for (var j = i + 1; j < boxes.length; j++) {
+        expect(
+          boxes[i].rect.overlaps(boxes[j].rect.deflate(1)),
+          isFalse,
+          reason: '${boxes[i].ulid} overlaps ${boxes[j].ulid}',
+        );
+      }
+    }
   }, skip: skipReason);
 
   test('a tree response parses into layered people and edges', () async {

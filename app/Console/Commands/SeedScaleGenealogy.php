@@ -28,7 +28,8 @@ class SeedScaleGenealogy extends Command
 {
     protected $signature = 'genealogy:seed-scale
                             {--people=100000 : Approximate number of people to generate}
-                            {--children=4 : Average children per couple}';
+                            {--children=4 : Average children per couple}
+                            {--founders= : Founding couples; defaults to a number that sustains growth}';
 
     protected $description = 'Generate a large synthetic genealogy for performance testing';
 
@@ -58,6 +59,7 @@ class SeedScaleGenealogy extends Command
         $this->info(sprintf('Generated in %.1fs.', microtime(true) - $started));
 
         $this->call('genealogy:rebuild-edges', ['--fresh' => true]);
+        $this->recountScopes();
 
         $branch = FamilyBranch::firstOrCreate(
             ['tribe_id' => $tribe->id, 'slug' => 'scale-branch'],
@@ -84,6 +86,28 @@ class SeedScaleGenealogy extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Denormalised counters are maintained by observers, which this command
+     * suppresses for speed — so they have to be brought back into line
+     * afterwards, or the tribe list reports zero people for a populated tribe.
+     */
+    private function recountScopes(): void
+    {
+        foreach (['tribe_id' => 'tribes', 'clan_id' => 'clans', 'family_branch_id' => 'family_branches'] as $column => $table) {
+            DB::table($table)->update([
+                'people_count' => DB::raw(
+                    "(SELECT COUNT(*) FROM people WHERE people.{$column} = {$table}.id AND people.deleted_at IS NULL)"
+                ),
+            ]);
+        }
+
+        DB::table('tribes')->update([
+            'clan_count' => DB::raw('(SELECT COUNT(*) FROM clans WHERE clans.tribe_id = tribes.id AND clans.deleted_at IS NULL)'),
+        ]);
+
+        $this->info('Recounted scope people and clan totals.');
+    }
+
     private function generate(int $target, float $avgChildren, int $tribeId, int $clanId): void
     {
         $year = 1700;
@@ -91,7 +115,10 @@ class SeedScaleGenealogy extends Command
 
         // Several unrelated founding couples, so the graph is a forest rather
         // than one improbably fertile ancestor.
-        $founders = max(2, (int) ($target / 20000));
+        //
+        // The floor matters: 15% of each generation never marries, and from a
+        // population of four that is enough to end the line before it starts.
+        $founders = (int) ($this->option('founders') ?? max(4, (int) ($target / 20000)));
         $generation = $this->insertPeople($founders * 2, $year, $tribeId, $clanId);
 
         $total = count($generation);
@@ -112,6 +139,8 @@ class SeedScaleGenealogy extends Command
             }
 
             if ($couples === []) {
+                $this->output->writeln('');
+                $this->warn('The line died out before reaching the target — try more --founders.');
                 break;
             }
 

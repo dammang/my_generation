@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../config/env.dart';
 
 import '../core/errors/api_exception.dart';
 import '../models/api_user.dart';
@@ -51,6 +54,8 @@ class AuthNotifier extends Notifier<AuthState> {
   /// the account suspended — so it is verified against the server before the
   /// app treats anybody as signed in.
   Future<void> restore() async {
+    await _seedDevTokenIfDebug();
+
     if (!await _repository.hasToken()) {
       state = const AuthSignedOut();
       return;
@@ -88,6 +93,18 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> refresh() async {
     if (state is! AuthSignedIn) return;
     state = AuthSignedIn(await _repository.me());
+  }
+
+  /// Debug-only convenience: start signed in from a token passed at build time.
+  ///
+  /// Gated on kDebugMode rather than on the define being present, so a release
+  /// build carrying one by accident still ignores it.
+  Future<void> _seedDevTokenIfDebug() async {
+    if (!kDebugMode || Env.devToken.isEmpty) return;
+    if (await _repository.hasToken()) return;
+
+    await ref.read(secureStorageProvider).writeToken(Env.devToken);
+    ref.read(apiClientProvider).forgetToken();
   }
 
   void forceSignedOut(String message) => state = AuthSignedOut(message: message);

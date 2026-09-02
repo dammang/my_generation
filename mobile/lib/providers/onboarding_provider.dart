@@ -34,6 +34,11 @@ final needsOnboardingProvider = FutureProvider<bool>((ref) async {
   final auth = ref.watch(authProvider);
 
   if (auth is! AuthSignedIn) return false;
+
+  // An administrator already reaches everything; asking them to join a tribe
+  // would be a question with no purpose behind it.
+  if (auth.user.isSuperAdmin) return false;
+
   if (auth.user.tribeIds.isNotEmpty) return false;
 
   final memberships = await ref.watch(myMembershipsProvider.future);
