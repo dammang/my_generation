@@ -19,7 +19,8 @@ the schema.
 | 6 — People, names, relationships, unions, Add Relative | ✅ Complete |
 | 7 — Tree API: traversal, lineage, caching, statistics | ✅ Complete |
 | 8 — Filament admin, verification queue, merge UI | ✅ Complete |
-| 9 — Flutter foundation: theme, routing, Dio, Drift, Riverpod | Next |
+| 9 — Flutter foundation: theme, routing, Dio, Drift, Riverpod | ✅ Complete |
+| 10 — Flutter auth and onboarding | Next |
 
 ## Requirements
 
@@ -73,6 +74,18 @@ Domain behaviour is `.env`-driven through `config/genealogy.php`: traversal dept
 and node budgets, living-person inference, privacy defaults, the contribution trust
 ramp, duplicate-matching weights and the transliteration ruleset. None of it requires a
 code change to tune.
+
+## Mobile client
+
+Flutter app in [`mobile/`](mobile/README.md) — see its README for running and
+testing. It builds for iOS and Android and talks to this API through one Dio
+client that unwraps the response envelope.
+
+The client renders what the server decided: `redacted` and `placeholder` arrive
+already applied, dates are shown in the source's own wording ("abt. 1902"), and
+`warnings[]` is surfaced without treating the write as failed. The token lives in
+the platform keystore; the local Drift cache holds only what the viewer has
+already been shown, and is wiped on sign-out.
 
 ## Admin panel
 

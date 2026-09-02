@@ -1,0 +1,27 @@
+{
+  "@@locale": "en",
+  "appName": "My Generation",
+  "signIn": "Sign in",
+  "signOut": "Sign out",
+  "emailLabel": "Email address",
+  "passwordLabel": "Password",
+  "connectionTitle": "Connection",
+  "connectionChecking": "Checking the connection…",
+  "connectionOk": "Connected",
+  "connectionFailed": "Cannot reach My Generation",
+  "retry": "Try again",
+  "signedInAs": "Signed in as {name}",
+  "@signedInAs": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "noClaimedProfile": "This account is not yet linked to a person in the archive.",
+  "claimedProfile": "Linked to {name}",
+  "@claimedProfile": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "permissionsHeld": "{count, plural, =0{No permissions} =1{1 permission} other{{count} permissions}}",
+  "@permissionsHeld": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "loading": "Loading…"
+}

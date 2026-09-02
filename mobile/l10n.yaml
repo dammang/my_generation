@@ -1,0 +1,8 @@
+# Locale files are scaffolded from the start so no screen ever hardcodes a
+# string. English is complete; Burmese, Tedim and the rest are added as
+# translations, not as code changes.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+untranslated-messages-file: lib/l10n/untranslated.json

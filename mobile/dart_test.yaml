@@ -1,0 +1,6 @@
+tags:
+  # Contract tests that talk to a real running Laravel. They are gated behind
+  # --dart-define=LIVE_API=1 so a plain `flutter test` never depends on a
+  # server being up, and they skip themselves if it turns out to be unreachable.
+  live:
+    description: Requires a local API at http://127.0.0.1:8000
