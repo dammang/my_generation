@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\ClaimStatus;
 use App\Models\Concerns\HasUlid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * "This person is me." A claim never auto-approves.
@@ -38,5 +39,20 @@ class ProfileClaim extends Model
             'status' => ClaimStatus::class,
             'decided_at' => 'datetime',
         ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function person(): BelongsTo
+    {
+        return $this->belongsTo(Person::class);
+    }
+
+    public function decider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'decided_by');
     }
 }

@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\MatchKeyType;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A blocking key. Two people are compared for duplication only if they share one,
@@ -35,5 +36,10 @@ class PersonMatchKey extends Model
         return [
             'key_type' => MatchKeyType::class,
         ];
+    }
+
+    public function person(): BelongsTo
+    {
+        return $this->belongsTo(Person::class);
     }
 }

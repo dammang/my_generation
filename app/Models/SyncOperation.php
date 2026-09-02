@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\SyncStatus;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Idempotency ledger for offline writes. A replayed operation returns the stored
@@ -37,5 +38,10 @@ class SyncOperation extends Model
             'response_body' => 'array',
             'created_at' => 'datetime',
         ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

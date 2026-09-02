@@ -23,7 +23,6 @@ use App\Models\PersonEvent;
 use App\Models\PersonName;
 use App\Models\Place;
 use App\Models\Relationship;
-use App\Models\Scope;
 use App\Models\Source;
 use App\Models\Tribe;
 use App\Models\Union;
@@ -31,7 +30,6 @@ use App\Models\UnionChild;
 use App\Support\NameCorpus;
 use App\Support\UncertainDateParser;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -71,9 +69,6 @@ class DemoTribeSeeder extends Seeder
             $this->seedChronicle();
         });
 
-        // Project the truth tables into the derived adjacency the tree reads.
-        Artisan::call('genealogy:rebuild-edges', ['--fresh' => true]);
-
         $this->command?->info(sprintf(
             'Demo tribe seeded: %d people, %d unions, %d relationships.',
             Person::count(),
@@ -97,8 +92,6 @@ class DemoTribeSeeder extends Seeder
             ],
         );
 
-        $tribeScope = $this->scopeFor('tribe', $this->tribe->id, null);
-
         $this->clan = Clan::firstOrCreate(
             ['tribe_id' => $this->tribe->id, 'slug' => 'guite'],
             [
@@ -108,12 +101,9 @@ class DemoTribeSeeder extends Seeder
                 'level_label' => 'Clan',
             ],
         );
-        $this->clan->forceFill(['path' => '/'.$this->clan->id.'/'])->save();
-
-        $clanScope = $this->scopeFor('clan', $this->clan->id, $tribeScope);
 
         // A sub-clan, to prove hierarchy depth is data rather than schema.
-        $subClan = Clan::firstOrCreate(
+        Clan::firstOrCreate(
             ['tribe_id' => $this->tribe->id, 'slug' => 'guite-tedim'],
             [
                 'name' => 'Guite (Tedim)',
@@ -122,8 +112,6 @@ class DemoTribeSeeder extends Seeder
                 'level_label' => 'Sub-clan',
             ],
         );
-        $subClan->forceFill(['path' => $this->clan->path.$subClan->id.'/'])->save();
-        $this->scopeFor('clan', $subClan->id, $clanScope);
 
         $this->branch = FamilyBranch::firstOrCreate(
             ['tribe_id' => $this->tribe->id, 'slug' => 'kin-tun-family'],
@@ -134,7 +122,6 @@ class DemoTribeSeeder extends Seeder
                 'origin_place_id' => $this->placeId('Tedim', 'village'),
             ],
         );
-        $this->scopeFor('family_branch', $this->branch->id, $clanScope);
 
         foreach (range(11, 17) as $n) {
             Generation::firstOrCreate(
@@ -426,26 +413,7 @@ class DemoTribeSeeder extends Seeder
             );
         }
 
-        $union->increment('children_count');
-    }
-
-    private function scopeFor(string $type, int $id, ?Scope $parent): Scope
-    {
-        $scope = Scope::firstOrCreate(
-            ['scopeable_type' => $type, 'scopeable_id' => $id],
-            [
-                'parent_scope_id' => $parent?->id,
-                'depth' => $parent === null ? 0 : $parent->depth + 1,
-            ],
-        );
-
-        $expected = ($parent?->path ?? '/').$scope->id.'/';
-
-        if ($scope->path !== $expected) {
-            $scope->forceFill(['path' => $expected])->save();
-        }
-
-        return $scope;
+        // children_count is maintained by UnionChildObserver.
     }
 
     private function placeId(string $name, ?string $type = null): ?int

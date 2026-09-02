@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\EdgeKind;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Derived traversal adjacency — a cache, not truth.
@@ -41,5 +42,15 @@ class FamilyEdge extends Model
             'edge_kind' => EdgeKind::class,
             'confidence' => 'integer',
         ];
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'parent_id');
+    }
+
+    public function child(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'child_id');
     }
 }

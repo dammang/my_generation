@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\ReviewDecision;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One reviewer's decision. Append-only.
@@ -31,5 +32,15 @@ class ChangeRequestReview extends Model
             'decision' => ReviewDecision::class,
             'created_at' => 'datetime',
         ];
+    }
+
+    public function changeRequest(): BelongsTo
+    {
+        return $this->belongsTo(ChangeRequest::class);
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewer_id');
     }
 }

@@ -6,7 +6,7 @@ Each phase ends with something runnable and tested. Nothing is merged as a TODO.
 |---|---|---|
 | **1** | Architecture & database design (this document set) | You approve it |
 | **2** ✅ | Migrations, enums, model concerns, factories, seeders | **Done.** 47 migrations / 55 tables / 147 FKs / 3 CHECK constraints / 7 full-text indexes. `migrate:fresh --seed` green; 40 tests passing |
-| **3** | Models, relations, observers, revision + edge projection | Unit tests: create a person, add a parent, `family_edges` updates, revision written |
+| **3** ✅ | Models, relations, observers, revision + edge projection | **Done.** Relations on all 37 models; 8 observers; live edge projection; field-level revision ledger; morph map; 83 tests passing |
 | **4** | Sanctum auth, envelope, error handling, ViewerScope middleware, policies skeleton | register/login/me/logout tested; envelope consistent; throttles active |
 | **5** | Tribe / Clan / Family Branch / Place / Generation API + scoped roles | Full CRUD with policies; clan hierarchy of arbitrary depth; membership requests |
 | **6** | People, names, relationships, unions, `AddRelative`, integrity rules | Add Father/Mother/Spouse/Son from one endpoint; cycle rejected; warnings returned |

@@ -15,8 +15,8 @@ use Illuminate\Database\Seeder;
  * seeded here is the countries a Zomi/Chin diaspora actually spans, plus the
  * township-and-village layer the demo tree needs.
  *
- * `path` is written after insert because it contains the row's own id.
- * Idempotent on (parent, name, type).
+ * Idempotent on (parent, name, type). `depth` and the materialised `path` are
+ * maintained by PlaceObserver.
  */
 class PlaceSeeder extends Seeder
 {
@@ -70,26 +70,14 @@ class PlaceSeeder extends Seeder
 
     private function place(string $name, string $type, ?Place $parent, string $countryCode): Place
     {
-        $place = Place::firstOrCreate(
+        // depth and path are maintained by PlaceObserver.
+        return Place::firstOrCreate(
             [
                 'name' => $name,
                 'type' => $type,
                 'parent_id' => $parent?->id,
             ],
-            [
-                'country_code' => $countryCode,
-                'depth' => $parent === null ? 0 : $parent->depth + 1,
-            ],
+            ['country_code' => $countryCode],
         );
-
-        // The materialised path contains the row's own id, so it can only be
-        // written once the row exists.
-        $expected = ($parent?->path ?? '/').$place->id.'/';
-
-        if ($place->path !== $expected) {
-            $place->forceFill(['path' => $expected])->save();
-        }
-
-        return $place;
     }
 }

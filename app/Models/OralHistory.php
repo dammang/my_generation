@@ -13,6 +13,8 @@ use App\Models\Concerns\HasUlid;
 use App\Models\Concerns\HasVerificationStatus;
 use App\Models\Concerns\SoftDeletesWithUniqueness;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A recorded interview with an elder. Transcription is not implemented in v1;
@@ -61,5 +63,20 @@ class OralHistory extends Model
             'recorded_at' => 'date',
             'verified_at' => 'datetime',
         ];
+    }
+
+    public function media(): BelongsTo
+    {
+        return $this->belongsTo(Media::class);
+    }
+
+    public function interviewee(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'interviewee_person_id');
+    }
+
+    public function segments(): HasMany
+    {
+        return $this->hasMany(OralHistorySegment::class)->orderBy('start_ms');
     }
 }

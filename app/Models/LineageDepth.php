@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Depth from a designated apical ancestor — how "17th Generation" is displayed
@@ -44,5 +45,15 @@ class LineageDepth extends Model
             'path_count' => 'integer',
             'computed_at' => 'datetime',
         ];
+    }
+
+    public function root(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'root_person_id');
+    }
+
+    public function person(): BelongsTo
+    {
+        return $this->belongsTo(Person::class);
     }
 }

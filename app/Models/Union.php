@@ -12,9 +12,17 @@ use App\Models\Concerns\Contributable;
 use App\Models\Concerns\HasUlid;
 use App\Models\Concerns\HasUncertainDates;
 use App\Models\Concerns\HasVerificationStatus;
+use App\Models\Concerns\RecordsRevisions;
 use App\Models\Concerns\SoftDeletesWithUniqueness;
+use App\Observers\UnionObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
  * A marriage or partnership.
@@ -23,14 +31,36 @@ use Illuminate\Database\Eloquent\Model;
  * end state, and its own children. partner_1_id is always the lower internal id,
  * which is what makes the unique key actually prevent duplicate marriages.
  */
+#[ObservedBy(UnionObserver::class)]
 class Union extends Model
 {
-    use Contributable, HasFactory, HasUlid, HasUncertainDates, HasVerificationStatus, SoftDeletesWithUniqueness;
+    use Contributable, HasFactory, HasUlid, HasUncertainDates, HasVerificationStatus, RecordsRevisions, SoftDeletesWithUniqueness;
 
     /** @var array<int, string> */
     protected array $uncertainDates = ['marriage'];
 
     protected $table = 'unions';
+
+    /**
+     * Fields whose every change is written to the revision ledger.
+     * Counters, derived years and cache flags are deliberately absent —
+     * they are not genealogical claims and would bury the real history.
+     *
+     * @var array<int, string>
+     */
+    protected array $revisionable = [
+        'partner_1_id',
+        'partner_2_id',
+        'union_type',
+        'status',
+        'marriage_date',
+        'marriage_date_precision',
+        'marriage_place_id',
+        'separation_date',
+        'divorce_date',
+        'verification_status',
+        'notes',
+    ];
 
     /** @var list<string> */
     protected $fillable = [
@@ -89,5 +119,51 @@ class Union extends Model
             $this->partner_2_id => $this->partner_1_id,
             default => null,
         };
+    }
+
+    public function partner1(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'partner_1_id');
+    }
+
+    public function partner2(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'partner_2_id');
+    }
+
+    public function marriagePlace(): BelongsTo
+    {
+        return $this->belongsTo(Place::class, 'marriage_place_id');
+    }
+
+    /** The grouping rows, ordered for chart layout. */
+    public function childLinks(): HasMany
+    {
+        return $this->hasMany(UnionChild::class)->orderBy('birth_order');
+    }
+
+    public function children(): BelongsToMany
+    {
+        return $this->belongsToMany(Person::class, 'union_children')
+            ->withPivot(['relationship_type', 'birth_order'])
+            ->orderByPivot('birth_order');
+    }
+
+    /** The parentage rows this union produced. */
+    public function parentEdges(): HasMany
+    {
+        return $this->hasMany(Relationship::class);
+    }
+
+    public function citations(): MorphMany
+    {
+        return $this->morphMany(Citation::class, 'citable');
+    }
+
+    public function scopeInvolving(Builder $query, int $personId): Builder
+    {
+        return $query->where(fn (Builder $q) => $q
+            ->where('partner_1_id', $personId)
+            ->orWhere('partner_2_id', $personId));
     }
 }

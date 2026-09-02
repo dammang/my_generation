@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\DuplicateStatus;
 use App\Models\Concerns\HasUlid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A scored possible duplicate pair. `signals` records each feature's contribution
@@ -39,5 +40,20 @@ class DuplicateCandidate extends Model
             'status' => DuplicateStatus::class,
             'reviewed_at' => 'datetime',
         ];
+    }
+
+    public function personA(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'person_a_id');
+    }
+
+    public function personB(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'person_b_id');
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 }

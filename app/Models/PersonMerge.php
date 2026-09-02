@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasUlid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A reversible merge. `moved_records` logs every foreign key repointed, so
@@ -42,5 +43,25 @@ class PersonMerge extends Model
             'merged_at' => 'datetime',
             'reverted_at' => 'datetime',
         ];
+    }
+
+    public function winner(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'winner_person_id');
+    }
+
+    public function loser(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'loser_person_id');
+    }
+
+    public function mergedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'merged_by');
+    }
+
+    public function isReverted(): bool
+    {
+        return $this->reverted_at !== null;
     }
 }

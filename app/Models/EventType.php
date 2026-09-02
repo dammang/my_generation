@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Enums\EventCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A lookup, not an enum: tribes have culturally specific events and adding one
@@ -37,5 +39,15 @@ class EventType extends Model
             'is_system' => 'boolean',
             'sort_order' => 'integer',
         ];
+    }
+
+    public function tribe(): BelongsTo
+    {
+        return $this->belongsTo(Tribe::class);
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(PersonEvent::class);
     }
 }

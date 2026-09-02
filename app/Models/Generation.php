@@ -7,6 +7,8 @@ namespace App\Models;
 use App\Models\Concerns\HasUlid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A human label for a generation. Nothing in the traversal engine depends on it:
@@ -38,5 +40,20 @@ class Generation extends Model
             'estimated_start_year' => 'integer',
             'estimated_end_year' => 'integer',
         ];
+    }
+
+    public function tribe(): BelongsTo
+    {
+        return $this->belongsTo(Tribe::class);
+    }
+
+    public function clan(): BelongsTo
+    {
+        return $this->belongsTo(Clan::class);
+    }
+
+    public function people(): HasMany
+    {
+        return $this->hasMany(Person::class);
     }
 }

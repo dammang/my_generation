@@ -9,18 +9,39 @@ use App\Enums\SourceReliability;
 use App\Enums\SourceType;
 use App\Models\Concerns\HasPrivacyLevel;
 use App\Models\Concerns\HasUlid;
+use App\Models\Concerns\RecordsRevisions;
 use App\Models\Concerns\SoftDeletesWithUniqueness;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A document, record or testimony backing a genealogical fact.
  */
 class Source extends Model
 {
-    use HasFactory, HasPrivacyLevel, HasUlid, SoftDeletesWithUniqueness;
+    use HasFactory, HasPrivacyLevel, HasUlid, RecordsRevisions, SoftDeletesWithUniqueness;
 
     protected $table = 'sources';
+
+    /**
+     * Fields whose every change is written to the revision ledger.
+     * Counters, derived years and cache flags are deliberately absent —
+     * they are not genealogical claims and would bury the real history.
+     *
+     * @var array<int, string>
+     */
+    protected array $revisionable = [
+        'title',
+        'source_type',
+        'description',
+        'author',
+        'publication_year',
+        'url',
+        'reliability',
+        'privacy_level',
+    ];
 
     /** @var list<string> */
     protected $fillable = [
@@ -50,5 +71,26 @@ class Source extends Model
             'privacy_level' => PrivacyLevel::class,
             'publication_year' => 'integer',
         ];
+    }
+
+    public function media(): BelongsTo
+    {
+        return $this->belongsTo(Media::class);
+    }
+
+    /** Who gave the testimony, for oral sources. */
+    public function informant(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'informant_person_id');
+    }
+
+    public function citations(): HasMany
+    {
+        return $this->hasMany(Citation::class);
+    }
+
+    public function tribe(): BelongsTo
+    {
+        return $this->belongsTo(Tribe::class);
     }
 }

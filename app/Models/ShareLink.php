@@ -8,6 +8,8 @@ use App\Enums\PrivacyLevel;
 use App\Models\Concerns\HasUlid;
 use App\Models\Concerns\SoftDeletesWithUniqueness;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * A public link that can never widen visibility beyond max_privacy_level. Living
@@ -52,5 +54,15 @@ class ShareLink extends Model
     {
         return $this->revoked_at === null
             && ($this->expires_at === null || $this->expires_at->isFuture());
+    }
+
+    public function shareable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

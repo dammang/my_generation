@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Enums\Certainty;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * Links a source to a fact — and, crucially, to a specific field. Field-level
@@ -34,5 +36,15 @@ class Citation extends Model
         return [
             'confidence' => Certainty::class,
         ];
+    }
+
+    public function source(): BelongsTo
+    {
+        return $this->belongsTo(Source::class);
+    }
+
+    public function citable(): MorphTo
+    {
+        return $this->morphTo();
     }
 }

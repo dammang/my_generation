@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A secondary tribe/clan affiliation, for mixed-marriage lineages.
@@ -22,4 +23,19 @@ class PersonAffiliation extends Model
         'note',
         'created_by',
     ];
+
+    public function person(): BelongsTo
+    {
+        return $this->belongsTo(Person::class);
+    }
+
+    public function tribe(): BelongsTo
+    {
+        return $this->belongsTo(Tribe::class);
+    }
+
+    public function clan(): BelongsTo
+    {
+        return $this->belongsTo(Clan::class);
+    }
 }

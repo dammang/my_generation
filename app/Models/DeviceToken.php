@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\DevicePlatform;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * An FCM registration. Notifications ship to the database channel in MVP; this
@@ -31,5 +32,10 @@ class DeviceToken extends Model
             'platform' => DevicePlatform::class,
             'last_seen_at' => 'datetime',
         ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

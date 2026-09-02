@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Enums\RevisionAction;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * The field-level genealogical ledger. Immutable: never updated, never deleted.
@@ -41,5 +43,25 @@ class Revision extends Model
             'new_value' => 'array',
             'created_at' => 'datetime',
         ];
+    }
+
+    public function revisionable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function changedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'changed_by');
+    }
+
+    public function source(): BelongsTo
+    {
+        return $this->belongsTo(Source::class);
+    }
+
+    public function changeRequest(): BelongsTo
+    {
+        return $this->belongsTo(ChangeRequest::class);
     }
 }

@@ -10,6 +10,8 @@ use App\Models\Concerns\HasUlid;
 use App\Models\Concerns\SoftDeletesWithUniqueness;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * A file on an S3-compatible disk. MySQL holds the pointer, the provenance and
@@ -56,5 +58,20 @@ class Media extends Model
             'taken_at' => 'date',
             'size_bytes' => 'integer',
         ];
+    }
+
+    public function mediable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function uploader(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function place(): BelongsTo
+    {
+        return $this->belongsTo(Place::class);
     }
 }

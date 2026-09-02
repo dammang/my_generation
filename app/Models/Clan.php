@@ -6,20 +6,44 @@ namespace App\Models;
 
 use App\Enums\RecordStatus;
 use App\Models\Concerns\HasUlid;
+use App\Models\Concerns\RecordsRevisions;
 use App\Models\Concerns\SoftDeletesWithUniqueness;
+use App\Observers\ScopedEntityObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 /**
  * Clan → sub-clan → branch, to arbitrary depth. `depth` records how deep this row
  * sits and `level_label` carries the tribe's own word for that level, because no
  * fixed number of hierarchy levels is assumed.
  */
+#[ObservedBy(ScopedEntityObserver::class)]
 class Clan extends Model
 {
-    use HasFactory, HasUlid, SoftDeletesWithUniqueness;
+    use HasFactory, HasUlid, RecordsRevisions, SoftDeletesWithUniqueness;
 
     protected $table = 'clans';
+
+    /**
+     * Fields whose every change is written to the revision ledger.
+     * Counters, derived years and cache flags are deliberately absent —
+     * they are not genealogical claims and would bury the real history.
+     *
+     * @var array<int, string>
+     */
+    protected array $revisionable = [
+        'name',
+        'native_name',
+        'parent_clan_id',
+        'description',
+        'history',
+        'status',
+    ];
 
     /** @var list<string> */
     protected $fillable = [
@@ -46,5 +70,44 @@ class Clan extends Model
             'status' => RecordStatus::class,
             'depth' => 'integer',
         ];
+    }
+
+    public function tribe(): BelongsTo
+    {
+        return $this->belongsTo(Tribe::class);
+    }
+
+    public function parentClan(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_clan_id');
+    }
+
+    public function childClans(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_clan_id');
+    }
+
+    public function familyBranches(): HasMany
+    {
+        return $this->hasMany(FamilyBranch::class);
+    }
+
+    public function people(): HasMany
+    {
+        return $this->hasMany(Person::class);
+    }
+
+    public function scope(): MorphOne
+    {
+        return $this->morphOne(Scope::class, 'scopeable');
+    }
+
+    /**
+     * Every clan beneath this one, at any depth, by prefix match on the
+     * materialised path — one indexed query instead of a recursive walk.
+     */
+    public function scopeUnderneath(Builder $query, self $clan): Builder
+    {
+        return $query->where('path', 'like', $clan->path.'%')->whereKeyNot($clan->getKey());
     }
 }

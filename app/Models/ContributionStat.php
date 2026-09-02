@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Per-user rollup counters. Incremented on write, reconciled nightly against
@@ -46,5 +47,10 @@ class ContributionStat extends Model
             'last_contributed_at' => 'datetime',
             'recalculated_at' => 'datetime',
         ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

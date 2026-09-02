@@ -7,7 +7,10 @@ namespace App\Models;
 use App\Enums\ChangeRequestOperation;
 use App\Enums\ChangeRequestStatus;
 use App\Models\Concerns\HasUlid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A proposed change. Verified genealogy is never silently overwritten.
@@ -58,5 +61,41 @@ class ChangeRequest extends Model
             'applied_at' => 'datetime',
             'decided_at' => 'datetime',
         ];
+    }
+
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requested_by');
+    }
+
+    public function decider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'decided_by');
+    }
+
+    public function source(): BelongsTo
+    {
+        return $this->belongsTo(Source::class);
+    }
+
+    public function scope(): BelongsTo
+    {
+        return $this->belongsTo(Scope::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(ChangeRequestReview::class);
+    }
+
+    /** Bundled proposals are reviewed and applied as one unit. */
+    public function bundledRequests(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_change_request_id');
+    }
+
+    public function scopePending(Builder $query): Builder
+    {
+        return $query->where('status', ChangeRequestStatus::Pending);
     }
 }

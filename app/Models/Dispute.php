@@ -8,6 +8,9 @@ use App\Enums\DisputeResolution;
 use App\Enums\DisputeStatus;
 use App\Models\Concerns\HasUlid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * An open disagreement over a fact. Nothing is deleted: both the 1921 and the
@@ -41,5 +44,25 @@ class Dispute extends Model
             'resolution' => DisputeResolution::class,
             'resolved_at' => 'datetime',
         ];
+    }
+
+    public function disputable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function claims(): HasMany
+    {
+        return $this->hasMany(DisputeClaim::class);
+    }
+
+    public function acceptedClaim(): BelongsTo
+    {
+        return $this->belongsTo(DisputeClaim::class, 'accepted_claim_id');
+    }
+
+    public function openedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'opened_by');
     }
 }
