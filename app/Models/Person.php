@@ -17,6 +17,7 @@ use App\Models\Concerns\HasVerificationStatus;
 use App\Models\Concerns\RecordsRevisions;
 use App\Models\Concerns\SoftDeletesWithUniqueness;
 use App\Observers\PersonObserver;
+use App\Services\Privacy\ViewerScope;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -440,5 +441,104 @@ class Person extends Model
     public function scopeInBranch(Builder $query, int $branchId): Builder
     {
         return $query->where('family_branch_id', $branchId);
+    }
+
+    /**
+     * The privacy predicate, in SQL.
+     *
+     * This MUST mirror PersonVisibilityResolver::passesLevel(). It exists
+     * separately because filtering after pagination is a bug, not an
+     * optimisation: it produces short pages, leaks total counts, and lets a
+     * cursor walk records the viewer may not know exist.
+     *
+     * Empty whereIn() compiles to `0 = 1`, so a viewer with no memberships
+     * simply matches nothing on those branches.
+     */
+    public function scopeVisibleTo(Builder $query, ViewerScope $viewer): Builder
+    {
+        if ($viewer->isSuperAdmin) {
+            return $query;
+        }
+
+        return $query
+            ->where(function (Builder $query) use ($viewer): void {
+                $query->where('privacy_level', PrivacyLevel::Public);
+
+                $query->orWhere(fn (Builder $q) => $q
+                    ->where('privacy_level', PrivacyLevel::Tribe)
+                    ->whereIn('tribe_id', $viewer->tribeIds));
+
+                $query->orWhere(fn (Builder $q) => $q
+                    ->where('privacy_level', PrivacyLevel::Clan)
+                    ->whereIn('clan_id', $viewer->clanIds));
+
+                $query->orWhere(fn (Builder $q) => $q
+                    ->where('privacy_level', PrivacyLevel::Family)
+                    ->where(fn (Builder $q) => $this->applyFamilyReach($q, $viewer)));
+
+                if ($viewer->userId !== null) {
+                    // Contributors keep sight of what they added, at any level.
+                    $query->orWhere('created_by', $viewer->userId);
+                }
+
+                if ($viewer->personId !== null) {
+                    $query->orWhere('id', $viewer->personId);
+                }
+
+                // Administering the placement carries the record.
+                $query->orWhereIn('tribe_id', $viewer->adminTribeIds);
+                $query->orWhereIn('clan_id', $viewer->adminClanIds);
+                $query->orWhereIn('family_branch_id', $viewer->adminBranchIds);
+            })
+            ->where(fn (Builder $query) => $this->applyMinorGuard($query, $viewer));
+    }
+
+    /** Branch membership, close kin, or having contributed the record. */
+    private function applyFamilyReach(Builder $query, ViewerScope $viewer): Builder
+    {
+        $query->whereIn('family_branch_id', $viewer->branchIds)
+            ->orWhereIn('id', $viewer->kinPersonIds);
+
+        if ($viewer->userId !== null) {
+            $query->orWhere('created_by', $viewer->userId);
+        }
+
+        return $query;
+    }
+
+    /**
+     * A living minor is never visible outside the family scope, whatever their
+     * privacy_level says. Deceased children in historical records are not
+     * minors for this purpose.
+     */
+    private function applyMinorGuard(Builder $query, ViewerScope $viewer): Builder
+    {
+        if ($viewer->isSuperAdmin) {
+            return $query;
+        }
+
+        $cutoff = (int) date('Y') - (int) config('genealogy.living.minor_age');
+
+        return $query
+            ->where('is_living', false)
+            ->orWhereNull('birth_year')
+            ->orWhere('birth_year', '<=', $cutoff)
+            ->orWhere(fn (Builder $q) => $this->applyFamilyReach($q, $viewer))
+            ->orWhereIn('tribe_id', $viewer->adminTribeIds)
+            ->orWhereIn('clan_id', $viewer->adminClanIds)
+            ->orWhereIn('family_branch_id', $viewer->adminBranchIds);
+    }
+
+    /**
+     * Route binding resolves only people the requester may see, so an
+     * unauthorised record 404s instead of 403ing. A 403 confirms the record
+     * exists, which on a private person is itself the leak.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->newQuery()
+            ->where($field ?? $this->getRouteKeyName(), $value)
+            ->visibleTo(app(ViewerScope::class))
+            ->first();
     }
 }

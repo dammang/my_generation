@@ -33,6 +33,18 @@ class User extends Authenticatable
         'avatar_media_id',
     ];
 
+    /**
+     * In-memory defaults matching the column defaults. Without these a
+     * just-created model reports null for status until it is reloaded.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => UserStatus::Active->value,
+        'locale' => 'en',
+        'is_super_admin' => false,
+    ];
+
     /** @var list<string> */
     protected $hidden = [
         'password',

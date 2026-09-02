@@ -14,7 +14,8 @@ the schema.
 | 1 — Architecture & database design | ✅ Complete |
 | 2 — Migrations, enums, concerns, factories, seeders | ✅ Complete |
 | 3 — Models, relations, observers, revision + edge projection | ✅ Complete |
-| 4 — Sanctum auth, API envelope, ViewerScope, policies | Next |
+| 4 — Sanctum auth, API envelope, ViewerScope, policies | ✅ Complete |
+| 5 — Tribe / clan / family branch / place APIs, scoped roles | Next |
 
 ## Requirements
 
@@ -68,6 +69,36 @@ Domain behaviour is `.env`-driven through `config/genealogy.php`: traversal dept
 and node budgets, living-person inference, privacy defaults, the contribution trust
 ramp, duplicate-matching weights and the transliteration ruleset. None of it requires a
 code change to tune.
+
+## How privacy is enforced
+
+The API decides what a requester may see; the client is a renderer. Two separate
+questions, answered in two places that must agree:
+
+| Question | Answered by | Why separate |
+|---|---|---|
+| May this record be seen at all? | `Person::scopeVisibleTo()` — a SQL predicate | Filtering after pagination gives short pages and leaks counts |
+| Which of its fields survive? | `PersonVisibilityResolver` → `FieldMask` → `PersonResource` | One place decides field visibility, for every serialisation path |
+
+`ViewerScope` holds the requester's entitlements — memberships, administered scopes,
+close kin, permissions — resolved once per request and cached as primitives. Its `hash()`
+goes into every cache key that can hold person data, so a cached payload can never be
+served across a permission boundary.
+
+Rules worth knowing before you touch this:
+
+- A record the requester may not see returns **404, not 403**. A 403 confirms existence.
+- A person with no dates is treated as **living**. Fail closed.
+- A living minor is never visible outside the family scope, whatever their privacy level.
+- A masked person still renders as a node in a tree — the content is withheld, the shape
+  of the graph is not, or everyone's lineage would be misrepresented.
+
+Authority flows downward by prefix-matching `scopes.path`, so a Tribe Admin needs no row
+per clan:
+
+```php
+$permissions->can($user, 'people.verify', $scopePath);   // '/1/14/57/'
+```
 
 ## How the graph maintains itself
 

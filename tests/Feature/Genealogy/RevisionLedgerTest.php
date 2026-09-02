@@ -46,10 +46,13 @@ class RevisionLedgerTest extends TestCase
 
     public function test_it_records_one_revision_per_changed_field(): void
     {
-        $person = Person::factory()->create();
+        // Names are set explicitly: the factory draws from a pool that includes
+        // real Tedim names, so updating to one of them can be a no-op — which
+        // correctly writes no revision, and would make this test flaky.
+        $person = Person::factory()->create(['first_name' => 'Aaa', 'last_name' => 'Bbb']);
         Revision::query()->delete();
 
-        $person->update(['first_name' => 'Thawng', 'last_name' => 'Dam']);
+        $person->update(['first_name' => 'Ccc', 'last_name' => 'Ddd']);
 
         $fields = Revision::where('revisionable_id', $person->id)->pluck('field');
 
@@ -61,7 +64,7 @@ class RevisionLedgerTest extends TestCase
     {
         // Derived years and cache flags are not genealogical claims; recording
         // them would bury the real history.
-        $person = Person::factory()->create();
+        $person = Person::factory()->create(['has_open_dispute' => false]);
         Revision::query()->delete();
 
         $person->update(['has_open_dispute' => true]);
@@ -84,11 +87,11 @@ class RevisionLedgerTest extends TestCase
 
     public function test_revision_context_attaches_a_reason_and_source(): void
     {
-        $person = Person::factory()->create();
+        $person = Person::factory()->create(['first_name' => 'Aaa']);
         Revision::query()->delete();
 
         $person->withRevisionContext(reason: 'Baptism register, entry 114')
-            ->update(['first_name' => 'Pau']);
+            ->update(['first_name' => 'Ccc']);
 
         $this->assertSame(
             'Baptism register, entry 114',
