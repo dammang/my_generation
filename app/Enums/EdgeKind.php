@@ -33,6 +33,21 @@ enum EdgeKind: int
         };
     }
 
+    /**
+     * The wire name. The backing value is an int to keep family_edges small,
+     * but a client should never have to know that 2 means adoptive.
+     */
+    public function slug(): string
+    {
+        return match ($this) {
+            self::Biological => 'biological',
+            self::Adoptive => 'adoptive',
+            self::Step => 'step',
+            self::Foster => 'foster',
+            self::Guardian => 'guardian',
+        };
+    }
+
     /** Adoptive and step edges are rendered dashed in the tree. */
     public function isDashed(): bool
     {

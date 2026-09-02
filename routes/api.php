@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\PersonController;
 use App\Http\Controllers\Api\V1\PlaceController;
 use App\Http\Controllers\Api\V1\RelationshipController;
 use App\Http\Controllers\Api\V1\ScopeRoleController;
+use App\Http\Controllers\Api\V1\TreeController;
 use App\Http\Controllers\Api\V1\TribeController;
 use App\Http\Controllers\Api\V1\UnionController;
 use App\Support\ApiResponse;
@@ -85,6 +86,16 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             // ── Membership ───────────────────────────────────────────────
             Route::get('memberships', [MembershipController::class, 'index'])->name('memberships.index');
             Route::get('scope-members', [MembershipController::class, 'forScope'])->name('memberships.scope');
+        });
+
+        // Tree traversal runs recursive CTEs, so it gets its own tighter
+        // bucket: a client looping over expansions must not starve plain reads.
+        Route::middleware('throttle:tree')->group(function (): void {
+            Route::get('tree/{person}', [TreeController::class, 'show'])->name('tree.show');
+            Route::get('tree/{person}/ancestors', [TreeController::class, 'ancestors'])->name('tree.ancestors');
+            Route::get('tree/{person}/descendants', [TreeController::class, 'descendants'])->name('tree.descendants');
+            Route::get('tree/{person}/lineage', [TreeController::class, 'lineage'])->name('tree.lineage');
+            Route::get('tree/{person}/path-to/{other}', [TreeController::class, 'pathTo'])->name('tree.path');
         });
 
         Route::middleware('throttle:write')->group(function (): void {

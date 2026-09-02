@@ -6,6 +6,7 @@ namespace App\Actions\Genealogy;
 
 use App\Exceptions\CycleDetectedException;
 use App\Models\Person;
+use App\Services\Tree\CycleGuard;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -34,9 +35,11 @@ class AssertNoCycle
         // Walk upward from the proposed parent looking for the proposed child.
         // If the child is already an ancestor of the parent, the new edge would
         // close a loop.
-        $rows = DB::select(<<<'SQL'
+        $length = CycleGuard::pathLength(self::MAX_WALK);
+
+        $rows = DB::select(<<<SQL
             WITH RECURSIVE anc (person_id, depth, path) AS (
-                SELECT ?, 0, CAST(? AS CHAR(2000))
+                SELECT ?, 0, CAST(? AS CHAR({$length}))
                 UNION ALL
                 SELECT fe.parent_id, a.depth + 1, CONCAT(a.path, ',', fe.parent_id)
                 FROM anc a

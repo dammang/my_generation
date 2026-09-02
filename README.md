@@ -17,7 +17,8 @@ the schema.
 | 4 — Sanctum auth, API envelope, ViewerScope, policies | ✅ Complete |
 | 5 — Tribe / clan / family branch / place APIs, scoped roles | ✅ Complete |
 | 6 — People, names, relationships, unions, Add Relative | ✅ Complete |
-| 7 — Tree API: traversal, lineage, caching, statistics | Next |
+| 7 — Tree API: traversal, lineage, caching, statistics | ✅ Complete |
+| 8 — Filament admin, verification queue, merge UI | Next |
 
 ## Requirements
 
@@ -71,6 +72,35 @@ Domain behaviour is `.env`-driven through `config/genealogy.php`: traversal dept
 and node budgets, living-person inference, privacy defaults, the contribution trust
 ramp, duplicate-matching weights and the transliteration ruleset. None of it requires a
 code change to tune.
+
+## Traversal, and why it is not a recursive CTE
+
+`GET /api/v1/tree/{person}?ancestors=3&descendants=2` returns a depth-limited subgraph:
+people with signed `depth` (negative up, positive down), unions with children in birth
+order, and edges marked `dashed` for adoptive and step relationships.
+
+Traversal uses **node-level BFS**, not a recursive CTE with a path guard. A CTE
+enumerates every distinct *path*, and genealogy is a DAG — two parents each, lines
+re-converging whenever cousins marry — so the path count grows exponentially with depth
+while the number of people does not. Measured on 100k people:
+
+| | before | after |
+|---|---|---|
+| default 3 up / 2 down (p95, cold) | 48 ms | **43 ms** |
+| max 8 up / 4 down (p95, cold) | 890 ms | **282 ms** |
+| lineage recompute over 100k | filled the disk | **3.7 s** |
+
+The depth-64 lineage job was the extreme case: it grew InnoDB's temporary tablespace to
+11 GB before failing. `GraphWalker` visits each node once instead.
+
+Everything is capped twice — by depth and by a node budget — and truncation drops the
+furthest generations first. Exceeding a cap is a `422` stating the limit, never a silent
+clamp that leaves the client believing it received everything.
+
+```bash
+php artisan genealogy:recompute-lineage    # generational depth from apical ancestors
+php artisan genealogy:seed-scale --people=100000   # local/testing only
+```
 
 ## Adding a relative
 

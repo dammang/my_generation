@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources\V1;
 
+use App\Enums\DatePrecision;
 use App\Models\Person;
 use App\Services\Privacy\FieldMask;
 use App\Services\Privacy\PersonVisibilityResolver;
@@ -23,6 +24,17 @@ use Illuminate\Http\Resources\MissingValue;
  */
 class PersonResource extends JsonResource
 {
+    private static ?PersonVisibilityResolver $resolver = null;
+
+    private static ?ViewerScope $viewer = null;
+
+    /** Cleared between requests by FlushRequestScopedState. */
+    public static function forgetRequestState(): void
+    {
+        self::$resolver = null;
+        self::$viewer = null;
+    }
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -104,35 +116,71 @@ class PersonResource extends JsonResource
         ];
     }
 
-    /** @return array<string, mixed>|null */
+    /**
+     * Built from the raw columns rather than the UncertainDate value object.
+     *
+     * A tree can carry several hundred people, and the model casts date columns
+     * to Carbon on access: constructing two Carbon instances per person purely
+     * to render a year dominated the response time on large trees. The value
+     * object is still the right abstraction everywhere a single record is
+     * examined; this is the one path where the volume justifies reading the
+     * columns directly.
+     *
+     * @return array<string, mixed>|null
+     */
     private function dateFacts(string $prefix, FieldMask $mask): ?array
     {
         if (! $mask->years) {
             return null;
         }
 
-        $fact = $this->dateFact($prefix);
+        $year = $this->getAttribute("{$prefix}_year");
 
-        if (! $fact->isKnown()) {
+        if ($year === null) {
             return null;
         }
+
+        $precision = $this->getAttribute("{$prefix}_date_precision");
+        $precision = $precision instanceof DatePrecision
+            ? $precision
+            : DatePrecision::tryFrom((string) $precision) ?? DatePrecision::Unknown;
 
         // Year-only when the viewer is not close enough for the exact date.
         if (! $mask->exactDates) {
             return [
-                'year' => $fact->year,
-                'display' => (string) $fact->year,
-                'precision' => 'year',
+                'year' => (int) $year,
+                'display' => (string) $year,
+                'precision' => DatePrecision::Year->value,
                 'date' => null,
             ];
         }
 
+        $raw = $this->getRawOriginal("{$prefix}_date");
+        $date = $raw === null ? null : substr((string) $raw, 0, 10);
+
         return [
-            'year' => $fact->year,
-            'display' => $fact->display(),
-            'precision' => $fact->precision->value,
-            'date' => $fact->date?->toDateString(),
+            'year' => (int) $year,
+            // The source's own wording wins: it is the primary evidence.
+            'display' => $this->getAttribute("{$prefix}_date_text")
+                ?? $this->formatDate($precision, $date, (int) $year),
+            'precision' => $precision->value,
+            'date' => $date,
         ];
+    }
+
+    /** Cheap formatting that avoids constructing a date object per person. */
+    private function formatDate(DatePrecision $precision, ?string $date, int $year): ?string
+    {
+        return match ($precision) {
+            DatePrecision::Exact => $date,
+            DatePrecision::Month => $date === null ? (string) $year : substr($date, 0, 7),
+            DatePrecision::Decade => $year.'s',
+            DatePrecision::About => 'abt. '.$year,
+            DatePrecision::Before => 'before '.$year,
+            DatePrecision::After => 'after '.$year,
+            DatePrecision::Unknown => null,
+            default => (string) $year,
+        };
     }
 
     private function photoUrl(): ?string
@@ -146,9 +194,11 @@ class PersonResource extends JsonResource
 
     private function mask(): FieldMask
     {
-        return app(PersonVisibilityResolver::class)->mask(
-            app(ViewerScope::class),
-            $this->resource,
-        );
+        // Resolved once per request: a large tree serialises hundreds of
+        // people, and two container lookups each is a cost with no benefit.
+        self::$resolver ??= app(PersonVisibilityResolver::class);
+        self::$viewer ??= app(ViewerScope::class);
+
+        return self::$resolver->mask(self::$viewer, $this->resource);
     }
 }

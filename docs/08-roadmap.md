@@ -10,7 +10,7 @@ Each phase ends with something runnable and tested. Nothing is merged as a TODO.
 | **4** ✅ | Sanctum auth, envelope, error handling, ViewerScope, policies | **Done.** Auth flows, one response envelope, six throttle buckets, ViewerScope + PermissionResolver + PersonVisibilityResolver, 10 policies, privacy pushed into SQL. 143 tests passing |
 | **5** ✅ | Tribe / Clan / Family Branch / Place / Generation API + scoped roles | **Done.** 45 routes; clans nest to any depth with re-parenting that repaths the scope spine; membership requests; role assignment with an escalation guard. 174 tests passing |
 | **6** ✅ | People, names, relationships, unions, `AddRelative`, integrity rules | **Done.** 62 routes. Add Father/Mother/Spouse/Son/Brother from one endpoint; cycles rejected with the offending path named; warnings returned alongside successful writes. 204 tests passing |
-| **7** | Tree API: traversal, depth caps, lineage, path-finder, caching, statistics | p95 < 200ms on a 100k-person seeded set; query-count budget test passes |
+| **7** ✅ | Tree API: traversal, depth caps, lineage, path-finder, caching, statistics | **Done.** Measured on 100,469 people / 200,918 edges: default depth p95 **43ms** cold, 13ms warm. Query-count budget test passes. 229 tests passing |
 | **8** | Filament admin: resources, relation managers, dashboard, verification queue, merge UI | An admin can review a change request and merge a duplicate end to end |
 | **9** | Flutter foundation: theme, routing, Dio, Drift, Riverpod, l10n | App builds on iOS + Android, hits `/auth/me` against local Laravel |
 | **10** | Flutter auth + onboarding (pick tribe/clan, claim profile) | Login persists across restart; token in secure storage |
