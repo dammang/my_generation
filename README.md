@@ -16,7 +16,8 @@ the schema.
 | 3 — Models, relations, observers, revision + edge projection | ✅ Complete |
 | 4 — Sanctum auth, API envelope, ViewerScope, policies | ✅ Complete |
 | 5 — Tribe / clan / family branch / place APIs, scoped roles | ✅ Complete |
-| 6 — People, names, relationships, unions, Add Relative | Next |
+| 6 — People, names, relationships, unions, Add Relative | ✅ Complete |
+| 7 — Tree API: traversal, lineage, caching, statistics | Next |
 
 ## Requirements
 
@@ -70,6 +71,43 @@ Domain behaviour is `.env`-driven through `config/genealogy.php`: traversal dept
 and node budgets, living-person inference, privacy defaults, the contribution trust
 ramp, duplicate-matching weights and the transliteration ruleset. None of it requires a
 code change to tune.
+
+## Adding a relative
+
+`POST /api/v1/people/{person}/relatives` takes a relationship label and does the rest.
+The contributor never learns that a union row exists:
+
+| Relation | What actually gets written |
+|---|---|
+| `father` / `mother` | Person; parent edge; **joins the child's existing union** if it has a free slot, else creates one |
+| `spouse` | Person; union, pair normalised, `order_index` assigned |
+| `son` / `daughter` | Person; parent edge for **each** partner; `union_children` row with birth order |
+| `brother` / `sister` | Person attached to the same parents — never a sibling row, unless the parents genuinely are not known |
+| `guardian` / `other` | A directed relationship of that type |
+
+All of it in one transaction. Ambiguity is refused rather than guessed: adding a child to
+someone with two marriages returns `422 UNION_AMBIGUOUS` listing the choices.
+
+## Two kinds of rule
+
+**Cycles are a hard error.** They make every traversal below them incorrect, not merely
+doubtful. The response names the offending path:
+
+> This relationship would create a loop: Thawng Dam → Hau Neng → Tun Khoi → Thawng Dam.
+
+**Everything else is a warning**, returned in `warnings[]` alongside a successful write.
+A child born 20 years after the father's death is recorded *and* flagged — refusing it
+would lose the record, and the transcription is more often wrong than the family.
+
+```json
+{ "success": true, "data": { … },
+  "warnings": [{ "code": "CHILD_BORN_AFTER_PARENT_DEATH",
+                 "message": "Born 1960, 20 years after Za Kam's recorded death. Please verify.",
+                 "field": "birth_date" }] }
+```
+
+Thresholds live in `config/genealogy.php`, because what counts as implausible differs by
+era and community.
 
 ## Belonging vs capability
 

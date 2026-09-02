@@ -33,13 +33,13 @@ class PersonFactory extends Factory
             : fake()->randomElement(NameCorpus::FEMALE_GIVEN);
 
         $second = fake()->randomElement(NameCorpus::SECOND_ELEMENT);
-        $displayName = "{$given} {$second}";
 
+        // display_name and sort_name are deliberately absent: PersonObserver
+        // composes them from the name parts. Pinning them here would make an
+        // overridden first_name silently disagree with the displayed name.
         return [
             'first_name' => $given,
             'last_name' => $second,
-            'display_name' => $displayName,
-            'sort_name' => mb_strtolower("{$second} {$given}"),
             'nickname' => fake()->boolean(15) ? $given : null,
             'gender' => $gender,
             'is_living' => true,

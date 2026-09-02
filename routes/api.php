@@ -10,8 +10,10 @@ use App\Http\Controllers\Api\V1\MembershipController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PersonController;
 use App\Http\Controllers\Api\V1\PlaceController;
+use App\Http\Controllers\Api\V1\RelationshipController;
 use App\Http\Controllers\Api\V1\ScopeRoleController;
 use App\Http\Controllers\Api\V1\TribeController;
+use App\Http\Controllers\Api\V1\UnionController;
 use App\Support\ApiResponse;
 use Illuminate\Support\Facades\Route;
 
@@ -57,6 +59,9 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
         Route::middleware('throttle:read')->group(function (): void {
             Route::get('people', [PersonController::class, 'index'])->name('people.index');
             Route::get('people/{person}', [PersonController::class, 'show'])->name('people.show');
+            Route::get('people/{person}/family', [PersonController::class, 'family'])->name('people.family');
+            Route::get('people/{person}/names', [PersonController::class, 'names'])->name('people.names');
+            Route::get('unions/{union}', [UnionController::class, 'show'])->name('unions.show');
 
             // ── Organisation ─────────────────────────────────────────────
             Route::get('tribes', [TribeController::class, 'index'])->name('tribes.index');
@@ -83,6 +88,28 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
         });
 
         Route::middleware('throttle:write')->group(function (): void {
+            // ── Genealogy ────────────────────────────────────────────────
+            Route::post('people', [PersonController::class, 'store'])->name('people.store');
+            Route::patch('people/{person}', [PersonController::class, 'update'])->name('people.update');
+            Route::delete('people/{person}', [PersonController::class, 'destroy'])->name('people.destroy');
+
+            // The guided flow: "Add Son" becomes a person, a union, two parent
+            // edges and a birth-order row, in one transaction.
+            Route::post('people/{person}/relatives', [PersonController::class, 'addRelative'])->name('people.relatives');
+
+            Route::post('people/{person}/names', [PersonController::class, 'storeName'])->name('people.names.store');
+            Route::delete('people/{person}/names/{person_name}', [PersonController::class, 'destroyName'])->name('people.names.destroy');
+
+            Route::post('relationships', [RelationshipController::class, 'store'])->name('relationships.store');
+            Route::patch('relationships/{relationship}', [RelationshipController::class, 'update'])->name('relationships.update');
+            Route::delete('relationships/{relationship}', [RelationshipController::class, 'destroy'])->name('relationships.destroy');
+
+            Route::post('unions', [UnionController::class, 'store'])->name('unions.store');
+            Route::patch('unions/{union}', [UnionController::class, 'update'])->name('unions.update');
+            Route::delete('unions/{union}', [UnionController::class, 'destroy'])->name('unions.destroy');
+            Route::post('unions/{union}/children', [UnionController::class, 'addChild'])->name('unions.children.store');
+            Route::delete('unions/{union}/children/{person}', [UnionController::class, 'removeChild'])->name('unions.children.destroy');
+
             Route::post('tribes', [TribeController::class, 'store'])->name('tribes.store');
             Route::patch('tribes/{tribe}', [TribeController::class, 'update'])->name('tribes.update');
             Route::delete('tribes/{tribe}', [TribeController::class, 'destroy'])->name('tribes.destroy');

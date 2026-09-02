@@ -15,9 +15,13 @@ namespace App\Exceptions;
  */
 class GenealogyRuleException extends ApiException
 {
+    /**
+     * Not named $code: Exception already declares a non-readonly $code, and a
+     * promoted readonly property of the same name is a fatal redeclaration.
+     */
     public function __construct(
         string $message,
-        private readonly string $code = 'GENEALOGY_RULE_VIOLATED',
+        private readonly string $errorCode = 'GENEALOGY_RULE_VIOLATED',
         array $errors = [],
     ) {
         parent::__construct($message);
@@ -31,6 +35,6 @@ class GenealogyRuleException extends ApiException
 
     public function errorCode(): string
     {
-        return $this->code;
+        return $this->errorCode;
     }
 }
