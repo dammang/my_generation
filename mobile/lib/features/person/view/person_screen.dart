@@ -3,17 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/errors/api_exception.dart';
+import '../../../models/change_request.dart';
 import '../../../models/person_detail.dart';
 import '../../../models/person_summary.dart';
 import '../../../providers/person_provider.dart';
+import '../../../providers/review_provider.dart';
 import '../../../providers/tree_provider.dart';
 import '../../../repositories/person_repository.dart';
 import '../../../routing/app_router.dart';
 import '../widgets/family_tab.dart';
+import '../widgets/history_tab.dart';
 import '../widgets/person_header.dart';
 import '../widgets/timeline_tab.dart';
 import 'add_event_screen.dart';
 import 'add_relative_screen.dart';
+import 'edit_person_screen.dart';
+import 'raise_dispute_screen.dart';
 
 /// One person, in full.
 ///
@@ -33,6 +38,7 @@ class PersonScreen extends ConsumerWidget {
   static int tabIndexFor(String? name) => switch (name) {
         'family' => 1,
         'timeline' => 2,
+        'history' => 3,
         _ => 0,
       };
 
@@ -66,7 +72,7 @@ class _Loaded extends ConsumerStatefulWidget {
 class _LoadedState extends ConsumerState<_Loaded>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(
-    length: 3,
+    length: 4,
     initialIndex: widget.initialTab,
     vsync: this,
   );
@@ -108,6 +114,27 @@ class _LoadedState extends ConsumerState<_Loaded>
     );
   }
 
+  Future<void> _edit() async {
+    final outcome = await Navigator.of(context).push<EditOutcome>(
+      MaterialPageRoute(builder: (_) => EditPersonScreen(detail: detail)),
+    );
+
+    if (outcome == null || !mounted) return;
+
+    showEditOutcome(context, outcome);
+  }
+
+  Future<void> _raiseDispute() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => RaiseDisputeScreen(
+          personUlid: detail.ulid,
+          personName: detail.displayName,
+        ),
+      ),
+    );
+  }
+
   Future<void> _addEvent() async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -142,6 +169,11 @@ class _LoadedState extends ConsumerState<_Loaded>
             title: Text(detail.displayName),
             actions: [
               IconButton(
+                tooltip: 'Correct this record',
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: _edit,
+              ),
+              IconButton(
                 tooltip: 'Show in the tree',
                 icon: const Icon(Icons.account_tree_outlined),
                 onPressed: _showInTree,
@@ -154,10 +186,13 @@ class _LoadedState extends ConsumerState<_Loaded>
             delegate: _TabBarHeader(
               TabBar(
                 controller: _tabs,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
                 tabs: const [
                   Tab(text: 'Overview'),
                   Tab(text: 'Family'),
                   Tab(text: 'Timeline'),
+                  Tab(text: 'History'),
                 ],
               ),
               Theme.of(context).colorScheme.surface,
@@ -189,6 +224,7 @@ class _LoadedState extends ConsumerState<_Loaded>
               data: (data) =>
                   TimelineTab(timeline: data, onAddEvent: _addEvent),
             ),
+            _HistoryPane(ulid: detail.ulid, onRaiseDispute: _raiseDispute),
           ],
         ),
       ),
@@ -207,6 +243,34 @@ class _LoadedState extends ConsumerState<_Loaded>
           ),
           _ => const SizedBox.shrink(),
         },
+      ),
+    );
+  }
+}
+
+/// History and disputes arrive separately; the tab needs both before it can
+/// tell "no changes" apart from "changes you may not see".
+class _HistoryPane extends ConsumerWidget {
+  const _HistoryPane({required this.ulid, required this.onRaiseDispute});
+
+  final String ulid;
+  final VoidCallback onRaiseDispute;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(historyProvider(ulid));
+    final disputes = ref.watch(disputesProvider(ulid));
+
+    return history.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => _Failure(
+        error: error,
+        onRetry: () => ref.invalidate(historyProvider(ulid)),
+      ),
+      data: (data) => HistoryTab(
+        history: data,
+        disputes: disputes.value ?? const [],
+        onRaiseDispute: onRaiseDispute,
       ),
     );
   }

@@ -32,6 +32,7 @@ use App\Models\Tribe;
 use App\Models\Union;
 use App\Models\UnionChild;
 use App\Models\User;
+use App\Observers\MembershipObserver;
 use App\Services\Privacy\ViewerScope;
 use App\Services\Privacy\ViewerScopeResolver;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -69,6 +70,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Membership::observe(MembershipObserver::class);
+
         // Catch N+1 access during development. The tree endpoint has a fixed
         // query budget, and a lazily loaded relation is the usual way that
         // budget quietly becomes unbounded.

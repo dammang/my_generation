@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\ChangeRequestController;
 use App\Http\Controllers\Api\V1\ClanController;
+use App\Http\Controllers\Api\V1\DisputeController;
 use App\Http\Controllers\Api\V1\FamilyBranchController;
 use App\Http\Controllers\Api\V1\GenerationController;
 use App\Http\Controllers\Api\V1\MembershipController;
@@ -13,6 +15,7 @@ use App\Http\Controllers\Api\V1\PersonEventController;
 use App\Http\Controllers\Api\V1\PlaceController;
 use App\Http\Controllers\Api\V1\ProfileClaimController;
 use App\Http\Controllers\Api\V1\RelationshipController;
+use App\Http\Controllers\Api\V1\RevisionController;
 use App\Http\Controllers\Api\V1\ScopeRoleController;
 use App\Http\Controllers\Api\V1\TreeController;
 use App\Http\Controllers\Api\V1\TribeController;
@@ -65,6 +68,19 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::get('people/{person}/family', [PersonController::class, 'family'])->name('people.family');
             Route::get('people/{person}/names', [PersonController::class, 'names'])->name('people.names');
             Route::get('people/{person}/timeline', [PersonEventController::class, 'timeline'])->name('people.timeline');
+            Route::get('people/{person}/revisions', [RevisionController::class, 'forPerson'])->name('people.revisions');
+            Route::get('people/{person}/disputes', [DisputeController::class, 'forPerson'])->name('people.disputes');
+            Route::post('people/{person}/verify', [PersonController::class, 'verify'])->name('people.verify');
+
+            // Review queue, both sides of it.
+            Route::get('change-requests', [ChangeRequestController::class, 'index'])->name('changes.index');
+            Route::get('change-requests/{change_request}', [ChangeRequestController::class, 'show'])->name('changes.show');
+            Route::post('change-requests/{change_request}/approve', [ChangeRequestController::class, 'approve'])->name('changes.approve');
+            Route::post('change-requests/{change_request}/reject', [ChangeRequestController::class, 'reject'])->name('changes.reject');
+            Route::post('change-requests/{change_request}/withdraw', [ChangeRequestController::class, 'withdraw'])->name('changes.withdraw');
+
+            Route::post('disputes', [DisputeController::class, 'store'])->name('disputes.store');
+            Route::post('disputes/{dispute}/resolve', [DisputeController::class, 'resolve'])->name('disputes.resolve');
             Route::get('event-types', [PersonEventController::class, 'types'])->name('event-types.index');
             Route::get('unions/{union}', [UnionController::class, 'show'])->name('unions.show');
 

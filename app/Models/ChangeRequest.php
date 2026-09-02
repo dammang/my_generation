@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * A proposed change. Verified genealogy is never silently overwritten.
@@ -94,6 +95,12 @@ class ChangeRequest extends Model
     public function scope(): BelongsTo
     {
         return $this->belongsTo(Scope::class);
+    }
+
+    /** The record the proposal is about — a person, a union, an event. */
+    public function target(): MorphTo
+    {
+        return $this->morphTo('target', 'target_type', 'target_id');
     }
 
     public function reviews(): HasMany

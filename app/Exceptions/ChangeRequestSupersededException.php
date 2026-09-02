@@ -32,4 +32,25 @@ class ChangeRequestSupersededException extends ApiException
     {
         return ['conflicts' => array_keys($this->conflicts)];
     }
+
+    /**
+     * The three-way diff, as data.
+     *
+     * Naming the conflicting fields is not enough to resolve a conflict: the
+     * reviewer needs to see what the record said when the proposal was filed
+     * and what it says now, side by side.
+     */
+    public function context(): array
+    {
+        return [
+            'conflicts' => array_map(
+                fn (string $field) => [
+                    'field' => $field,
+                    'was' => $this->conflicts[$field][0] ?? null,
+                    'now' => $this->conflicts[$field][1] ?? null,
+                ],
+                array_keys($this->conflicts),
+            ),
+        ];
+    }
 }

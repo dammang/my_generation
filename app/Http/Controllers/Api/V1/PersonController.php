@@ -10,6 +10,7 @@ use App\Actions\Verification\SubmitChangeRequest;
 use App\Enums\ChangeRequestOperation;
 use App\Enums\PersonNameType;
 use App\Enums\RelationshipSubtype;
+use App\Enums\VerificationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\AddRelativeRequest;
 use App\Http\Requests\V1\IndexPeopleRequest;
@@ -32,6 +33,7 @@ use App\Services\Verification\WriteGate;
 use App\Support\ApiResponse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
@@ -143,6 +145,9 @@ class PersonController extends Controller
                 operation: ChangeRequestOperation::Update,
                 target: $person,
                 payload: $attributes,
+                // Filed against the person's own scope, so a clan reviewer's
+                // queue contains their clan's proposals.
+                scope: $this->scopeFor($person),
                 reason: $reason,
             );
 
@@ -187,6 +192,43 @@ class PersonController extends Controller
      * Parents, spouses, children and siblings in one call — the person profile
      * needs all four, and four round trips on a phone is three too many.
      */
+    /**
+     * Marks a record as checked by somebody entitled to say so.
+     *
+     * Verification locks the record against direct edits: from here anyone
+     * without verify permission in this scope proposes rather than overwrites.
+     * That is the whole point of the status — it is a gate, not a badge.
+     */
+    public function verify(Request $request, Person $person): JsonResponse
+    {
+        $this->authorize('verify', $person);
+
+        $data = $request->validate([
+            'verified' => ['sometimes', 'boolean'],
+            'note' => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
+
+        $verifying = $data['verified'] ?? true;
+
+        $person->withRevisionContext(reason: $data['note'] ?? null);
+
+        $person->forceFill($verifying
+            ? [
+                'verification_status' => VerificationStatus::Verified,
+                'verified_by' => $request->user()->getKey(),
+                'verified_at' => now(),
+            ]
+            : [
+                'verification_status' => VerificationStatus::Unverified,
+                'verified_by' => null,
+                'verified_at' => null,
+            ])->save();
+
+        return ApiResponse::success(
+            PersonResource::make($person->fresh(['tribe:id,ulid,name', 'clan:id,ulid,name']))
+        );
+    }
+
     public function family(Person $person): JsonResponse
     {
         $this->authorize('view', $person);

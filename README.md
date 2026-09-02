@@ -23,7 +23,8 @@ the schema.
 | 10 — Flutter auth and onboarding | ✅ Complete |
 | 11 — Flutter tree: layout engine, canvas, expand, Go to Me | ✅ Complete |
 | 12 — Person profile, family tabs, timeline, Add Relative flow | ✅ Complete |
-| 13 — Contribution and verification UI | Next |
+| 13 — Contribution and verification UI | ✅ Complete |
+| 14 — Offline sync | Next |
 
 ## Requirements
 
@@ -118,6 +119,28 @@ than O(n²). Scores are normalised by the evidence actually available — the co
 duplicate is a record a second contributor added with no relatives attached yet, and
 scoring it against the full weight set would mean it never clears the threshold however
 exactly the name and dates agree.
+
+## Verification is a gate, not a badge
+
+Marking a record verified locks it against direct edits. From that point anyone
+without verify permission in that scope **proposes** rather than overwrites, and
+the same `PATCH` either applies or returns `202` with a change request. The
+client must not guess which: telling somebody "saved" when the change is waiting
+for review is the one thing that screen must never do, because they stop
+watching for the answer.
+
+Concurrency is handled without a lock across a human decision. The proposal
+carries a snapshot of the record as it was when filed; at approval time that is
+compared against the record now. One that moved is marked superseded and the
+reviewer gets the three-way diff — never a silent overwrite of whatever somebody
+else corrected in between.
+
+## Disagreement is a first-class act
+
+Opening a dispute records a competing value beside the existing one. Nothing is
+deleted: both the 1921 and the 1923 survive as claims, and settling records which
+was accepted and why. In a family archive the fact that a question was once open
+is itself worth keeping — and the answer can turn out to be wrong later.
 
 ## Refusals that lead somewhere
 

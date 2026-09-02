@@ -88,7 +88,8 @@ class PersonEventController extends Controller
         $contributions->increment($request->user(), 'events_added');
 
         return ApiResponse::created(
-            PersonEventResource::make($event->load(['eventType', 'place', 'fromPlace', 'toPlace']))
+            PersonEventResource::make($event->load(['eventType', 'place', 'fromPlace', 'toPlace'])),
+            warnings: $this->contradictionWarnings($person, $data['event_type']),
         );
     }
 
@@ -144,6 +145,33 @@ class PersonEventController extends Controller
                 'icon' => $type->icon,
             ])->all()
         );
+    }
+
+    /**
+     * A death recorded against somebody still marked living.
+     *
+     * The person's death date and their chronicle are separate records, so
+     * nothing stops the two disagreeing — and a profile reading "Living" above
+     * a timeline that ends in a funeral is the kind of contradiction that makes
+     * a family distrust the whole archive. A warning, not a refusal: the event
+     * is usually right and the flag is what needs updating.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function contradictionWarnings(Person $person, string $eventType): array
+    {
+        $endsALife = in_array($eventType, ['death', 'burial', 'memorial'], true);
+
+        if (! $endsALife || ! $person->is_living) {
+            return [];
+        }
+
+        return [[
+            'code' => 'DEATH_EVENT_FOR_LIVING_PERSON',
+            'message' => $person->display_name.' is still recorded as living. '
+                .'Add a date of death to the record so the two agree.',
+            'field' => 'is_living',
+        ]];
     }
 
     private function placeId(?string $ulid): ?int

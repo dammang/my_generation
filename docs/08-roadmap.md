@@ -16,7 +16,7 @@ Each phase ends with something runnable and tested. Nothing is merged as a TODO.
 | **10** ✅ | Flutter auth + onboarding (pick tribe/clan, claim profile) | **Done.** Register, sign in, password reset, join a tribe, claim a profile. Session survives restart. Laravel 274 tests; Flutter 33 + 7 contract tests |
 | **11** ✅ | Flutter tree: layout engine, canvas, cards, expand/collapse, Go to Me | **Done.** Rendered on the simulator against a 645-person seeded graph. Layout engine is a pure function with 21 unit tests; contract tests lay out a real response and assert no overlaps |
 | **12** ✅ | Flutter person profile, family tabs, timeline, Add Relative flow | **Done.** Verified on the simulator against the seeded graph. Timeline endpoints added server-side; the ambiguous-union refusal is recovered from in the UI rather than reported |
-| **13** | Contribution & verification UI (both sides) + revision history | Contributor submits, verifier approves, history shows the diff |
+| **13** ✅ | Contribution & verification UI (both sides) + revision history | **Done.** Verified end to end against the server: a contributor's edit to a verified record became a proposal, appeared in the reviewer's queue with its diff, and the record stayed untouched until decided |
 | **14** | Offline: Drift mirror, sync queue, idempotent batch, conflict surfacing | Airplane mode: browse cached tree, add a relative, sync on reconnect |
 | **15** | Tests, indexes, load testing at 1M rows, caching tuning, hardening | Load test passes; security review checklist clean |
 

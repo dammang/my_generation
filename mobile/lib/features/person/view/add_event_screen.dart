@@ -55,7 +55,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen> {
     });
 
     try {
-      await ref
+      final result = await ref
           .read(personRepositoryProvider)
           .addEvent(
             personUlid: widget.personUlid,
@@ -67,7 +67,37 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen> {
             date: _date.text.trim().isEmpty ? null : _date.text.trim(),
           );
 
-      ref.invalidate(timelineProvider(widget.personUlid));
+      // The person's own death date and their chronicle are separate records,
+      // so the server flags it when they end up disagreeing.
+      invalidatePerson(ref, widget.personUlid);
+
+      if (!mounted) return;
+
+      if (result.warnings.isNotEmpty) {
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Recorded, with something to check'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final warning in result.warnings)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(warning.message),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Got it'),
+              ),
+            ],
+          ),
+        );
+      }
 
       if (mounted) Navigator.of(context).pop(true);
     } on ApiException catch (error) {

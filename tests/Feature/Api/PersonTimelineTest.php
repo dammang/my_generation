@@ -128,6 +128,46 @@ class PersonTimelineTest extends TestCase
         $this->assertStringContainsString('1902', (string) $response->json('data.date_display'));
     }
 
+    public function test_recording_a_death_for_a_living_person_warns(): void
+    {
+        // The chronicle and the person's own death date are separate records,
+        // so they can disagree — and a profile that says "Living" above a
+        // timeline ending in a funeral makes the whole archive look careless.
+        $person = $this->person(['is_living' => true]);
+        $person->setUncertainDate('birth', '1980')->save();
+
+        $response = $this->actingAs($this->contributor())
+            ->postJson(route('api.v1.events.store'), [
+                'person_ulid' => $person->ulid,
+                'event_type' => 'death',
+                'date' => '2020',
+            ])
+            ->assertCreated();
+
+        $this->assertSame(
+            'DEATH_EVENT_FOR_LIVING_PERSON',
+            $response->json('warnings.0.code'),
+        );
+
+        // A warning, not a refusal: the event is kept.
+        $this->assertDatabaseCount('person_events', 1);
+    }
+
+    public function test_recording_a_death_for_a_deceased_person_does_not_warn(): void
+    {
+        $person = $this->person(['is_living' => false]);
+        $person->setUncertainDate('death', '1998')->save();
+
+        $this->actingAs($this->contributor())
+            ->postJson(route('api.v1.events.store'), [
+                'person_ulid' => $person->ulid,
+                'event_type' => 'death',
+                'date' => '1998',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('warnings', []);
+    }
+
     public function test_the_event_vocabulary_is_listed(): void
     {
         $slugs = $this->actingAs($this->contributor())

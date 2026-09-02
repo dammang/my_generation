@@ -45,6 +45,20 @@ trait ResolvesScopePath
         return null;
     }
 
+    /**
+     * The scope record itself, for writes that must remember where they belong.
+     *
+     * A change request filed without a scope can only ever be reviewed by
+     * somebody with tribe-wide authority — a clan's reviewer would open an
+     * empty queue and conclude the feature was broken.
+     */
+    protected function scopeFor(Model $record): ?Scope
+    {
+        $path = $this->scopePathFor($record);
+
+        return $path === null ? null : Scope::where('path', $path)->first();
+    }
+
     private function lookupScopePath(string $type, int $id): ?string
     {
         $key = "{$type}:{$id}";

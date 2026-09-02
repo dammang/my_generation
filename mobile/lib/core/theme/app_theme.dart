@@ -64,7 +64,12 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           // A comfortable target for an unsteady hand.
-          minimumSize: const Size.fromHeight(52),
+          //
+          // Height only. Size.fromHeight sets the width to double.infinity,
+          // which makes every filled button in the app demand infinite width:
+          // fine inside a form, where the list forces full width anyway, but
+          // it makes the same button assert the moment it sits in a row.
+          minimumSize: const Size(0, 52),
           textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),

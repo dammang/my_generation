@@ -77,7 +77,11 @@ class PersonRepository {
         .toList(growable: false);
   }
 
-  Future<PersonEvent> addEvent({
+  /// A recorded event, and any doubt the server attached to it.
+  ///
+  /// Recording a death for somebody still marked living succeeds and warns —
+  /// the event is almost always right and the flag is what needs updating.
+  Future<({PersonEvent event, List<ApiWarning> warnings})> addEvent({
     required String personUlid,
     required String eventType,
     String? title,
@@ -96,7 +100,10 @@ class PersonRepository {
       parse: (data) => (data as Map).cast<String, dynamic>(),
     );
 
-    return PersonEvent.fromJson(envelope.data!);
+    return (
+      event: PersonEvent.fromJson(envelope.data!),
+      warnings: envelope.warnings,
+    );
   }
 
   /// Adds a relative of [anchorUlid] and returns whatever the server made of it.

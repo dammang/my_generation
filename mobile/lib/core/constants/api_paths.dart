@@ -30,6 +30,20 @@ class ApiPaths {
   static String personRelatives(String ulid) => '$prefix/people/$ulid/relatives';
   static String personTimeline(String ulid) => '$prefix/people/$ulid/timeline';
 
+  static String personRevisions(String ulid) => '$prefix/people/$ulid/revisions';
+  static String personDisputes(String ulid) => '$prefix/people/$ulid/disputes';
+  static String personVerify(String ulid) => '$prefix/people/$ulid/verify';
+
+  // Review
+  static const String changeRequests = '$prefix/change-requests';
+  static String changeRequest(String ulid) => '$prefix/change-requests/$ulid';
+  static String approveChange(String ulid) => '$prefix/change-requests/$ulid/approve';
+  static String rejectChange(String ulid) => '$prefix/change-requests/$ulid/reject';
+  static String withdrawChange(String ulid) => '$prefix/change-requests/$ulid/withdraw';
+
+  static const String disputes = '$prefix/disputes';
+  static String resolveDispute(String ulid) => '$prefix/disputes/$ulid/resolve';
+
   // Chronicle
   static const String personEvents = '$prefix/person-events';
   static const String eventTypes = '$prefix/event-types';
