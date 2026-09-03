@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_generation/core/errors/api_exception.dart';
 import 'package:my_generation/core/network/api_envelope.dart';
@@ -7,10 +8,11 @@ import 'package:my_generation/models/person_summary.dart';
 void main() {
   group('ApiEnvelope', () {
     test('parses a successful response with no warnings', () {
-      final envelope = ApiEnvelope.fromJson<Map<String, dynamic>>(
-        {'success': true, 'data': {'ulid': 'X'}, 'warnings': []},
-        (data) => (data as Map).cast<String, dynamic>(),
-      );
+      final envelope = ApiEnvelope.fromJson<Map<String, dynamic>>({
+        'success': true,
+        'data': {'ulid': 'X'},
+        'warnings': [],
+      }, (data) => (data as Map).cast<String, dynamic>());
 
       expect(envelope.success, isTrue);
       expect(envelope.data!['ulid'], 'X');
@@ -20,20 +22,17 @@ void main() {
     test('carries warnings alongside a successful write', () {
       // Genealogy writes routinely succeed and carry doubt; the client must
       // never treat a warning as a failure.
-      final envelope = ApiEnvelope.fromJson<Map<String, dynamic>>(
-        {
-          'success': true,
-          'data': <String, dynamic>{},
-          'warnings': [
-            {
-              'code': 'CHILD_BORN_AFTER_PARENT_DEATH',
-              'message': "Born 20 years after Za Kam's recorded death.",
-              'field': 'birth_date',
-            }
-          ],
-        },
-        (data) => (data as Map).cast<String, dynamic>(),
-      );
+      final envelope = ApiEnvelope.fromJson<Map<String, dynamic>>({
+        'success': true,
+        'data': <String, dynamic>{},
+        'warnings': [
+          {
+            'code': 'CHILD_BORN_AFTER_PARENT_DEATH',
+            'message': "Born 20 years after Za Kam's recorded death.",
+            'field': 'birth_date',
+          },
+        ],
+      }, (data) => (data as Map).cast<String, dynamic>());
 
       expect(envelope.success, isTrue);
       expect(envelope.warnings.single.code, 'CHILD_BORN_AFTER_PARENT_DEATH');
@@ -41,14 +40,11 @@ void main() {
     });
 
     test('reads cursor pagination meta', () {
-      final envelope = ApiEnvelope.fromJson<List<dynamic>>(
-        {
-          'success': true,
-          'data': [],
-          'meta': {'per_page': 25, 'next_cursor': 'abc', 'has_more': true},
-        },
-        (data) => data as List<dynamic>,
-      );
+      final envelope = ApiEnvelope.fromJson<List<dynamic>>({
+        'success': true,
+        'data': [],
+        'meta': {'per_page': 25, 'next_cursor': 'abc', 'has_more': true},
+      }, (data) => data as List<dynamic>);
 
       expect(envelope.meta['next_cursor'], 'abc');
       expect(envelope.meta['has_more'], isTrue);
@@ -61,7 +57,9 @@ void main() {
         message: 'The given data was invalid.',
         statusCode: 422,
         code: 'VALIDATION_FAILED',
-        errors: {'email': ['These credentials do not match our records.']},
+        errors: {
+          'email': ['These credentials do not match our records.'],
+        },
       );
 
       expect(error.isValidation, isTrue);
@@ -75,6 +73,42 @@ void main() {
       expect(const ApiException(message: '', statusCode: 429).isThrottled, isTrue);
       // No status at all means the request never reached the server.
       expect(const ApiException(message: '').isOffline, isTrue);
+    });
+
+    test('a server fault is not repeated to the person holding the phone', () {
+      // What the misconfigured server actually returned during a real run.
+      final error = ApiException.fromDio(
+        DioException(
+          requestOptions: RequestOptions(path: '/api/v1/auth/firebase'),
+          response: Response(
+            requestOptions: RequestOptions(path: '/api/v1/auth/firebase'),
+            statusCode: 500,
+            data: const {'message': 'Unable to create an API client without credentials'},
+          ),
+        ),
+      );
+
+      expect(error.message, isNot(contains('API client')));
+      expect(error.message, 'Something went wrong on our end. Please try again in a moment.');
+      // Still recoverable for whoever has to fix the server.
+      expect(error.serverDetail, 'Unable to create an API client without credentials');
+      expect(error.toString(), contains('Unable to create an API client'));
+    });
+
+    test('a 4xx message is shown as written, because it is for the reader', () {
+      final error = ApiException.fromDio(
+        DioException(
+          requestOptions: RequestOptions(path: '/api/v1/auth/login'),
+          response: Response(
+            requestOptions: RequestOptions(path: '/api/v1/auth/login'),
+            statusCode: 422,
+            data: const {'message': 'That email is already registered.'},
+          ),
+        ),
+      );
+
+      expect(error.message, 'That email is already registered.');
+      expect(error.serverDetail, isNull);
     });
   });
 
@@ -144,8 +178,12 @@ void main() {
     test('reads tree depth as a signed layer', () {
       expect(
         PersonSummary.fromJson({
-          'ulid': 'X', 'display_name': 'A', 'gender': 'male',
-          'is_living': false, 'redacted': false, 'depth': -2,
+          'ulid': 'X',
+          'display_name': 'A',
+          'gender': 'male',
+          'is_living': false,
+          'redacted': false,
+          'depth': -2,
         }).depth,
         -2,
       );
@@ -163,7 +201,11 @@ void main() {
         'email_verified': true,
         'is_super_admin': false,
         'permissions': ['people.view', 'people.create'],
-        'scopes': {'tribe_ids': [1], 'clan_ids': [3, 4], 'branch_ids': []},
+        'scopes': {
+          'tribe_ids': [1],
+          'clan_ids': [3, 4],
+          'branch_ids': [],
+        },
         'person': null,
       });
 
@@ -177,8 +219,12 @@ void main() {
 
     test('a super admin can do anything without listing it', () {
       final user = ApiUser.fromJson({
-        'ulid': '01HU', 'name': 'Admin', 'email': 'a@b.c',
-        'is_super_admin': true, 'permissions': <String>[], 'scopes': <String, dynamic>{},
+        'ulid': '01HU',
+        'name': 'Admin',
+        'email': 'a@b.c',
+        'is_super_admin': true,
+        'permissions': <String>[],
+        'scopes': <String, dynamic>{},
       });
 
       expect(user.can('anything.at.all'), isTrue);

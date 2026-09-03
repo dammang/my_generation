@@ -4,4 +4,12 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Lets a debug build reach a dev server over plain http, for the named
+         hosts in that config and nothing else. This manifest is merged only
+         into debug builds, so release keeps the platform default. -->
+    <application
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:replace="android:networkSecurityConfig"
+        xmlns:tools="http://schemas.android.com/tools" />
 </manifest>

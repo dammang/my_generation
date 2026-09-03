@@ -7,7 +7,7 @@
       not, and it is the cache that carries the records.
     -->
     <application
-        android:label="my_generation"
+        android:label="My Generation"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
