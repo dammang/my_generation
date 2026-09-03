@@ -9,6 +9,7 @@ use App\Models\Membership;
 use App\Models\Scope;
 use App\Models\Tribe;
 use App\Models\User;
+use App\Notifications\MembershipDecided;
 use App\Notifications\MembershipRequestAwaitingReview;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -150,6 +151,92 @@ class MembershipNotificationTest extends TestCase
         $this->assertDatabaseHas('notifications', [
             'notifiable_id' => $admin->id,
             'type' => MembershipRequestAwaitingReview::class,
+        ]);
+    }
+
+    /** A pending membership, without going through RequestMembership's own request. */
+    private function pendingApplicant(): User
+    {
+        $applicant = User::factory()->create();
+        $scope = Scope::where('scopeable_type', 'tribe')
+            ->where('scopeable_id', $this->tribe->id)
+            ->firstOrFail();
+
+        Membership::create([
+            'user_id' => $applicant->id,
+            'scope_id' => $scope->id,
+            'status' => MembershipStatus::Pending,
+        ]);
+
+        return $applicant;
+    }
+
+    public function test_approving_tells_the_applicant_they_are_in(): void
+    {
+        Notification::fake();
+
+        $admin = $this->memberWithRole('tribe-admin');
+        $applicant = $this->pendingApplicant();
+        $membership = Membership::where('user_id', $applicant->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->postJson(route('api.v1.memberships.approve', $membership))
+            ->assertOk();
+
+        Notification::assertSentTo(
+            $applicant,
+            MembershipDecided::class,
+            fn (MembershipDecided $n) => $n->toFcm($applicant)['title'] === 'Request approved',
+        );
+    }
+
+    public function test_rejecting_tells_the_applicant_it_was_not_approved(): void
+    {
+        Notification::fake();
+
+        $admin = $this->memberWithRole('tribe-admin');
+        $applicant = $this->pendingApplicant();
+        $membership = Membership::where('user_id', $applicant->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->postJson(route('api.v1.memberships.reject', $membership))
+            ->assertOk();
+
+        Notification::assertSentTo(
+            $applicant,
+            MembershipDecided::class,
+            fn (MembershipDecided $n) => $n->toFcm($applicant)['title'] === 'Request not approved',
+        );
+    }
+
+    public function test_the_administrator_who_decided_is_not_told_about_their_own_decision(): void
+    {
+        Notification::fake();
+
+        $admin = $this->memberWithRole('tribe-admin');
+        $applicant = $this->pendingApplicant();
+        $membership = Membership::where('user_id', $applicant->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->postJson(route('api.v1.memberships.approve', $membership))
+            ->assertOk();
+
+        Notification::assertNotSentTo($admin, MembershipDecided::class);
+    }
+
+    public function test_the_decision_is_recorded_even_without_a_device(): void
+    {
+        $admin = $this->memberWithRole('tribe-admin');
+        $applicant = $this->pendingApplicant();
+        $membership = Membership::where('user_id', $applicant->id)->firstOrFail();
+
+        $this->actingAs($admin)
+            ->postJson(route('api.v1.memberships.approve', $membership))
+            ->assertOk();
+
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $applicant->id,
+            'type' => MembershipDecided::class,
         ]);
     }
 }

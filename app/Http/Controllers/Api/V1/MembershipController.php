@@ -12,6 +12,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\StoreMembershipRequest;
 use App\Http\Resources\V1\MembershipResource;
 use App\Models\Membership;
+use App\Notifications\MembershipDecided;
 use App\Services\Permissions\PermissionResolver;
 use App\Services\Permissions\ScopeLocator;
 use App\Services\Privacy\ViewerScopeResolver;
@@ -92,20 +93,22 @@ class MembershipController extends Controller
 
     public function approve(Request $request, Membership $membership, DecideMembership $action): JsonResponse
     {
-        $membership->loadMissing('scope');
+        $membership->loadMissing('scope', 'user');
         $this->assertAdministers($request, $membership->scope->path);
 
         $action->handle($membership, MembershipStatus::Active, $request->user());
+        $membership->user?->notify(new MembershipDecided($membership));
 
         return ApiResponse::success(MembershipResource::make($membership->load('scope.scopeable', 'user:id,ulid,name')));
     }
 
     public function reject(Request $request, Membership $membership, DecideMembership $action): JsonResponse
     {
-        $membership->loadMissing('scope');
+        $membership->loadMissing('scope', 'user');
         $this->assertAdministers($request, $membership->scope->path);
 
         $action->handle($membership, MembershipStatus::Rejected, $request->user());
+        $membership->user?->notify(new MembershipDecided($membership));
 
         return ApiResponse::success(MembershipResource::make($membership->load('scope.scopeable', 'user:id,ulid,name')));
     }
