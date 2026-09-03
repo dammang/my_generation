@@ -603,11 +603,17 @@ review notifications are never delivered without one:
 # /etc/systemd/system/khanggui-worker.service
 [Unit]
 Description=khanggui.com queue worker
-After=network.target
+After=network.target mysql.service
 
 [Service]
-User=khanggui
+# Not `khanggui` — the site user CyberPanel actually created. Confirmed with
+# `stat -c '%U' /home/khanggui.com`; a wrong name here fails to start with
+# "No such user" and nothing points at why.
+User=khang6168
+Group=nogroup
+WorkingDirectory=/home/khanggui.com/public_html
 Restart=always
+RestartSec=5
 ExecStart=/usr/local/lsws/lsphp84/bin/php /home/khanggui.com/public_html/artisan \
     queue:work --sleep=3 --tries=3 --max-time=3600
 
@@ -616,7 +622,19 @@ WantedBy=multi-user.target
 ```
 
 ```sh
+systemctl daemon-reload
 systemctl enable --now khanggui-worker
+systemctl status khanggui-worker --no-pager
+```
+
+The `--max-time=3600` means the worker exits cleanly every hour, and `Restart=always`
+is what brings it back — the pairing matters more than either half alone. Without
+the restart, an hour in, the worker is just gone.
+
+Confirm it actually applies the release it started with by watching the log:
+
+```sh
+journalctl -u khanggui-worker -f
 ```
 
 **The scheduler**, as a cron entry for the site user. It prunes the idempotency
