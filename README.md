@@ -518,6 +518,20 @@ git fetch origin master
 git checkout -f -b master origin/master
 ```
 
+Node is not on a CyberPanel box and `apt install nodejs` is a trap: Vite 8
+requires `^20.19 || >=22.12`, and the distribution package is older than that.
+The build fails on a syntax error in Vite's own source, which reads like a
+broken dependency rather than an old runtime:
+
+```sh
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt install -y nodejs
+node -v          # v22.x
+```
+
+Composer and `lsphp84` are already there — `/usr/bin/composer` and
+`/usr/local/lsws/lsphp84/bin/php`, which reported 8.4.22.
+
 Then the one-time application setup:
 
 ```sh
