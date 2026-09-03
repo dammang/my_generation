@@ -21,6 +21,14 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "9.0.1" apply false
     id("org.jetbrains.kotlin.android") version "2.3.20" apply false
+
+    // Reads google-services.json at build time. Without it that file is inert
+    // and Firebase has no project to initialise against on Android.
+    id("com.google.gms.google-services") version "4.4.2" apply false
+
+    // Uploads the mapping file so a release stack trace is readable rather than
+    // a list of obfuscated single letters.
+    id("com.google.firebase.crashlytics") version "3.0.2" apply false
 }
 
 include(":app")

@@ -32,6 +32,17 @@ class _FakeAuthRepository implements AuthRepository {
   Future<ApiUser?> cachedAccount() async => remembered;
 
   @override
+  Future<ApiUser> exchangeFirebaseToken({
+    required String idToken,
+    String? locale,
+    String deviceName = 'mobile',
+  }) async {
+    if (error != null) throw error!;
+
+    return user!;
+  }
+
+  @override
   Future<ApiUser> me() async {
     meCalls++;
     if (error != null) throw error!;
@@ -133,6 +144,24 @@ void main() {
     final state = container.read(authProvider);
     expect(state, isA<AuthSignedOut>());
     expect((state as AuthSignedOut).message, contains('session has ended'));
+  });
+
+  test('signing out succeeds even when Firebase is unreachable', () async {
+    // Firebase is not initialised in a test, so every call into it throws —
+    // which is exactly the situation this must survive. Somebody pressing sign
+    // out on a shared phone has to end up signed out whether or not a third
+    // party is reachable.
+    final repository = _FakeAuthRepository(token: 'stored', user: _user());
+    final container = _containerWith(repository);
+    addTearDown(container.dispose);
+
+    await container.read(authProvider.notifier).restore();
+    expect(container.read(authProvider), isA<AuthSignedIn>());
+
+    await container.read(authProvider.notifier).signOut();
+
+    expect(container.read(authProvider), isA<AuthSignedOut>());
+    expect(repository.loggedOut, isTrue);
   });
 
   test('a remembered account opens the app offline', () async {

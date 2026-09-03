@@ -27,10 +27,20 @@ Homestead.yaml
 Thumbs.db
 
 # Firebase service account credentials. This file is full administrative access
-# to the Firebase project — it can mint tokens for any user and read every
+# to the Firebase project — it can mint a token for any user and read every
 # document. It belongs outside the repository, and never in a commit.
 *service-account*.json
 firebase-adminsdk-*.json
 /storage/firebase/
-google-services.json
-GoogleService-Info.plist
+
+# google-services.json and GoogleService-Info.plist are deliberately NOT ignored.
+#
+# They hold client identifiers, not secrets: they ship inside every installed
+# copy of the app, and anyone can read them out of an APK. Ignoring them would
+# also be self-deception here, because firebase_options.dart carries the same
+# values and is tracked — while the app would stop building for anyone who
+# cloned the repository.
+#
+# What actually protects the project is the restriction attached to each key —
+# package name plus signing certificate on Android, bundle id on iOS — set in
+# the Google Cloud console. That is the control worth checking.

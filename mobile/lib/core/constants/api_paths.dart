@@ -16,6 +16,8 @@ class ApiPaths {
   // Auth
   static const String register = '$prefix/auth/register';
   static const String login = '$prefix/auth/login';
+  static const String firebaseExchange = '$prefix/auth/firebase';
+  static const String devices = '$prefix/devices';
   static const String logout = '$prefix/auth/logout';
   static const String me = '$prefix/auth/me';
   static const String profile = '$prefix/auth/profile';

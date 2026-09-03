@@ -38,6 +38,29 @@ class AuthRepository {
     return _persist(envelope.data!);
   }
 
+  /// Trades a verified Firebase identity for a session here.
+  ///
+  /// The ID token is used once and not stored. What comes back is the same
+  /// Sanctum token every other call already uses, which is what keeps the
+  /// permission model, the scopes and the offline queue working unchanged.
+  Future<ApiUser> exchangeFirebaseToken({
+    required String idToken,
+    String? locale,
+    String deviceName = 'mobile',
+  }) async {
+    final envelope = await _api.post<Map<String, dynamic>>(
+      ApiPaths.firebaseExchange,
+      body: {
+        'id_token': idToken,
+        'locale': ?locale,
+        'device_name': deviceName,
+      },
+      parse: (data) => (data as Map).cast<String, dynamic>(),
+    );
+
+    return _persist(envelope.data!);
+  }
+
   Future<ApiUser> register({
     required String name,
     required String email,

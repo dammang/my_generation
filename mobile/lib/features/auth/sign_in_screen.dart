@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/errors/api_exception.dart';
+import '../../providers/app_providers.dart';
+import '../../services/firebase_sign_in_service.dart';
 import '../../routing/app_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_logo.dart';
@@ -45,16 +47,42 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     });
 
     try {
-      await ref.read(authProvider.notifier).signIn(
+      await ref.read(authProvider.notifier).signInWithFirebasePassword(
             email: _email.text.trim(),
             password: _password.text,
           );
+    } on SignInFailure catch (failure) {
+      // Firebase answers a wrong password and an unknown address the same way,
+      // so this cannot be used to discover who has an account.
+      if (mounted && !failure.cancelled) {
+        setState(() => _error = failure.message);
+      }
     } on ApiException catch (error) {
-      // The server returns one message for a wrong password and an unknown
-      // address alike, so this cannot be used to discover who has an account.
       if (mounted) {
         setState(() => _error = error.errorFor('email') ?? error.message);
       }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Google and Apple. Both end in the same exchange as a password sign-in.
+  Future<void> _withProvider(Future<void> Function() signIn) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    try {
+      await signIn();
+    } on SignInFailure catch (failure) {
+      // Closing the sheet is not an error, and reporting it as one makes the
+      // app look broken when nothing went wrong.
+      if (mounted && !failure.cancelled) {
+        setState(() => _error = failure.message);
+      }
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -132,6 +160,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     ],
 
                     const SizedBox(height: 28),
+                    _ProviderButtons(
+                      busy: _busy,
+                      onGoogle: () => _withProvider(
+                        ref.read(authProvider.notifier).signInWithGoogle,
+                      ),
+                      onApple: () => _withProvider(
+                        ref.read(authProvider.notifier).signInWithApple,
+                      ),
+                      appleAvailable: ref.read(firebaseSignInProvider).appleAvailable,
+                    ),
+                    const _OrDivider(),
                     FilledButton(
                       onPressed: _busy ? null : _submit,
                       child: _busy
@@ -185,6 +224,82 @@ class _Banner extends StatelessWidget {
       child: Text(
         message,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: tone),
+      ),
+    );
+  }
+}
+
+/// Google and Apple, above the password fields.
+///
+/// Apple only appears on iOS. Offering it on Android would present a sign-in
+/// that cannot complete, and Apple requires it alongside Google on iOS anyway.
+class _ProviderButtons extends StatelessWidget {
+  const _ProviderButtons({
+    required this.busy,
+    required this.onGoogle,
+    required this.onApple,
+    required this.appleAvailable,
+  });
+
+  final bool busy;
+  final VoidCallback onGoogle;
+  final VoidCallback onApple;
+  final bool appleAvailable;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        OutlinedButton.icon(
+          onPressed: busy ? null : onGoogle,
+          icon: const Icon(Icons.g_mobiledata, size: 28),
+          label: const Text('Continue with Google'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+          ),
+        ),
+        if (appleAvailable) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: busy ? null : onApple,
+            icon: const Icon(Icons.apple, size: 24),
+            label: const Text('Continue with Apple'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              foregroundColor: theme.colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _OrDivider extends StatelessWidget {
+  const _OrDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Row(
+        children: [
+          const Expanded(child: Divider()),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              'or use an email address',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const Expanded(child: Divider()),
+        ],
       ),
     );
   }

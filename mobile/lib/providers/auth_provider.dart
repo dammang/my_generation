@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,7 @@ import '../config/env.dart';
 import '../core/errors/api_exception.dart';
 import '../models/api_user.dart';
 import '../repositories/auth_repository.dart';
+import '../services/firebase_sign_in_service.dart';
 import 'app_providers.dart';
 
 /// Where the app is, as far as the account is concerned.
@@ -92,6 +95,56 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  FirebaseSignInService get _firebase => ref.read(firebaseSignInProvider);
+
+  /// Signs in with Google, then exchanges the result for a session here.
+  Future<void> signInWithGoogle() => _exchange(_firebase.withGoogle());
+
+  Future<void> signInWithApple() => _exchange(_firebase.withApple());
+
+  Future<void> signInWithFirebasePassword({
+    required String email,
+    required String password,
+  }) =>
+      _exchange(_firebase.withPassword(email: email, password: password));
+
+  Future<void> registerWithFirebase({
+    required String name,
+    required String email,
+    required String password,
+  }) =>
+      _exchange(_firebase.registerWithPassword(
+        name: name,
+        email: email,
+        password: password,
+      ));
+
+  Future<void> _exchange(Future<String> idToken) async {
+    final token = await idToken;
+
+    state = AuthSignedIn(
+      await _repository.exchangeFirebaseToken(
+        idToken: token,
+        locale: PlatformDispatcher.instance.locale.languageCode,
+      ),
+    );
+
+    // Asked for now rather than on first launch: somebody who has just joined
+    // their family's archive has a reason to say yes, and on iOS the question
+    // is only ever asked once.
+    unawaited(_registerForPush());
+  }
+
+  Future<void> _registerForPush() async {
+    try {
+      await ref.read(pushServiceProvider).register();
+    } catch (error) {
+      // Never surface this. Somebody has just signed in successfully; a push
+      // registration that did not take is not their problem to solve.
+      if (kDebugMode) debugPrint('Push registration failed: $error');
+    }
+  }
+
   Future<void> signIn({required String email, required String password}) async {
     state = AuthSignedIn(await _repository.login(email: email, password: password));
   }
@@ -102,6 +155,26 @@ class AuthNotifier extends Notifier<AuthState> {
   void adopt(ApiUser user) => state = AuthSignedIn(user);
 
   Future<void> signOut() async {
+    // Before the token goes: the next person to hold this phone must not
+    // receive notifications about a family they have nothing to do with.
+    try {
+      await ref.read(pushServiceProvider).unregister();
+    } catch (error) {
+      if (kDebugMode) debugPrint('Could not unregister this device: $error');
+    }
+
+    // Two sessions, ended together. Leaving the Firebase one behind means the
+    // next sign-in silently reuses the previous account without asking.
+    //
+    // Guarded, like everything else touching Firebase: somebody pressing sign
+    // out on a shared phone must end up signed out whether or not a third
+    // party is reachable. Local state is cleared below regardless.
+    try {
+      await _firebase.signOut();
+    } catch (error) {
+      if (kDebugMode) debugPrint('Firebase sign-out failed: $error');
+    }
+
     await _repository.logout();
     state = const AuthSignedOut();
   }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "665433621724",
+    "project_id": "my-generation-76b6c",
+    "storage_bucket": "my-generation-76b6c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:665433621724:android:f04a028e4671d5105b2019",
+        "android_client_info": {
+          "package_name": "com.khanggui"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUUnbgcXEa_mStyGeJhtVQkKGJ-rnsafA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

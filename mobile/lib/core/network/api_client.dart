@@ -75,8 +75,11 @@ class ApiClient {
   }) =>
       _send(() => _dio.patch(path, data: body), parse);
 
-  Future<ApiEnvelope<void>> delete(String path) =>
-      _send(() => _dio.delete(path), (_) {});
+  /// A body is allowed here because some deletions identify their target by
+  /// something that must not appear in a URL — a device registration token is
+  /// a device identifier, and URLs end up in proxy logs and browser history.
+  Future<ApiEnvelope<void>> delete(String path, {Map<String, dynamic>? body}) =>
+      _send(() => _dio.delete(path, data: body), (_) {});
 
   Future<ApiEnvelope<T>> _send<T>(
     Future<Response<dynamic>> Function() request,

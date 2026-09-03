@@ -6,6 +6,9 @@ import '../core/network/auth_interceptor.dart';
 import '../database/app_database.dart';
 import '../database/tree_cache_dao.dart';
 import '../repositories/auth_repository.dart';
+import '../services/analytics_service.dart';
+import '../services/firebase_sign_in_service.dart';
+import '../services/push_service.dart';
 import '../repositories/sync_queue_repository.dart';
 import '../services/secure_storage_service.dart';
 
@@ -63,6 +66,18 @@ final syncQueueProvider = Provider<SyncQueueRepository>((ref) {
     ref.watch(appDatabaseProvider),
     ref.watch(apiClientProvider),
   );
+});
+
+final pushServiceProvider = Provider<PushService>((ref) {
+  return PushService(ref.watch(apiClientProvider));
+});
+
+final analyticsProvider = Provider<AnalyticsService>((ref) {
+  return AnalyticsService();
+});
+
+final firebaseSignInProvider = Provider<FirebaseSignInService>((ref) {
+  return FirebaseSignInService();
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
