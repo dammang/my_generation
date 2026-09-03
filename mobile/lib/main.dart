@@ -8,13 +8,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'firebase_options.dart';
+import 'routing/app_router.dart';
+import 'services/push_navigation_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await _startFirebase();
+  // Built explicitly, rather than letting ProviderScope create one implicitly,
+  // because PushNavigationService needs the same GoRouter instance the app
+  // renders with — reading routerProvider from this container is what lets a
+  // notification tap navigate through the app's actual router, redirect logic
+  // and all, instead of a second one built just for this purpose.
+  final container = ProviderContainer();
 
-  runApp(const ProviderScope(child: MyGenerationApp()));
+  await _startFirebase(container);
+
+  runApp(UncontrolledProviderScope(container: container, child: const MyGenerationApp()));
 }
 
 /// Brings Firebase up, and never lets its absence stop the app.
@@ -23,11 +32,9 @@ Future<void> main() async {
 /// outage — none of those should present as an app that will not open. The
 /// archive already on the device is readable without any of this, and the
 /// sign-in screen can say what is wrong far better than a blank screen can.
-Future<void> _startFirebase() async {
+Future<void> _startFirebase(ProviderContainer container) async {
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   } catch (error, stack) {
     debugPrint('Firebase did not start: $error');
     debugPrintStack(stackTrace: stack);
@@ -56,4 +63,10 @@ Future<void> _startFirebase() async {
 
     return true;
   };
+
+  // Started here, once, rather than after sign-in: the message that cold-
+  // started the app is available exactly once, at the very first read of
+  // getInitialMessage(), and only for a moment. Waiting until later in the
+  // app's life to ask means asking after the answer already came and went.
+  await PushNavigationService(container.read(routerProvider)).start();
 }
