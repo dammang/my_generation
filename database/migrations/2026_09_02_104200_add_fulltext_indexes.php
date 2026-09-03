@@ -14,6 +14,14 @@ use Illuminate\Support\Facades\Schema;
  *
  * Written as raw SQL because Laravel's fullText() cannot express WITH PARSER.
  * Skipped on non-MySQL connections so the test suite can run on SQLite.
+ *
+ * MariaDB has no ngram parser and reports the same `mysql` driver name, so the
+ * driver check alone let it through and it failed on the ALTER. There the
+ * native-script columns get an ordinary full-text index instead: the schema
+ * still applies, but those columns tokenise on whitespace, which is close to
+ * useless for a script that does not use it. Nothing queries these indexes
+ * yet — when search is built, that is the point at which MariaDB has to be
+ * answered properly rather than degraded past.
  */
 return new class extends Migration
 {
@@ -34,8 +42,17 @@ return new class extends Migration
             return;
         }
 
+        $ngramAvailable = $this->supportsNgramParser();
+
         foreach ($this->indexes as [$table, $index, $columns, $ngram]) {
-            $parser = $ngram ? ' WITH PARSER ngram' : '';
+            // A failure part-way through this migration leaves earlier indexes
+            // in place while the migration itself is unrecorded, so re-running
+            // would collide with its own previous attempt.
+            if ($this->indexExists($table, $index)) {
+                continue;
+            }
+
+            $parser = $ngram && $ngramAvailable ? ' WITH PARSER ngram' : '';
             DB::statement("ALTER TABLE `{$table}` ADD FULLTEXT INDEX `{$index}` ({$columns}){$parser}");
         }
     }
@@ -47,12 +64,33 @@ return new class extends Migration
         }
 
         foreach (array_reverse($this->indexes) as [$table, $index]) {
-            DB::statement("ALTER TABLE `{$table}` DROP INDEX `{$index}`");
+            if ($this->indexExists($table, $index)) {
+                DB::statement("ALTER TABLE `{$table}` DROP INDEX `{$index}`");
+            }
         }
     }
 
     private function isMySql(): bool
     {
         return Schema::getConnection()->getDriverName() === 'mysql';
+    }
+
+    /**
+     * MariaDB answers to the `mysql` driver but has no ngram parser at all.
+     */
+    private function supportsNgramParser(): bool
+    {
+        $version = (string) (DB::selectOne('select version() as v')->v ?? '');
+
+        return ! str_contains(strtolower($version), 'mariadb');
+    }
+
+    private function indexExists(string $table, string $index): bool
+    {
+        return DB::selectOne(
+            'select 1 as found from information_schema.statistics
+             where table_schema = database() and table_name = ? and index_name = ? limit 1',
+            [$table, $index],
+        ) !== null;
     }
 };
