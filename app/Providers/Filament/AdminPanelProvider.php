@@ -33,6 +33,12 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Emerald,
             ])
+            // A membership request writes a database notification and nothing
+            // else — there is no web page in this app that lists it. Without
+            // this, the only way an administrator finds a pending membership
+            // is remembering to open its list; the bell is the actual place
+            // it becomes visible.
+            ->databaseNotifications()
             ->navigationGroups([
                 'Genealogy',
                 'Organisation',

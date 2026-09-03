@@ -62,6 +62,24 @@ class PermissionResolver
     }
 
     /**
+     * Whether a user administers membership at this scope — may approve or
+     * reject who belongs, distinct from editing what belongs to them.
+     *
+     * Named apart from adminScopePaths() because that one is deliberately
+     * broader (it also covers `.verify` and `.approve`, for a "where can I
+     * act at all" view). Reusing it here would notify somebody who can
+     * approve a change request but not a membership that a membership is
+     * waiting on them — a queue they open and cannot act on.
+     */
+    public function administersMembership(User $user, string $scopePath): bool
+    {
+        return $this->can($user, 'users.manage', $scopePath)
+            || $this->can($user, 'tribes.manage', $scopePath)
+            || $this->can($user, 'clans.manage', $scopePath)
+            || $this->can($user, 'families.manage', $scopePath);
+    }
+
+    /**
      * Can this user do `$permission` on a record living at `$scopePath`?
      *
      * A null path means the record is not scoped to a tribe at all — only a

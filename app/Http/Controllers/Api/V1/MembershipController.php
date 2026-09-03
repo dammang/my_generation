@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Access\DecideMembership;
 use App\Actions\Access\RequestMembership;
+use App\Actions\Notifications\NotifyMembershipReviewers;
 use App\Enums\MembershipStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\StoreMembershipRequest;
@@ -50,6 +51,12 @@ class MembershipController extends Controller
         );
 
         $membership = $action->handle($request->user(), $scope);
+
+        if ($membership->status === MembershipStatus::Pending) {
+            // Not fired when RequestMembership found the person already
+            // active and returned early — there is nothing pending to review.
+            app(NotifyMembershipReviewers::class)->handle($membership);
+        }
 
         return ApiResponse::created(
             MembershipResource::make($membership->load('scope.scopeable'))
@@ -118,12 +125,7 @@ class MembershipController extends Controller
 
     private function assertAdministers(Request $request, string $scopePath): void
     {
-        $allowed = $this->permissions->can($request->user(), 'users.manage', $scopePath)
-            || $this->permissions->can($request->user(), 'tribes.manage', $scopePath)
-            || $this->permissions->can($request->user(), 'clans.manage', $scopePath)
-            || $this->permissions->can($request->user(), 'families.manage', $scopePath);
-
-        if (! $allowed) {
+        if (! $this->permissions->administersMembership($request->user(), $scopePath)) {
             // AuthorizationException, not a validation error: the request is
             // well formed, the caller simply has no standing here.
             throw new AuthorizationException('You do not administer this scope.');
