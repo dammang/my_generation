@@ -3,6 +3,8 @@ import 'dart:io' show Platform;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+
+import '../config/google_oauth.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 /// Something the person can be told, rather than a provider's error code.
@@ -30,12 +32,21 @@ class FirebaseSignInService {
 
   final FirebaseAuth _auth;
 
-  bool get appleAvailable => !kIsWeb && Platform.isIOS;
+  static bool get _isIos => !kIsWeb && Platform.isIOS;
+
+  /// Apple sign-in is offered on iOS, where Apple requires it alongside Google.
+  bool get appleAvailable => _isIos;
 
   /// Google, through the platform's own account picker.
   Future<String> withGoogle() async {
     try {
-      await GoogleSignIn.instance.initialize();
+      // serverClientId is not optional on Android: without it the returned
+      // idToken is null and sign-in fails at the very last step, after the
+      // person has already chosen their account. clientId is what iOS needs.
+      await GoogleSignIn.instance.initialize(
+        clientId: _isIos ? GoogleOAuth.iosClientId : null,
+        serverClientId: GoogleOAuth.serverClientId,
+      );
 
       final account = await GoogleSignIn.instance.authenticate();
       final idToken = account.authentication.idToken;

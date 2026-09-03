@@ -22,6 +22,22 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<!--
+	  Google's sign-in sheet returns through this scheme: the iOS OAuth client id
+	  with its domain reversed. Without it the sheet completes and the callback
+	  lands nowhere, which presents as sign-in silently doing nothing.
+	-->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.665433621724-abt3an03lccnokdumv3aa8b8ac1n42ei</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>

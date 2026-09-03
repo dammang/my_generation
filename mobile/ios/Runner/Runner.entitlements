@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Sign in with Apple. Without this entitlement the button is present and
+	  the request fails at runtime, whatever is configured in the Apple
+	  Developer portal — the capability has to be on the app itself.
+	-->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+
+	<!--
+	  Push. "development" here is the sandbox APNs environment; the release
+	  build needs "production", which Xcode substitutes when archiving with a
+	  distribution profile.
+	-->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

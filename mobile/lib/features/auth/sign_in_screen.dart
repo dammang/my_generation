@@ -126,6 +126,18 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       const SizedBox(height: 16),
                     ],
 
+                    _ProviderButtons(
+                      busy: _busy,
+                      onGoogle: () => _withProvider(
+                        ref.read(authProvider.notifier).signInWithGoogle,
+                      ),
+                      onApple: () => _withProvider(
+                        ref.read(authProvider.notifier).signInWithApple,
+                      ),
+                      appleAvailable: ref.read(firebaseSignInProvider).appleAvailable,
+                    ),
+                    const _OrDivider(),
+
                     TextFormField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
@@ -159,18 +171,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       _Banner(message: _error!, tone: theme.colorScheme.error),
                     ],
 
-                    const SizedBox(height: 28),
-                    _ProviderButtons(
-                      busy: _busy,
-                      onGoogle: () => _withProvider(
-                        ref.read(authProvider.notifier).signInWithGoogle,
-                      ),
-                      onApple: () => _withProvider(
-                        ref.read(authProvider.notifier).signInWithApple,
-                      ),
-                      appleAvailable: ref.read(firebaseSignInProvider).appleAvailable,
-                    ),
-                    const _OrDivider(),
+                    const SizedBox(height: 24),
                     FilledButton(
                       onPressed: _busy ? null : _submit,
                       child: _busy

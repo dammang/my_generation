@@ -50,6 +50,26 @@ class SyncTest extends TestCase
         ]);
     }
 
+    /**
+     * People named Thawng **in this test's own tribe**.
+     *
+     * Eight other test files also create a Thawng. Counting across the whole
+     * database makes every assertion here quietly depend on all of them having
+     * rolled back cleanly, which turns an unrelated change into a failure in
+     * this file.
+     */
+    private function thawngCount(): int
+    {
+        return $this->countNamed('Thawng');
+    }
+
+    private function countNamed(string $firstName): int
+    {
+        return Person::where('first_name', $firstName)
+            ->where('tribe_id', $this->tribe->id)
+            ->count();
+    }
+
     private function contributor(): User
     {
         $user = User::factory()->create();
@@ -111,7 +131,7 @@ class SyncTest extends TestCase
             $second->json('data.person.ulid'),
         );
         $this->assertSame('true', $second->headers->get('Idempotent-Replay'));
-        $this->assertSame(1, Person::where('first_name', 'Thawng')->count());
+        $this->assertSame(1, $this->thawngCount());
     }
 
     public function test_the_same_id_with_a_different_change_is_refused(): void
@@ -139,7 +159,7 @@ class SyncTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('code', 'IDEMPOTENCY_KEY_REUSED');
 
-        $this->assertSame(0, Person::where('first_name', 'Ngun')->count());
+        $this->assertSame(0, $this->countNamed('Ngun'));
     }
 
     public function test_a_client_may_supply_the_new_person_identifier(): void
@@ -269,7 +289,7 @@ class SyncTest extends TestCase
             ->assertOk()
             ->assertJsonPath('meta.replayed', 1);
 
-        $this->assertSame(1, Person::where('first_name', 'Thawng')->count());
+        $this->assertSame(1, $this->thawngCount());
     }
 
     public function test_an_abandoned_claim_does_not_block_the_operation_forever(): void
@@ -298,7 +318,7 @@ class SyncTest extends TestCase
             ])
             ->assertSuccessful();
 
-        $this->assertSame(1, Person::where('first_name', 'Thawng')->count());
+        $this->assertSame(1, $this->thawngCount());
     }
 
     public function test_a_claim_still_in_flight_is_not_run_twice(): void
@@ -327,7 +347,7 @@ class SyncTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('code', 'OPERATION_IN_FLIGHT');
 
-        $this->assertSame(0, Person::where('first_name', 'Thawng')->count());
+        $this->assertSame(0, $this->thawngCount());
     }
 
     public function test_a_rejected_operation_is_remembered_not_retried(): void

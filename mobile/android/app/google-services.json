@@ -12,7 +12,20 @@
           "package_name": "com.khanggui"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "665433621724-39d5ol2e6hd7pbm2hfur10u4posl37t0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.khanggui",
+            "certificate_hash": "68ebac78a9612ffa8dae9ebd6457e15c2eafeaa7"
+          }
+        },
+        {
+          "client_id": "665433621724-04nubho1rep17t6ukj86s62il5j5tpl2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAUUnbgcXEa_mStyGeJhtVQkKGJ-rnsafA"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "665433621724-04nubho1rep17t6ukj86s62il5j5tpl2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "665433621724-abt3an03lccnokdumv3aa8b8ac1n42ei.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.khanggui"
+              }
+            }
+          ]
         }
       }
     }
