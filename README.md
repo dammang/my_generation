@@ -480,3 +480,68 @@ $person->withRevisionContext(reason: 'Baptism register, entry 114', sourceId: $s
 - Lazy loading throws outside production. Eager load, or use an explicit relation query.
 - Spouses and siblings are **derived**, never stored. See `Person::spouses()` and
   `Person::siblings()`.
+
+## Deploying
+
+Forge onto your own server. Nothing here is Forge-specific except where it says
+so; the parts that bite are the same anywhere.
+
+**The deploy script.** Two lines matter that a stock Laravel script does not
+have: the asset build, because the password-reset and verification pages are
+served by this app and `public/build` is gitignored, and the queue restart,
+because a running worker holds the old code until it is told otherwise.
+
+```sh
+cd /home/forge/khanggui.com
+git pull origin $FORGE_SITE_BRANCH
+
+$FORGE_COMPOSER install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+# The reset-password and verify-email pages need built assets, or every visit
+# throws ViteException: Unable to locate file in Vite manifest.
+npm ci
+npm run build
+
+( flock -w 10 9 || exit 1
+    echo 'Restarting FPM...'; sudo -S service $FORGE_PHP_FPM reload ) 9>/tmp/fpmlock
+
+$FORGE_PHP artisan migrate --force
+
+$FORGE_PHP artisan config:cache
+$FORGE_PHP artisan route:cache
+$FORGE_PHP artisan view:cache
+$FORGE_PHP artisan event:cache
+
+# The worker is running the previous release until this.
+$FORGE_PHP artisan queue:restart
+```
+
+**Two processes, not just the site.** Neither is optional:
+
+| What | Why | Where |
+|---|---|---|
+| Queue worker on the `database` connection | Review notifications are queued; without a worker nobody is ever told their change needs approval | Forge → Queue |
+| Scheduler (`php artisan schedule:run` every minute) | Prunes the idempotency ledger; without it the table grows forever | Forge → Scheduler |
+
+**Environment.** Beyond the usual `APP_KEY`, database and `APP_ENV=production`
+with `APP_DEBUG=false`:
+
+| Variable | Note |
+|---|---|
+| `APP_URL=https://khanggui.com` | Verification links are **signed against this host**. If it does not match what people actually reach, every link 403s with "Invalid signature" |
+| `FIREBASE_CREDENTIALS` | Absolute path to the service account JSON, uploaded outside the site directory so a deploy cannot overwrite it and the web root cannot serve it |
+| `MAIL_*` | A real mailer. `log` is the default and silently sends nothing |
+| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` | Read via `config/super_admin.php`, not `env()` directly — a cached config stops answering `env()` at all, which is why the seeder used to report a password missing that was sitting in `.env` |
+
+Then, once only:
+
+```sh
+php artisan db:seed --class=RolePermissionSeeder
+php artisan db:seed --class=SuperAdminSeeder
+```
+
+Both are safe to re-run; the admin seeder updates rather than duplicating.
+
+**Before the first deploy**, in the consoles: `khanggui.com` registered with
+Apple for Sign in with Apple email relay (or mail to Apple users silently
+vanishes), and SPF covering whatever actually sends.

@@ -15,13 +15,16 @@ use Illuminate\Support\Facades\Hash;
  * Credentials come from the environment so no password is ever committed. In
  * production, set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD before seeding;
  * the seeder refuses to invent a password outside local development.
+ *
+ * Read through config rather than env() because a deployed app caches its
+ * config, and env() answers with its default once it has.
  */
 class SuperAdminSeeder extends Seeder
 {
     public function run(): void
     {
-        $email = env('SUPER_ADMIN_EMAIL', 'admin@mygeneration.test');
-        $password = env('SUPER_ADMIN_PASSWORD');
+        $email = (string) config('super_admin.email');
+        $password = config('super_admin.password');
 
         if ($password === null) {
             if (! app()->environment('local', 'testing')) {
@@ -39,7 +42,7 @@ class SuperAdminSeeder extends Seeder
         $user = User::withTrashed()->firstOrNew(['email' => $email]);
 
         $user->fill([
-            'name' => env('SUPER_ADMIN_NAME', 'Super Admin'),
+            'name' => (string) config('super_admin.name'),
             'password' => Hash::make($password),
         ]);
         $user->email_verified_at = now();
