@@ -6,4 +6,21 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Matched to the Flutter theme in mobile/lib/core/theme/app_theme.dart, so
+       the one page the app sends people to does not look like a different
+       product than the app they were just using.
+
+       --color-brand is the primary the app actually renders, not the seed it
+       is derived from: Material builds a lighter tone out of #1F4A3D, and
+       using the seed directly here made the button read almost black beside
+       the same button in the app. */
+    --color-brand: #146b4e;
+    --color-brand-deep: #1f4a3d;
+    --color-brand-soft: #2c6b4c;
+    --color-surface: #f7f8f5;
+    --color-surface-dark: #11150f;
+    --color-field-dark: #1a1f17;
+    --color-ink: #17201d;
+    --color-ink-dark: #e6eae5;
 }
