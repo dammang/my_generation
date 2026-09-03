@@ -25,7 +25,7 @@ the schema.
 | 12 — Person profile, family tabs, timeline, Add Relative flow | ✅ Complete |
 | 13 — Contribution and verification UI | ✅ Complete |
 | 14 — Offline sync | ✅ Complete |
-| 15 — Testing, optimisation, hardening | Next |
+| 15 — Testing, optimisation, hardening | ✅ Complete |
 
 ## Requirements
 
@@ -120,6 +120,26 @@ than O(n²). Scores are normalised by the evidence actually available — the co
 duplicate is a record a second contributor added with no relatives attached yet, and
 scoring it against the full weight set would mean it never clears the threshold however
 exactly the name and dates agree.
+
+## Measured, not assumed
+
+At **101,415 people and 202,769 edges**, over HTTP with auth, privacy and
+serialisation included:
+
+| | |
+|---|---|
+| Tree, 4 up / 3 down | 14.3 ms |
+| Tree, 8 up / 6 down (400 nodes) | 16.4 ms |
+| People list page | 15.7 ms |
+| Person with family | 25.6 ms |
+| Search | 32.2 ms |
+
+Every one is bounded by the size of its *answer* rather than the archive:
+depth-limited BFS, index seeks with a limit, a node budget on the tree. The
+listing was **107 ms** until a composite index put the filter columns ahead of
+the sort column — then 0.3 ms, because MySQL could seek instead of scanning and
+filtering. Details and the full security review in
+[docs/09](docs/09-security-and-scale.md).
 
 ## Offline is a first-class state, not a failure
 

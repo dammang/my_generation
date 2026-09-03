@@ -50,7 +50,18 @@ return [
     |
     */
 
-    'expiration' => null,
+    /*
+     * Deliberately unlimited by default.
+     *
+     * The people this is built for open it a few times a year — a grandmother
+     * checking a grandchild's birth year should not be signed out because
+     * ninety days passed. A stolen token is answered by "sign out everywhere"
+     * and by the token living in the platform keystore, not by expiring the
+     * sessions of everybody who uses the app the way it is meant to be used.
+     *
+     * Set SANCTUM_TOKEN_MINUTES where a deployment needs stricter rules.
+     */
+    'expiration' => env('SANCTUM_TOKEN_MINUTES') ? (int) env('SANCTUM_TOKEN_MINUTES') : null,
 
     /*
     |--------------------------------------------------------------------------

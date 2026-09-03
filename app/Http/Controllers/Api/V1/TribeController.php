@@ -11,6 +11,7 @@ use App\Http\Resources\V1\ClanResource;
 use App\Http\Resources\V1\TribeResource;
 use App\Models\Clan;
 use App\Models\Tribe;
+use App\Services\Privacy\ViewerScope;
 use App\Services\Statistics\ScopeStatistics;
 use App\Support\ApiResponse;
 use Illuminate\Database\Eloquent\Builder;
@@ -19,6 +20,8 @@ use Illuminate\Http\Request;
 
 class TribeController extends Controller
 {
+    public function __construct(private readonly ViewerScope $viewer) {}
+
     public function index(Request $request): JsonResponse
     {
         $tribes = Tribe::query()
@@ -91,6 +94,7 @@ class TribeController extends Controller
         $parent = $request->string('parent', 'root')->toString();
 
         $clans = Clan::query()
+            ->visibleTo($this->viewer)
             ->where('tribe_id', $tribe->getKey())
             ->when(
                 $parent === 'root',

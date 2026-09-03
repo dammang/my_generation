@@ -18,7 +18,7 @@ Each phase ends with something runnable and tested. Nothing is merged as a TODO.
 | **12** ✅ | Flutter person profile, family tabs, timeline, Add Relative flow | **Done.** Verified on the simulator against the seeded graph. Timeline endpoints added server-side; the ambiguous-union refusal is recovered from in the UI rather than reported |
 | **13** ✅ | Contribution & verification UI (both sides) + revision history | **Done.** Verified end to end against the server: a contributor's edit to a verified record became a proposal, appeared in the reviewer's queue with its diff, and the record stayed untouched until decided |
 | **14** ✅ | Offline: Drift mirror, sync queue, idempotent batch, conflict surfacing | **Done.** Verified with the server stopped: the app opens on a remembered account, the tree and profile render from the device, and writes queue and drain on reconnect |
-| **15** | Tests, indexes, load testing at 1M rows, caching tuning, hardening | Load test passes; security review checklist clean |
+| **15** ✅ | Tests, indexes, load testing, caching tuning, hardening | **Done.** Load-tested at 101,000 people — every endpoint under 33ms warm. Security review in [09](09-security-and-scale.md); it found and closed a real organisation-privacy leak. A true 1M run needs ~8.5GB and was not possible on this machine |
 
 **Version 2** (after MVP ships): stories, oral history + media capture, sources UI,
 migration map, advanced duplicate detection, merge from the app, profile claiming flow

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Compile-time configuration.
 ///
 /// Values come from `--dart-define`, so a build is pinned to an environment and
@@ -22,11 +24,14 @@ class Env {
     defaultValue: 'My Generation',
   );
 
-  /// Extra network logging. Off by default so tokens never reach a release log.
-  static const bool logRequests = bool.fromEnvironment(
-    'LOG_REQUESTS',
-    defaultValue: false,
-  );
+  /// Extra network logging.
+  ///
+  /// Gated on the build mode rather than on the define alone: a release build
+  /// that happens to carry LOG_REQUESTS would otherwise write request bodies —
+  /// names, dates, the contents of a family's records — into the device log,
+  /// where any other app with log access can read them.
+  static bool get logRequests =>
+      kDebugMode && const bool.fromEnvironment('LOG_REQUESTS');
 
   /// A token to start the app already signed in, for development.
   ///

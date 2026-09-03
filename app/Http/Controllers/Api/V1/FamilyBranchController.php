@@ -13,6 +13,7 @@ use App\Models\FamilyBranch;
 use App\Models\Person;
 use App\Models\Place;
 use App\Models\Tribe;
+use App\Services\Privacy\ViewerScope;
 use App\Support\ApiResponse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -21,9 +22,12 @@ use Illuminate\Http\Request;
 
 class FamilyBranchController extends Controller
 {
+    public function __construct(private readonly ViewerScope $viewer) {}
+
     public function index(Request $request): JsonResponse
     {
         $branches = FamilyBranch::query()
+            ->visibleTo($this->viewer)
             ->when($request->filled('tribe'), fn (Builder $q) => $q->where(
                 'tribe_id',
                 Tribe::where('ulid', $request->string('tribe'))->value('id')

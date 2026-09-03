@@ -11,20 +11,28 @@ use Illuminate\Support\Facades\DB;
 /**
  * Aggregate counts for a tribe page.
  *
- * Cached and keyed on graph_version, so the numbers refresh the moment the
- * genealogy changes but a quiet tribe costs nothing to display. Deliberately
- * built from indexed columns and denormalised counters rather than by walking
- * the graph — statistics must never be the reason a page is slow.
+ * Cached on a plain time window, deliberately not on graph_version.
+ *
+ * Versioning is right for a cached subtree, where stale means wrong. It is the
+ * wrong instinct here: every genealogy write bumps the version, so an active
+ * tribe recomputed a dozen full-table counts on the very next request —
+ * measured at 417ms over 101,000 people, and linear from there. A dashboard
+ * number an hour behind is still a dashboard number; one that costs four
+ * seconds is a problem.
+ *
+ * Built from indexed columns and denormalised counters rather than by walking
+ * the graph: statistics must never be the reason a page is slow.
  */
 class ScopeStatistics
 {
-    private const TTL = 21600;   // 6 hours; also bounded by graph_version
+    /** An hour. Long enough to absorb a burst of edits, short enough to feel live. */
+    private const TTL = 3600;
 
     /** @return array<string, mixed> */
     public function forTribe(Tribe $tribe): array
     {
         return Cache::remember(
-            "stats:tribe:{$tribe->getKey()}:{$tribe->graph_version}",
+            "stats:tribe:{$tribe->getKey()}",
             self::TTL,
             fn () => $this->build($tribe),
         );

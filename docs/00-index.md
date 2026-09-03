@@ -12,6 +12,7 @@ Collaborative genealogy, tribal heritage and family-chronicle platform.
 | [06-api-architecture.md](06-api-architecture.md) | Versioning, envelope, auth, endpoints, tree API contract, offline sync |
 | [07-project-structure.md](07-project-structure.md) | Laravel folder layout, Flutter folder layout |
 | [08-roadmap.md](08-roadmap.md) | Phase-by-phase MVP plan and what each phase delivers |
+| [09-security-and-scale.md](09-security-and-scale.md) | The security review and the load test, with measurements at 101,000 people |
 
 ## The one-paragraph version
 

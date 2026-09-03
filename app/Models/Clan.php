@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\RecordStatus;
+use App\Models\Concerns\BelongsToVisibleTribe;
 use App\Models\Concerns\HasUlid;
 use App\Models\Concerns\RecordsRevisions;
 use App\Models\Concerns\SoftDeletesWithUniqueness;
@@ -25,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 #[ObservedBy(ScopedEntityObserver::class)]
 class Clan extends Model
 {
+    use BelongsToVisibleTribe;
     use HasFactory, HasUlid, RecordsRevisions, SoftDeletesWithUniqueness;
 
     protected $table = 'clans';

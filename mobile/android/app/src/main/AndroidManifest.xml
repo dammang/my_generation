@@ -1,8 +1,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      Backup is refused. The device holds a cached copy of records about living
+      people, and Android backs an app's data up to the cloud by default — adb
+      backup can pull it off the device too, so a family archive would leave the
+      phone by a route nobody chose. The token is in the keystore; the cache is
+      not, and it is the cache that carries the records.
+    -->
     <application
         android:label="my_generation"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -11,6 +11,7 @@ use App\Http\Resources\V1\ClanResource;
 use App\Http\Resources\V1\FamilyBranchResource;
 use App\Models\Clan;
 use App\Models\Tribe;
+use App\Services\Privacy\ViewerScope;
 use App\Support\ApiResponse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -18,9 +19,12 @@ use Illuminate\Http\Request;
 
 class ClanController extends Controller
 {
+    public function __construct(private readonly ViewerScope $viewer) {}
+
     public function index(Request $request): JsonResponse
     {
         $clans = Clan::query()
+            ->visibleTo($this->viewer)
             ->when($request->filled('tribe'), fn (Builder $q) => $q->where(
                 'tribe_id',
                 Tribe::where('ulid', $request->string('tribe'))->value('id')
@@ -100,6 +104,7 @@ class ClanController extends Controller
     public function branches(Clan $clan): JsonResponse
     {
         $branches = $clan->familyBranches()
+            ->visibleTo($this->viewer)
             ->with(['tribe:id,ulid,name', 'ancestor', 'originPlace'])
             ->orderBy('name')
             ->get();

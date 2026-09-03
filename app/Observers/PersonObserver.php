@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Models\Person;
+use App\Models\Relationship;
+use App\Services\Graph\FamilyEdgeProjector;
 use App\Services\Graph\GraphSideEffects;
 use App\Services\Graph\GraphVersion;
 use Illuminate\Support\Facades\DB;
@@ -83,6 +85,16 @@ class PersonObserver
         }
 
         $this->adjustCounts($person, -1);
+
+        // family_edges is a cache of the truth, not the truth. Leaving a
+        // deleted person's edges behind means the tree keeps drawing them as
+        // somebody's child — and nothing reports an error, because from the
+        // traversal's point of view the graph is perfectly consistent.
+        DB::table('family_edges')
+            ->where('parent_id', $person->getKey())
+            ->orWhere('child_id', $person->getKey())
+            ->delete();
+
         $this->graphVersion->bump($person->tribe_id);
     }
 
@@ -93,7 +105,30 @@ class PersonObserver
         }
 
         $this->adjustCounts($person, +1);
+
+        // Rebuilt from the relationships that survived, rather than from a
+        // record of what was removed: a relationship deleted while the person
+        // was gone must not come back with them.
+        $this->reprojectEdges($person);
+
         $this->graphVersion->bump($person->tribe_id);
+    }
+
+    /**
+     * Re-derives this person's edges from their surviving relationships.
+     */
+    private function reprojectEdges(Person $person): void
+    {
+        $relationships = Relationship::query()
+            ->where(fn ($q) => $q->where('person_id', $person->getKey())
+                ->orWhere('related_person_id', $person->getKey()))
+            ->get();
+
+        $projector = app(FamilyEdgeProjector::class);
+
+        foreach ($relationships as $relationship) {
+            $projector->project($relationship);
+        }
     }
 
     /** "Thawng Dam" — falls back through native name and nickname. */

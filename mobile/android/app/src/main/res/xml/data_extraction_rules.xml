@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 and later ask separately about cloud backup and device-to-device
+  transfer. Both are refused: the local database holds records about living
+  people, cached because the server showed them to this account on this device.
+  Neither of those facts survives a transfer to somewhere else.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+    </device-transfer>
+</data-extraction-rules>
