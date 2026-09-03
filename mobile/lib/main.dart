@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'firebase_options.dart';
+import 'providers/app_providers.dart';
 import 'routing/app_router.dart';
 import 'services/push_navigation_service.dart';
 
@@ -69,4 +70,9 @@ Future<void> _startFirebase(ProviderContainer container) async {
   // getInitialMessage(), and only for a moment. Waiting until later in the
   // app's life to ask means asking after the answer already came and went.
   await PushNavigationService(container.read(routerProvider)).start();
+
+  // AnalyticsService.start() is the only thing that turns collection on for a
+  // release build — never called before, so nothing was ever reaching
+  // Firebase regardless of what fired a screen view or an event.
+  await container.read(analyticsProvider).start();
 }

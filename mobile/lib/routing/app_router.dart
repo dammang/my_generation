@@ -1,3 +1,4 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/env.dart';
@@ -49,6 +50,12 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: Routes.startup,
     refreshListenable: _AuthRefresh(ref),
+    // AnalyticsService itself only ever offers .screen() and .milestone() —
+    // nothing called either, on any screen, anywhere. This one observer is
+    // what makes every navigation actually reach Firebase; without it the
+    // service exists and analytics shows nothing, which is exactly what was
+    // happening.
+    observers: [FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance)],
     redirect: (context, state) {
       final auth = ref.read(authProvider);
       final location = state.matchedLocation;
