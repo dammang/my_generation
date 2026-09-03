@@ -75,6 +75,16 @@ class FakeSecureStorage extends SecureStorageService {
 
   @override
   Future<void> clear() async {}
+
+  // The cached account, kept in memory. Without these, anything that calls
+  // me() reaches the real plugin and the test hangs rather than failing.
+  String? _account;
+
+  @override
+  Future<String?> readAccount() async => _account;
+
+  @override
+  Future<void> writeAccount(String json) async => _account = json;
 }
 
 /// An ApiClient wired to [adapter].

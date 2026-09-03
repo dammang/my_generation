@@ -16,9 +16,9 @@ class AuthRepository {
     required ApiClient api,
     required SecureStorageService storage,
     required AppDatabase database,
-  })  : _api = api,
-        _storage = storage,
-        _database = database;
+  }) : _api = api,
+       _storage = storage,
+       _database = database;
 
   final ApiClient _api;
   final SecureStorageService _storage;
@@ -50,11 +50,7 @@ class AuthRepository {
   }) async {
     final envelope = await _api.post<Map<String, dynamic>>(
       ApiPaths.firebaseExchange,
-      body: {
-        'id_token': idToken,
-        'locale': ?locale,
-        'device_name': deviceName,
-      },
+      body: {'id_token': idToken, 'locale': ?locale, 'device_name': deviceName},
       parse: (data) => (data as Map).cast<String, dynamic>(),
     );
 
@@ -117,6 +113,15 @@ class AuthRepository {
       // A stored account from an older build. Not worth failing startup over.
       return null;
     }
+  }
+
+  /// Asks the server to send the verification email again.
+  ///
+  /// The server answers the same way whether or not it sent anything, so there
+  /// is nothing to return: the only failure worth surfacing is not reaching it
+  /// at all, which arrives as an exception.
+  Future<void> resendVerificationEmail() async {
+    await _api.post<void>(ApiPaths.resendVerificationEmail, parse: (_) {});
   }
 
   Future<void> logout() async {

@@ -102,22 +102,14 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> signInWithApple() => _exchange(_firebase.withApple());
 
-  Future<void> signInWithFirebasePassword({
-    required String email,
-    required String password,
-  }) =>
+  Future<void> signInWithFirebasePassword({required String email, required String password}) =>
       _exchange(_firebase.withPassword(email: email, password: password));
 
   Future<void> registerWithFirebase({
     required String name,
     required String email,
     required String password,
-  }) =>
-      _exchange(_firebase.registerWithPassword(
-        name: name,
-        email: email,
-        password: password,
-      ));
+  }) => _exchange(_firebase.registerWithPassword(name: name, email: email, password: password));
 
   Future<void> _exchange(Future<String> idToken) async {
     final token = await idToken;
@@ -180,6 +172,16 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   /// Re-reads the account, picking up membership and role changes.
+  /// Sends the verification email again, then refreshes the account.
+  ///
+  /// The refresh is what makes the banner disappear once somebody confirms in
+  /// another window and comes back — without it the only way to notice is to
+  /// sign out and in again.
+  Future<void> resendVerificationEmail() async {
+    await _repository.resendVerificationEmail();
+    await refresh();
+  }
+
   Future<void> refresh() async {
     if (state is! AuthSignedIn) return;
     state = AuthSignedIn(await _repository.me());

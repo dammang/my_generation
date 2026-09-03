@@ -7,6 +7,7 @@ import '../../core/constants/api_paths.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../routing/app_router.dart';
+import '../auth/widgets/verify_email_banner.dart';
 import '../sync/widgets/sync_banner.dart';
 
 /// A placeholder home.
@@ -45,6 +46,10 @@ class HomeScreen extends ConsumerWidget {
           // Above everything else: what has not reached the server yet changes
           // how the rest of the screen should be read.
           SyncBanner(onTap: () => context.push(Routes.pendingChanges)),
+
+          // Above that again when it shows at all, because an unconfirmed
+          // address means nothing below can be contributed to yet.
+          const VerifyEmailBanner(),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {

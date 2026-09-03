@@ -28,6 +28,10 @@ class _FakeAuthRepository implements AuthRepository {
   @override
   Future<bool> hasToken() async => token != null;
 
+  /// Never exercised here; this file is about restoring a session.
+  @override
+  Future<void> resendVerificationEmail() async {}
+
   @override
   Future<ApiUser?> cachedAccount() async => remembered;
 

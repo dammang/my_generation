@@ -23,6 +23,7 @@ class ApiPaths {
   static const String profile = '$prefix/auth/profile';
   static const String forgotPassword = '$prefix/auth/forgot-password';
   static const String resetPassword = '$prefix/auth/reset-password';
+  static const String resendVerificationEmail = '$prefix/auth/email/resend';
   static const String health = '$prefix/health';
 
   // People
