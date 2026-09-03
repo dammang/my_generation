@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "665433621724-ku9bg5vdgf0hcmc4ibh7976mbgk7751j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.khanggui",
+            "certificate_hash": "31ecf0f8ee196265c2e1be58571bbc1ce45327e4"
+          }
+        },
+        {
           "client_id": "665433621724-04nubho1rep17t6ukj86s62il5j5tpl2.apps.googleusercontent.com",
           "client_type": 3
         }
