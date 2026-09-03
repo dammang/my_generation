@@ -483,8 +483,30 @@ $person->withRevisionContext(reason: 'Baptism register, entry 114', sourceId: $s
 
 ## Deploying
 
-Forge onto your own server. Nothing here is Forge-specific except where it says
-so; the parts that bite are the same anywhere.
+Forge onto your own server: site `khanggui.com`, **PHP 8.4**. Nothing here is
+Forge-specific except where it says so; the parts that bite are the same
+anywhere.
+
+`composer.json` pins `config.platform.php` to **8.4.1** so this machine resolves
+dependencies against the version the server runs, rather than the 8.5 this
+machine happens to have. Without the pin, `composer update` here can lock a
+package that will not install there, and the first sign of it is a failed
+deploy.
+`composer check-platform-reqs --no-dev` reports every locked package satisfied,
+and no application code uses anything newer.
+
+8.4.**1**, not 8.4.0: `symfony/console` in the current lock requires >= 8.4.1,
+so a server on 8.4.0 exactly would fail at `composer install` with a message
+about the lock rather than about PHP. Worth confirming with `php -v` on the
+server — any current Forge 8.4 is well past it.
+
+The site's PHP needs these extensions — Forge installs most, but `intl`, `zip`
+and `sodium` are worth confirming:
+
+```
+ctype dom fileinfo filter hash iconv intl json libxml
+mbstring openssl pcre session sodium tokenizer xmlreader zip
+```
 
 **The deploy script.** Two lines matter that a stock Laravel script does not
 have: the asset build, because the password-reset and verification pages are
