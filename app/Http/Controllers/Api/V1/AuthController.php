@@ -15,6 +15,7 @@ use App\Models\AuditLog;
 use App\Models\User;
 use App\Services\Privacy\ViewerScopeResolver;
 use App\Support\ApiResponse;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +43,10 @@ class AuthController extends Controller
 
             return $user;
         });
+
+        // Sends the verification email. Without it a new account is created
+        // unverified and has no way to ever become verified.
+        event(new Registered($user));
 
         $this->audit($request, 'auth.registered', $user);
 
@@ -142,15 +147,43 @@ class AuthController extends Controller
         $user->fill($request->validated());
 
         // Changing the address invalidates the previous verification.
-        if ($user->isDirty('email')) {
+        $addressChanged = $user->isDirty('email');
+
+        if ($addressChanged) {
             $user->email_verified_at = null;
         }
 
         $user->save();
 
+        // ...and the new address needs its own confirmation, or changing an
+        // email is a one-way trip into an account that can never be verified.
+        if ($addressChanged) {
+            $user->sendEmailVerificationNotification();
+        }
+
         $this->scopes->forget($user);
 
         return ApiResponse::success(UserResource::make($user->load('person')));
+    }
+
+    /**
+     * Sends the verification email again.
+     *
+     * Answers the same way whether or not anything was sent: a verified
+     * account and an unverified one are not worth telling apart to whoever is
+     * asking, and there is nothing here for the caller to act on differently.
+     */
+    public function resendVerificationEmail(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasVerifiedEmail()) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        return ApiResponse::success([
+            'message' => 'If that address still needs confirming, a new link is on its way.',
+        ]);
     }
 
     private function issueToken(User $user, Request $request): string

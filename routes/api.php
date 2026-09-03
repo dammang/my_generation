@@ -63,6 +63,11 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             ->middleware('throttle:read')->name('auth.me');
         Route::patch('auth/profile', [AuthController::class, 'updateProfile'])
             ->middleware('throttle:write')->name('auth.profile');
+
+        // Throttled hard: this is the one endpoint that makes us send mail to
+        // an address on demand.
+        Route::post('auth/email/resend', [AuthController::class, 'resendVerificationEmail'])
+            ->middleware('throttle:6,1')->name('auth.email.resend');
         Route::post('auth/logout', [AuthController::class, 'logout'])
             ->middleware('throttle:write')->name('auth.logout');
         Route::post('auth/logout-everywhere', [AuthController::class, 'logoutEverywhere'])

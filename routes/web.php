@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Web\ResetPasswordController;
+use App\Http\Controllers\Web\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -22,3 +23,19 @@ Route::post('/reset-password', [ResetPasswordController::class, 'store'])
 
 Route::get('/reset-password/done', [ResetPasswordController::class, 'done'])
     ->name('password.reset.done');
+
+/*
+ * The link in a verification email lands here.
+ *
+ * Named `verification.verify` and shaped {id}/{hash} because that is exactly
+ * what Laravel's own VerifyEmail notification signs a URL for — matching it
+ * means the framework builds the link correctly instead of throwing, which is
+ * the mistake the password reset link made.
+ *
+ * `signed` is the whole security model: nobody is logged in when they open
+ * their mail, so the signature is what proves the link came from us, and
+ * `throttle` keeps a valid link from being used to hammer the endpoint.
+ */
+Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
+    ->middleware(['signed', 'throttle:6,1'])
+    ->name('verification.verify');
