@@ -496,6 +496,66 @@ not install there, and the first sign of it is a failed deploy. 8.4.**1**, not
 exactly fails at `composer install` complaining about the lock rather than about
 PHP.
 
+### Getting the code onto the server, the first time
+
+The repository is private, so the server needs its own read-only key rather than
+anybody's personal credentials. On the server:
+
+```sh
+ssh-keygen -t ed25519 -C "khanggui.com deploy" -f /root/.ssh/khanggui_deploy -N ""
+cat /root/.ssh/khanggui_deploy.pub
+```
+
+Add that public key to the repository on GitHub — Settings → Deploy keys → Add
+deploy key, **without** write access — then tell ssh to use it:
+
+```sh
+cat >> /root/.ssh/config <<'EOF'
+Host github.com-khanggui
+  HostName github.com
+  User git
+  IdentityFile /root/.ssh/khanggui_deploy
+  IdentitiesOnly yes
+EOF
+chmod 600 /root/.ssh/config
+```
+
+CyberPanel has already created `public_html` with a placeholder page in it, and
+`git clone` refuses a directory that is not empty. Populating it in place keeps
+the ownership and permissions CyberPanel set up, which cloning over the top of
+it would not:
+
+```sh
+cd /home/khanggui.com/public_html
+rm -f index.html
+git init
+git remote add origin git@github.com-khanggui:dammang/my_generation.git
+git fetch origin master
+git checkout -f -b master origin/master
+```
+
+Then the one-time application setup:
+
+```sh
+cp .env.example .env          # and edit it — see the table below
+/usr/local/lsws/lsphp84/bin/php "$(command -v composer)" install --no-dev --optimize-autoloader
+/usr/local/lsws/lsphp84/bin/php artisan key:generate
+/usr/local/lsws/lsphp84/bin/php artisan migrate --force
+/usr/local/lsws/lsphp84/bin/php artisan storage:link
+npm ci && npm run build
+```
+
+Everything above runs as root, so the site's own user ends up owning nothing it
+writes to. Put that right before the first request:
+
+```sh
+chown -R khanggui:khanggui /home/khanggui.com/public_html
+chmod -R ug+rwX storage bootstrap/cache
+```
+
+Substitute the real site user if it is not `khanggui` — `stat -c '%U'
+/home/khanggui.com` says which one CyberPanel made.
+
 ### Once, on the server
 
 **The document root has to be Laravel's `public/`.** CyberPanel points a new
