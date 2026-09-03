@@ -512,6 +512,13 @@ it would not:
 ```sh
 cd /home/khanggui.com/public_html
 rm -f index.html
+
+# You are root and this directory belongs to the site user, which git treats as
+# dubious ownership and refuses to work in. Without this it still creates .git
+# and still fetches, then declines to check anything out — leaving a directory
+# that looks like a failed clone but is really a permissions refusal.
+git config --global --add safe.directory /home/khanggui.com/public_html
+
 git init
 git remote add origin https://github.com/dammang/my_generation.git
 git fetch origin master

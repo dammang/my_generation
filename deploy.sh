@@ -51,8 +51,13 @@ echo "==> Restarting the queue worker"
 
 # OpenLiteSpeed runs PHP as the site user; storage and the compiled-view cache
 # are the only paths the application itself writes to.
+#
+# Owner and group are read off the site directory rather than named here.
+# CyberPanel sets them and does not set the same thing everywhere — this box is
+# khang6168:nogroup, a RHEL one would say nobody — and copying what is already
+# there cannot be wrong in the way hardcoding a guess can.
 echo "==> Permissions"
-chown -R "$(stat -c '%U' "$SITE")":nobody storage bootstrap/cache
+chown -R "$(stat -c '%U:%G' "$SITE")" storage bootstrap/cache
 chmod -R ug+rwX storage bootstrap/cache
 
 echo "==> Reloading OpenLiteSpeed"
