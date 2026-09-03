@@ -92,6 +92,41 @@ already applied, dates are shown in the source's own wording ("abt. 1902"), and
 the platform keystore; the local Drift cache holds only what the viewer has
 already been shown, and is wiped on sign-out.
 
+## Firebase
+
+Firebase is the **identity provider** and the transport for push. It is not the
+data store and not the file store — records stay in MySQL, media stay on R2.
+
+The app signs in with Google, Apple or a password through Firebase, then
+exchanges the ID token at `POST /api/v1/auth/firebase` for a Sanctum token.
+Everything after that point is the API this project already had: same policies,
+same scopes, same privacy predicate. Firebase answers *who you are*; Sanctum
+answers *what you may do*, and can be revoked, which a Firebase ID token cannot.
+
+Bundle identifier, both platforms: **`com.khanggui`**
+(iOS test target: `com.khanggui.RunnerTests`).
+
+What has to be done in the consoles, none of which lives in this repository:
+
+| Step | Where |
+|---|---|
+| Create the project; add iOS and Android apps under `com.khanggui` | Firebase console |
+| Enable Google, Apple and Email/Password sign-in | Firebase → Authentication |
+| `google-services.json` → `mobile/android/app/` | Firebase → project settings |
+| `GoogleService-Info.plist` → `mobile/ios/Runner/` | Firebase → project settings |
+| Service account JSON, stored **outside** the repo; set `FIREBASE_CREDENTIALS` | Firebase → service accounts |
+| APNs auth key uploaded, or iOS push silently never arrives | Apple Developer → Keys |
+| Sign in with Apple: a Services ID, a key, and the Xcode capability | Apple Developer |
+| `khanggui.com` added as an authorised domain | Firebase → Authentication → Settings |
+
+All three credential files are gitignored. The service account JSON in
+particular is full administrative access to the Firebase project — it can mint a
+token for any user — so it belongs nowhere near a commit.
+
+Without `FIREBASE_CREDENTIALS` set, sign-in and push are simply unavailable; the
+rest of the API is unaffected, and a notification still lands in the database
+where the app will show it.
+
 ## Admin panel
 
 Filament at `/admin`. Access needs an administrative or verifying role — membership alone

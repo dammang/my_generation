@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.mygeneration.my_generation"
+    namespace = "com.khanggui"
     // 37 rather than flutter.compileSdkVersion (36): flutter_secure_storage
     // ships an AAR that requires API 37 to compile against. The token store is
     // not optional, so the platform version follows it.
@@ -19,7 +19,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.mygeneration.my_generation"
+        applicationId = "com.khanggui"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

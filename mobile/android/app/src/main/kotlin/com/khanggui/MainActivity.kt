@@ -1,4 +1,4 @@
-package com.mygeneration.my_generation
+package com.khanggui
 
 import io.flutter.embedding.android.FlutterActivity
 
