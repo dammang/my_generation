@@ -35,6 +35,7 @@ use App\Models\User;
 use App\Observers\MembershipObserver;
 use App\Services\Privacy\ViewerScope;
 use App\Services\Privacy\ViewerScopeResolver;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -79,6 +80,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->configureRateLimiting();
         $this->configureGates();
+        $this->configurePasswordResetLinks();
 
         // Stable morph aliases. Without them, polymorphic columns store fully
         // qualified class names, and moving or renaming a class silently
@@ -130,6 +132,32 @@ class AppServiceProvider extends ServiceProvider
      * botnet spread a credential-stuffing run across thousands of addresses,
      * and limiting only by email lets one IP enumerate accounts.
      */
+    /**
+     * Builds the link in a password reset email.
+     *
+     * Laravel's default points at a route named `password.reset`, which a web
+     * application has and this one does not: there are no web routes, only
+     * `POST /api/v1/auth/reset-password`. Left alone, asking for a reset threw
+     * RouteNotFoundException and the endpoint answered 500 — the one flow a
+     * locked-out person depends on.
+     *
+     * The address is a page on the site rather than a custom scheme so that it
+     * still works for somebody reading their mail on a machine without the app
+     * installed, and can be claimed as a universal link later without the
+     * emails already sent becoming dead.
+     */
+    private function configurePasswordResetLinks(): void
+    {
+        ResetPassword::createUrlUsing(
+            static fn (object $notifiable, string $token): string => rtrim(config('app.url'), '/')
+                .'/reset-password?'
+                .http_build_query([
+                    'token' => $token,
+                    'email' => $notifiable->getEmailForPasswordReset(),
+                ])
+        );
+    }
+
     private function configureRateLimiting(): void
     {
         RateLimiter::for('auth', fn (Request $request) => [
