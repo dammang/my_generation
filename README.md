@@ -118,6 +118,46 @@ What has to be done in the consoles, none of which lives in this repository:
 | APNs auth key uploaded, or iOS push silently never arrives | Apple Developer → Keys |
 | Sign in with Apple: a Services ID, a key, and the Xcode capability | Apple Developer |
 | `khanggui.com` added as an authorised domain | Firebase → Authentication → Settings |
+| The **release** signing SHA-1 added, alongside the debug one | Firebase → project settings → Android app |
+
+### The release signing key
+
+`android/app/build.gradle.kts` signs a release with `android/key.properties`
+when that file exists, and otherwise falls back to the debug key while printing
+a warning. The fallback is there so a fresh clone can still run
+`flutter run --release`; the warning is there because a release signed with the
+debug key installs perfectly and then fails at the sign-in button, which is a
+miserable thing to discover from a user.
+
+Creating the keystore is a person's job, not a script's: it is the app's
+permanent identity on Google Play, the password is not recoverable, and losing
+the file means never being able to update the app under that identity again.
+Back it up somewhere that is not this machine.
+
+```sh
+keytool -genkey -v -keystore ~/khanggui-release.jks \
+  -keyalg RSA -keysize 2048 -validity 10000 -alias khanggui
+```
+
+Then `mobile/android/key.properties`, which is gitignored:
+
+```properties
+storeFile=/Users/you/khanggui-release.jks
+storePassword=…
+keyAlias=khanggui
+keyPassword=…
+```
+
+Its SHA-1 goes in the Firebase console next to the debug one — both are needed,
+or sign-in works in development and fails in production, or the reverse:
+
+```sh
+keytool -list -v -keystore ~/khanggui-release.jks -alias khanggui | grep SHA
+```
+
+Adding a fingerprint changes `google-services.json`, so download it again
+afterwards. `flutter build appbundle` then reports the release config rather
+than the warning.
 
 All three credential files are gitignored. The service account JSON in
 particular is full administrative access to the Firebase project — it can mint a
