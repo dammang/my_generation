@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Genealogy\AddRelative;
 use App\Actions\Genealogy\CreatePerson;
+use App\Actions\Notifications\NotifyReviewers;
 use App\Actions\Verification\SubmitChangeRequest;
 use App\Enums\ChangeRequestOperation;
 use App\Enums\PersonNameType;
@@ -150,6 +151,10 @@ class PersonController extends Controller
                 scope: $this->scopeFor($person),
                 reason: $reason,
             );
+
+            // The people who can decide this are not sitting watching a queue;
+            // contributions in a family archive arrive weeks apart.
+            app(NotifyReviewers::class)->handle($changeRequest);
 
             return ApiResponse::accepted([
                 'person' => null,

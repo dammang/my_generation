@@ -25,3 +25,12 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Firebase service account credentials. This file is full administrative access
+# to the Firebase project — it can mint tokens for any user and read every
+# document. It belongs outside the repository, and never in a commit.
+*service-account*.json
+firebase-adminsdk-*.json
+/storage/firebase/
+google-services.json
+GoogleService-Info.plist

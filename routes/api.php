@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChangeRequestController;
 use App\Http\Controllers\Api\V1\ClanController;
+use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\DisputeController;
 use App\Http\Controllers\Api\V1\FamilyBranchController;
 use App\Http\Controllers\Api\V1\GenerationController;
@@ -41,6 +42,10 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
     Route::middleware('throttle:auth')->group(function (): void {
         Route::post('auth/register', [AuthController::class, 'register'])->name('auth.register');
         Route::post('auth/login', [AuthController::class, 'login'])->name('auth.login');
+
+        // Google, Apple and email/password all arrive here as a verified
+        // Firebase identity and leave with a Sanctum token.
+        Route::post('auth/firebase', [AuthController::class, 'firebase'])->name('auth.firebase');
         Route::post('auth/forgot-password', [PasswordResetController::class, 'forgot'])->name('auth.forgot');
         Route::post('auth/reset-password', [PasswordResetController::class, 'reset'])->name('auth.reset');
     });
@@ -83,6 +88,10 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             // Drains a phone's offline queue in one round trip. Each operation
             // carries its own id, so replaying the batch is safe.
             Route::post('sync/batch', [SyncController::class, 'batch'])->name('sync.batch');
+
+            // Where to send a push, and where to stop sending one.
+            Route::post('devices', [DeviceController::class, 'store'])->name('devices.store');
+            Route::delete('devices', [DeviceController::class, 'destroy'])->name('devices.destroy');
 
             Route::post('disputes', [DisputeController::class, 'store'])->name('disputes.store');
             Route::post('disputes/{dispute}/resolve', [DisputeController::class, 'resolve'])->name('disputes.resolve');

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Auth\ExchangeFirebaseToken;
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\LoginRequest;
@@ -75,6 +76,37 @@ class AuthController extends Controller
             'user' => UserResource::make($user->load('person')),
             'token' => $this->issueToken($user, $request),
         ]);
+    }
+
+    /**
+     * Exchanges a verified Firebase identity for a session here.
+     *
+     * The ID token is checked once and discarded. Everything after this point
+     * is the same Sanctum token the rest of the API already understands, which
+     * is what keeps the permission model, the scopes and the policies working
+     * unchanged — and what lets a session be revoked, which a Firebase token
+     * cannot be.
+     */
+    public function firebase(Request $request, ExchangeFirebaseToken $exchange): JsonResponse
+    {
+        $data = $request->validate([
+            'id_token' => ['required', 'string', 'max:4096'],
+            'locale' => ['sometimes', 'string', 'max:12'],
+            'device_name' => ['sometimes', 'string', 'max:120'],
+        ]);
+
+        ['user' => $user, 'created' => $created] = $exchange->handle(
+            $data['id_token'],
+            $data['locale'] ?? null,
+        );
+
+        $this->audit($request, $created ? 'auth.registered' : 'auth.logged_in', $user);
+
+        return ApiResponse::success([
+            'user' => UserResource::make($user->load('person')),
+            'token' => $this->issueToken($user, $request),
+            'created' => $created,
+        ], status: $created ? 201 : 200);
     }
 
     public function logout(Request $request): JsonResponse
