@@ -483,87 +483,133 @@ $person->withRevisionContext(reason: 'Baptism register, entry 114', sourceId: $s
 
 ## Deploying
 
-Forge onto your own server: site `khanggui.com`, **PHP 8.4**. Nothing here is
-Forge-specific except where it says so; the parts that bite are the same
-anywhere.
+The server is a CyberPanel / OpenLiteSpeed VPS, and the site is `khanggui.com`
+on **PHP 8.4** (`lsphp84`). Not Forge — there is no deploy-script UI, no queue
+daemon page and no scheduler page, so the three of those are set up by hand
+below, once.
 
 `composer.json` pins `config.platform.php` to **8.4.1** so this machine resolves
-dependencies against the version the server runs, rather than the 8.5 this
-machine happens to have. Without the pin, `composer update` here can lock a
-package that will not install there, and the first sign of it is a failed
-deploy.
-`composer check-platform-reqs --no-dev` reports every locked package satisfied,
-and no application code uses anything newer.
+dependencies against the version the server runs rather than the 8.5 it happens
+to have. Without the pin, `composer update` here can lock a package that will
+not install there, and the first sign of it is a failed deploy. 8.4.**1**, not
+8.4.0: the locked `symfony/console` requires >= 8.4.1, and a server on 8.4.0
+exactly fails at `composer install` complaining about the lock rather than about
+PHP.
 
-8.4.**1**, not 8.4.0: `symfony/console` in the current lock requires >= 8.4.1,
-so a server on 8.4.0 exactly would fail at `composer install` with a message
-about the lock rather than about PHP. Worth confirming with `php -v` on the
-server — any current Forge 8.4 is well past it.
+### Once, on the server
 
-The site's PHP needs these extensions — Forge installs most, but `intl`, `zip`
-and `sodium` are worth confirming:
+**The document root has to be Laravel's `public/`.** CyberPanel points a new
+site at `public_html`, which would serve `.env`, `storage/` and the whole
+repository to anybody who asked. In the website's vHost Conf:
+
+```
+docRoot                   $VH_ROOT/public_html/public
+
+rewrite  {
+  enable                  1
+  autoLoadHtaccess        1
+}
+```
+
+`autoLoadHtaccess` is what makes OpenLiteSpeed read the `public/.htaccess`
+Laravel ships. That file carries the front-controller rewrite and — the part
+that matters here — the rule that preserves the `Authorization` header, which
+LiteSpeed otherwise drops. Every authenticated API request depends on it.
+
+**Extensions.** `lsphp84` needs these; `intl`, `zip` and `sodium` are the ones
+not installed by default:
 
 ```
 ctype dom fileinfo filter hash iconv intl json libxml
 mbstring openssl pcre session sodium tokenizer xmlreader zip
 ```
 
-**The deploy script.** Two lines matter that a stock Laravel script does not
-have: the asset build, because the password-reset and verification pages are
-served by this app and `public/build` is gitignored, and the queue restart,
-because a running worker holds the old code until it is told otherwise.
-
 ```sh
-cd /home/forge/khanggui.com
-git pull origin $FORGE_SITE_BRANCH
-
-$FORGE_COMPOSER install --no-dev --no-interaction --prefer-dist --optimize-autoloader
-
-# The reset-password and verify-email pages need built assets, or every visit
-# throws ViteException: Unable to locate file in Vite manifest.
-npm ci
-npm run build
-
-( flock -w 10 9 || exit 1
-    echo 'Restarting FPM...'; sudo -S service $FORGE_PHP_FPM reload ) 9>/tmp/fpmlock
-
-$FORGE_PHP artisan migrate --force
-
-$FORGE_PHP artisan config:cache
-$FORGE_PHP artisan route:cache
-$FORGE_PHP artisan view:cache
-$FORGE_PHP artisan event:cache
-
-# The worker is running the previous release until this.
-$FORGE_PHP artisan queue:restart
+# AlmaLinux / CentOS
+dnf install lsphp84-intl lsphp84-zip lsphp84-sodium lsphp84-mysqlnd lsphp84-process
+# Ubuntu / Debian
+apt install lsphp84-intl lsphp84-zip lsphp84-sodium lsphp84-mysql lsphp84-curl
 ```
 
-**Two processes, not just the site.** Neither is optional:
+**The queue worker**, as a systemd unit, because there is no UI for it and
+review notifications are never delivered without one:
 
-| What | Why | Where |
-|---|---|---|
-| Queue worker on the `database` connection | Review notifications are queued; without a worker nobody is ever told their change needs approval | Forge → Queue |
-| Scheduler (`php artisan schedule:run` every minute) | Prunes the idempotency ledger; without it the table grows forever | Forge → Scheduler |
+```ini
+# /etc/systemd/system/khanggui-worker.service
+[Unit]
+Description=khanggui.com queue worker
+After=network.target
 
-**Environment.** Beyond the usual `APP_KEY`, database and `APP_ENV=production`
-with `APP_DEBUG=false`:
+[Service]
+User=khanggui
+Restart=always
+ExecStart=/usr/local/lsws/lsphp84/bin/php /home/khanggui.com/public_html/artisan \
+    queue:work --sleep=3 --tries=3 --max-time=3600
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```sh
+systemctl enable --now khanggui-worker
+```
+
+**The scheduler**, as a cron entry for the site user. It prunes the idempotency
+ledger; without it that table grows forever:
+
+```cron
+* * * * * /usr/local/lsws/lsphp84/bin/php /home/khanggui.com/public_html/artisan schedule:run >> /dev/null 2>&1
+```
+
+**Environment.** Beyond `APP_KEY`, the database credentials, and
+`APP_ENV=production` with `APP_DEBUG=false`:
 
 | Variable | Note |
 |---|---|
-| `APP_URL=https://khanggui.com` | Verification links are **signed against this host**. If it does not match what people actually reach, every link 403s with "Invalid signature" |
-| `FIREBASE_CREDENTIALS` | Absolute path to the service account JSON, uploaded outside the site directory so a deploy cannot overwrite it and the web root cannot serve it |
+| `APP_URL=https://khanggui.com` | Verification links are **signed against this host**. If it is not exactly what people reach — apex versus `www`, http versus https — every link 403s with "Invalid signature" |
+| `FIREBASE_CREDENTIALS` | Absolute path to the service account JSON, placed **outside** `public_html` so no deploy overwrites it and no request can reach it |
 | `MAIL_*` | A real mailer. `log` is the default and silently sends nothing |
-| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` | Read via `config/super_admin.php`, not `env()` directly — a cached config stops answering `env()` at all, which is why the seeder used to report a password missing that was sitting in `.env` |
+| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` | Read through `config/super_admin.php`, never `env()` directly — a cached config stops answering `env()` at all, which is why the seeder used to report a password missing that was sitting in `.env` |
 
-Then, once only:
+Then, once:
 
 ```sh
+php artisan key:generate
+php artisan storage:link
 php artisan db:seed --class=RolePermissionSeeder
 php artisan db:seed --class=SuperAdminSeeder
 ```
 
-Both are safe to re-run; the admin seeder updates rather than duplicating.
+Both seeders are safe to re-run; the admin seeder updates rather than
+duplicating.
 
-**Before the first deploy**, in the consoles: `khanggui.com` registered with
-Apple for Sign in with Apple email relay (or mail to Apple users silently
-vanishes), and SPF covering whatever actually sends.
+### Every deploy
+
+```sh
+bash /home/khanggui.com/public_html/deploy.sh
+```
+
+`deploy.sh` is in the repository. It calls `lsphp84` explicitly rather than
+whatever `php` is on the PATH — using the wrong one is how a deploy succeeds
+while the site carries on running something else — and it does the two things
+easiest to forget: `npm run build`, because this app serves the reset-password
+and verification pages and `public/build` is gitignored, and `queue:restart`,
+because the worker holds the previous release until told.
+
+### Checking it worked
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' https://khanggui.com/api/v1/health   # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://khanggui.com/reset-password  # 200
+curl -s https://khanggui.com/.env                                             # must NOT be 200
+```
+
+The last one is the document root: a 200 there means the vHost is still serving
+the repository rather than `public/`.
+
+### Before real users
+
+`khanggui.com` registered with Apple under Sign in with Apple for Email
+Communication, with SPF covering whatever actually sends. Apple users who choose
+Hide My Email are reachable only at a `@privaterelay.appleid.com` address, and
+Apple drops mail to it from unregistered domains without telling anyone.
