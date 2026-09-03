@@ -138,8 +138,19 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::get('tree/{person}/path-to/{other}', [TreeController::class, 'pathTo'])->name('tree.path');
         });
 
-        // Every write is replay-safe when the client sends an operation id.
-        Route::middleware(['throttle:write', 'idempotent'])->group(function (): void {
+        // Every write is replay-safe when the client sends an operation id,
+        // and every write requires a confirmed address.
+        //
+        // Account management deliberately sits outside this group: somebody
+        // who mistyped their address has to be able to correct it and ask for
+        // a new link, which they could not do if fixing it were itself gated
+        // on having fixed it.
+        //
+        // The check runs before `idempotent` on purpose: that middleware claims
+        // the client's operation id before passing the request on, and a write
+        // that was never allowed to happen must not burn the id it was sent
+        // with — the retry after verifying would replay a refusal.
+        Route::middleware(['throttle:write', 'verified.email', 'idempotent'])->group(function (): void {
             // ── Genealogy ────────────────────────────────────────────────
             Route::post('people', [PersonController::class, 'store'])->name('people.store');
             Route::patch('people/{person}', [PersonController::class, 'update'])->name('people.update');

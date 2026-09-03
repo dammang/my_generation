@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApiException;
+use App\Http\Middleware\EnsureEmailIsVerified;
 use App\Http\Middleware\FlushRequestScopedState;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\IdempotentWrites;
@@ -29,7 +30,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Aliased rather than global: it needs the authenticated user, and
         // global api middleware runs before auth:sanctum has resolved one.
-        $middleware->alias(['idempotent' => IdempotentWrites::class]);
+        $middleware->alias([
+            'idempotent' => IdempotentWrites::class,
+            'verified.email' => EnsureEmailIsVerified::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
