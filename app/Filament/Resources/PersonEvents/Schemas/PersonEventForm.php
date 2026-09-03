@@ -18,8 +18,11 @@ class PersonEventForm
     {
         return $schema
             ->components([
-                TextInput::make('ulid')
-                    ->required(),
+                // Not a form field: HasUlid assigns this the moment the
+                // model is created. A public identifier that an administrator
+                // can type by hand is one that can be typed wrong, or typed to
+                // collide with another record's — better that it never leaves
+                // the server's control.
                 Select::make('person_id')
                     ->relationship('person', 'id')
                     ->required(),
