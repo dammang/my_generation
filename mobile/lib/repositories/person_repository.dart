@@ -2,6 +2,7 @@ import '../core/constants/api_paths.dart';
 import '../core/network/api_client.dart';
 import '../core/network/api_envelope.dart';
 import '../models/family_bundle.dart';
+import '../models/media_item.dart';
 import '../models/person_detail.dart';
 import '../models/person_event.dart';
 import '../models/person_summary.dart';
@@ -72,6 +73,26 @@ class PersonRepository {
           .toList(growable: false),
       // The server says so explicitly rather than the client inferring it from
       // an empty list, which would be the wrong inference half the time.
+      withheld: envelope.meta['withheld'] as bool? ?? false,
+    );
+  }
+
+  /// Photographs attached to a person.
+  ///
+  /// Withheld is reported by the server rather than inferred from an empty
+  /// list, for the same reason the timeline does it: the two mean different
+  /// things and must not render the same.
+  Future<MediaAlbum> media(String ulid) async {
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.personMedia(ulid),
+      parse: (data) => (data as List?) ?? const [],
+    );
+
+    return MediaAlbum(
+      items: (envelope.data ?? const [])
+          .whereType<Map>()
+          .map((e) => MediaItem.fromJson(e.cast<String, dynamic>()))
+          .toList(growable: false),
       withheld: envelope.meta['withheld'] as bool? ?? false,
     );
   }

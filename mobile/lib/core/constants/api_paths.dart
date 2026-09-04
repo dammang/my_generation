@@ -59,6 +59,9 @@ class ApiPaths {
   static String lineage(String ulid) => '$prefix/tree/$ulid/lineage';
   static String pathTo(String from, String to) => '$prefix/tree/$from/path-to/$to';
 
+  // Media
+  static String personMedia(String ulid) => '$prefix/people/$ulid/media';
+
   // Stories
   static const String stories = '$prefix/stories';
   static String story(String ulid) => '$prefix/stories/$ulid';

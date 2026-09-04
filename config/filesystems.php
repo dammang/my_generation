@@ -47,6 +47,29 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Cloudflare R2, which speaks the S3 API.
+         *
+         * `url` is the public custom domain and is only ever used for media
+         * marked public — anything private is served as a short-lived signed
+         * URL against `endpoint` instead, because a public bucket URL is a
+         * permanent unauthenticated link to a photograph of somebody's family.
+         *
+         * Path-style addressing: R2 does not do virtual-host style buckets.
+         */
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => env('R2_REGION', 'auto'),
+            'bucket' => env('R2_BUCKET'),
+            'url' => env('R2_URL'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/errors/api_exception.dart';
 import '../../../models/change_request.dart';
 import '../../../models/person_detail.dart';
+import '../../../models/media_item.dart';
 import '../../../models/person_summary.dart';
 import '../../../models/story.dart';
 import '../../../providers/person_provider.dart';
@@ -16,11 +17,13 @@ import '../../../routing/app_router.dart';
 import '../widgets/family_tab.dart';
 import '../widgets/history_tab.dart';
 import '../widgets/person_header.dart';
+import '../widgets/photos_tab.dart';
 import '../widgets/stories_tab.dart';
 import '../widgets/timeline_tab.dart';
 import 'add_event_screen.dart';
 import 'add_relative_screen.dart';
 import 'edit_person_screen.dart';
+import 'photo_screen.dart';
 import 'raise_dispute_screen.dart';
 import 'story_screen.dart';
 import 'write_story_screen.dart';
@@ -77,7 +80,7 @@ class _Loaded extends ConsumerStatefulWidget {
 class _LoadedState extends ConsumerState<_Loaded>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(
-    length: 5,
+    length: 6,
     initialIndex: widget.initialTab,
     vsync: this,
   );
@@ -146,6 +149,12 @@ class _LoadedState extends ConsumerState<_Loaded>
     );
   }
 
+  void _openPhoto(MediaItem item) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => PhotoScreen(item: item)),
+    );
+  }
+
   void _openStory(Story story) {
     Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => StoryScreen(ulid: story.ulid)),
@@ -177,6 +186,7 @@ class _LoadedState extends ConsumerState<_Loaded>
     final family = ref.watch(familyProvider(detail.ulid));
     final timeline = ref.watch(timelineProvider(detail.ulid));
     final stories = ref.watch(personStoriesProvider(detail.ulid));
+    final photos = ref.watch(personMediaProvider(detail.ulid));
 
     return Scaffold(
       body: NestedScrollView(
@@ -211,6 +221,7 @@ class _LoadedState extends ConsumerState<_Loaded>
                   Tab(text: 'Family'),
                   Tab(text: 'Timeline'),
                   Tab(text: 'Stories'),
+                  Tab(text: 'Photos'),
                   Tab(text: 'History'),
                 ],
               ),
@@ -254,6 +265,14 @@ class _LoadedState extends ConsumerState<_Loaded>
                 onOpen: _openStory,
                 onWrite: _writeStory,
               ),
+            ),
+            photos.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => _Failure(
+                error: error,
+                onRetry: () => ref.invalidate(personMediaProvider(detail.ulid)),
+              ),
+              data: (album) => PhotosTab(album: album, onOpen: _openPhoto),
             ),
             _HistoryPane(ulid: detail.ulid, onRaiseDispute: _raiseDispute),
           ],

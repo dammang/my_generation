@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\DisputeController;
 use App\Http\Controllers\Api\V1\FamilyBranchController;
 use App\Http\Controllers\Api\V1\GenerationController;
+use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\MembershipController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PersonController;
@@ -105,6 +106,7 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
 
             // Stories are scoped by Story::visibleTo, not by this route — a
             // guest listing them gets the public ones and nothing else.
+            Route::get('people/{person}/media', [MediaController::class, 'forPerson'])->name('people.media');
             Route::get('stories', [StoryController::class, 'index'])->name('stories.index');
             Route::get('stories/{story}', [StoryController::class, 'show'])->name('stories.show');
             Route::get('unions/{union}', [UnionController::class, 'show'])->name('unions.show');
@@ -169,6 +171,7 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::post('people/{person}/names', [PersonController::class, 'storeName'])->name('people.names.store');
             Route::delete('people/{person}/names/{person_name}', [PersonController::class, 'destroyName'])->name('people.names.destroy');
 
+            Route::post('media', [MediaController::class, 'store'])->name('media.store');
             Route::post('stories', [StoryController::class, 'store'])->name('stories.store');
 
             Route::post('person-events', [PersonEventController::class, 'store'])->name('events.store');

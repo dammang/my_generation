@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/family_bundle.dart';
 import '../models/person_detail.dart';
+import '../models/media_item.dart';
 import '../models/person_event.dart';
 import '../repositories/person_repository.dart';
 import '../core/errors/api_exception.dart';
@@ -58,6 +59,15 @@ final timelineProvider = FutureProvider.family<Timeline, String>((ref, ulid) asy
     // read as a life with nothing in it.
     return const Timeline.notOnDevice();
   }
+});
+
+/// Photographs for one person.
+///
+/// Not cached offline: a signed URL expires, so a cached album would become a
+/// grid of broken images rather than a useful offline copy.
+final personMediaProvider =
+    FutureProvider.family<MediaAlbum, String>((ref, ulid) {
+  return ref.watch(personRepositoryProvider).media(ulid);
 });
 
 final eventTypesProvider = FutureProvider<List<EventTypeOption>>((ref) {
