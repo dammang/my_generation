@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/errors/api_exception.dart';
 import '../../../models/change_request.dart';
@@ -21,6 +22,7 @@ import '../widgets/photos_tab.dart';
 import '../widgets/stories_tab.dart';
 import '../widgets/timeline_tab.dart';
 import 'add_event_screen.dart';
+import 'add_photo_screen.dart';
 import 'add_relative_screen.dart';
 import 'edit_person_screen.dart';
 import 'photo_screen.dart';
@@ -149,6 +151,59 @@ class _LoadedState extends ConsumerState<_Loaded>
     );
   }
 
+  /// Asks where the photograph comes from, then confirms it before upload.
+  ///
+  /// Both sources are offered rather than defaulting to the gallery: a scanned
+  /// print on a table is a photograph of a photograph, and the camera is the
+  /// natural way to add one.
+  Future<void> _addPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from photos'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photograph'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    // Downscaled here rather than on the server: a modern phone photograph is
+    // several megabytes, and nothing in this app displays one larger than
+    // this. Uploading the full original spends somebody's data on detail no
+    // screen ever shows.
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 2400,
+      maxHeight: 2400,
+      imageQuality: 85,
+    );
+
+    if (picked == null || !mounted) return;
+
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddPhotoScreen(
+          personUlid: detail.ulid,
+          personName: detail.displayName,
+          filePath: picked.path,
+        ),
+      ),
+    );
+  }
+
   void _openPhoto(MediaItem item) {
     Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (_) => PhotoScreen(item: item)),
@@ -272,7 +327,11 @@ class _LoadedState extends ConsumerState<_Loaded>
                 error: error,
                 onRetry: () => ref.invalidate(personMediaProvider(detail.ulid)),
               ),
-              data: (album) => PhotosTab(album: album, onOpen: _openPhoto),
+              data: (album) => PhotosTab(
+                album: album,
+                onOpen: _openPhoto,
+                onAdd: _addPhoto,
+              ),
             ),
             _HistoryPane(ulid: detail.ulid, onRaiseDispute: _raiseDispute),
           ],
@@ -295,6 +354,11 @@ class _LoadedState extends ConsumerState<_Loaded>
             onPressed: _writeStory,
             icon: const Icon(Icons.edit_outlined),
             label: const Text('Write a story'),
+          ),
+          4 => FloatingActionButton.extended(
+            onPressed: _addPhoto,
+            icon: const Icon(Icons.add_a_photo_outlined),
+            label: const Text('Add photograph'),
           ),
           _ => const SizedBox.shrink(),
         },

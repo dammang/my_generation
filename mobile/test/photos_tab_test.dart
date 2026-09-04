@@ -17,7 +17,7 @@ Future<void> _pump(WidgetTester tester, MediaAlbum album) async {
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: PhotosTab(album: album, onOpen: (_) {}),
+        body: PhotosTab(album: album, onOpen: (_) {}, onAdd: () {}),
       ),
     ),
   );
@@ -29,6 +29,7 @@ void main() {
       await _pump(tester, const MediaAlbum(items: [], withheld: false));
 
       expect(find.text('No photographs yet'), findsOneWidget);
+      expect(find.text('Add a photograph'), findsOneWidget);
       expect(find.textContaining('private'), findsNothing);
     });
 
@@ -38,7 +39,7 @@ void main() {
       expect(find.text('These photographs are private'), findsOneWidget);
       // Asking somebody to add a photograph of a person they are not allowed
       // to see would misdescribe why the screen is empty.
-      expect(find.textContaining('can be added'), findsNothing);
+      expect(find.text('Add a photograph'), findsNothing);
     });
 
     testWidgets('a caption is shown over its photograph', (tester) async {

@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../core/constants/api_paths.dart';
 import '../core/network/api_client.dart';
 import '../core/network/api_envelope.dart';
@@ -95,6 +97,35 @@ class PersonRepository {
           .toList(growable: false),
       withheld: envelope.meta['withheld'] as bool? ?? false,
     );
+  }
+
+  /// Uploads a photograph and attaches it to a person.
+  ///
+  /// Multipart rather than a base64 field: a photograph from a modern phone is
+  /// several megabytes, and base64 would add a third to that on somebody's
+  /// mobile data for no gain.
+  Future<MediaItem> uploadPhoto({
+    required String personUlid,
+    required String filePath,
+    String? caption,
+    bool isPrivate = true,
+  }) async {
+    final form = FormData.fromMap({
+      'person_ulid': personUlid,
+      'file': await MultipartFile.fromFile(filePath),
+      if (caption != null && caption.trim().isNotEmpty) 'caption': caption.trim(),
+      // Sent as 0/1: a Dart bool becomes the string "true", which PHP's
+      // boolean validation rejects.
+      'is_private': isPrivate ? 1 : 0,
+    });
+
+    final envelope = await _api.post<Map<String, dynamic>>(
+      ApiPaths.media,
+      body: form,
+      parse: (data) => (data as Map).cast<String, dynamic>(),
+    );
+
+    return MediaItem.fromJson(envelope.data!);
   }
 
   Future<List<EventTypeOption>> eventTypes() async {

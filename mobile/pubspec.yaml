@@ -56,6 +56,11 @@ dependencies:
   firebase_crashlytics: ^5.3.0
   firebase_analytics: ^12.5.0
 
+  # Choosing a photograph to attach to a person. Needs NSPhotoLibraryUsage-
+  # Description and NSCameraUsageDescription in ios/Runner/Info.plist — iOS
+  # does not refuse a picker without them, it terminates the app.
+  image_picker: ^1.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

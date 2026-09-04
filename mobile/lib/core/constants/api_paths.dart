@@ -61,6 +61,7 @@ class ApiPaths {
 
   // Media
   static String personMedia(String ulid) => '$prefix/people/$ulid/media';
+  static const String media = '$prefix/media';
 
   // Stories
   static const String stories = '$prefix/stories';

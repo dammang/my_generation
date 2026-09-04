@@ -10,10 +10,16 @@ import '../../../models/media_item.dart';
 /// see this person's face, and asking them to add one misdescribes why the
 /// screen is empty.
 class PhotosTab extends StatelessWidget {
-  const PhotosTab({super.key, required this.album, required this.onOpen});
+  const PhotosTab({
+    super.key,
+    required this.album,
+    required this.onOpen,
+    required this.onAdd,
+  });
 
   final MediaAlbum album;
   final void Function(MediaItem item) onOpen;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +38,12 @@ class PhotosTab extends StatelessWidget {
         icon: Icons.photo_library_outlined,
         title: 'No photographs yet',
         message:
-            'Pictures can be added from the admin panel. Uploading from the '
-            'app is not built yet.',
+            'A face is the part of a record nobody has to be taught to read.',
+        action: FilledButton.icon(
+          onPressed: onAdd,
+          icon: const Icon(Icons.add_a_photo_outlined),
+          label: const Text('Add a photograph'),
+        ),
       );
     }
 
@@ -98,11 +108,21 @@ class PhotosTab extends StatelessWidget {
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty({required this.icon, required this.title, required this.message});
+  const _Empty({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.action,
+  });
 
   final IconData icon;
   final String title;
   final String message;
+
+  /// Never set on the withheld state: offering to add a photograph of somebody
+  /// the viewer is not allowed to see would misdescribe why the screen is
+  /// empty.
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +145,7 @@ class _Empty extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            if (action != null) ...[const SizedBox(height: 20), action!],
           ],
         ),
       ),
