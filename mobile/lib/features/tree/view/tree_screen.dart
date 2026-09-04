@@ -138,7 +138,7 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
       ),
       body: Column(
         children: [
-          SyncBanner(onTap: () => context.push(Routes.pendingChanges)),
+          SyncBanner(onTap: () => context.go(Routes.pendingChanges)),
           Expanded(child: tree.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _Error(

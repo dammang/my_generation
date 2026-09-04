@@ -3,19 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:go_router/go_router.dart';
 
-import '../../core/constants/api_paths.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../routing/app_router.dart';
 import '../auth/widgets/verify_email_banner.dart';
 import '../sync/widgets/sync_banner.dart';
 
-/// A placeholder home.
+/// Where the app opens.
 ///
-/// Its job in this phase is to prove the whole chain: a token from the
-/// keystore, a request through Dio, an envelope unwrapped, and the viewer's
-/// real scopes and permissions on screen. The actual home — lineage strip,
-/// statistics, recent family history — arrives with the feature phases.
+/// Everything describing the account itself moved to the profile tab when the
+/// bottom bar arrived; what is left is about the archive — what needs somebody's
+/// attention, and the two places worth going next.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -31,21 +29,13 @@ class HomeScreen extends ConsumerWidget {
     final user = auth.user;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Generation'),
-        actions: [
-          IconButton(
-            tooltip: 'Sign out',
-            onPressed: () => ref.read(authProvider.notifier).signOut(),
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('My Generation')),
       body: Column(
         children: [
           // Above everything else: what has not reached the server yet changes
-          // how the rest of the screen should be read.
-          SyncBanner(onTap: () => context.push(Routes.pendingChanges)),
+          // how the rest of the screen should be read. Tapping switches to the
+          // outbox tab rather than stacking a copy of it on top of home.
+          SyncBanner(onTap: () => context.go(Routes.pendingChanges)),
 
           // Above that again when it shows at all, because an unconfirmed
           // address means nothing below can be contributed to yet.
@@ -58,176 +48,120 @@ class HomeScreen extends ConsumerWidget {
                 ref.invalidate(myClaimsProvider);
               },
               child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Card(
-              child: Padding(
                 padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Signed in as', style: theme.textTheme.labelMedium),
-                    const SizedBox(height: 4),
-                    Text(user.name, style: theme.textTheme.headlineSmall),
-                    Text(
-                      user.email,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                children: [
+                  Text(
+                    _greeting(user.name),
+                    style: theme.textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    user.hasClaimedPerson
+                        ? 'You are recorded here as ${user.personName}.'
+                        : 'Your account is not linked to anyone in the archive yet.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
+                  ),
+
+                  // A record usually exists before its subject opens the app, so
+                  // this is an ordinary next step rather than an error to be
+                  // corrected. It stays on home because it is the one thing a
+                  // new arrival most needs to do.
+                  if (!user.hasClaimedPerson) ...[
                     const SizedBox(height: 16),
-                    // A user is not a person: most accounts are never linked to
-                    // a genealogy record, and saying so plainly is better than
-                    // an empty space.
-                    _Fact(
-                      label: 'Archive profile',
-                      value: user.hasClaimedPerson
-                          ? 'Linked to ${user.personName}'
-                          : 'Not yet linked to a person',
-                      icon: user.hasClaimedPerson ? Icons.link : Icons.link_off,
-                    ),
-                    // A record usually exists before its subject opens the app,
-                    // so this is an ordinary next step rather than an error to
-                    // be corrected.
-                    if (!user.hasClaimedPerson) ...[
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () => context.push(Routes.claimProfile),
-                        icon: const Icon(Icons.person_search_outlined),
-                        label: const Text('Find myself in the archive'),
-                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                    FilledButton.icon(
+                      onPressed: () => context.push(Routes.claimProfile),
+                      icon: const Icon(Icons.person_search_outlined),
+                      label: const Text('Find myself in the archive'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
                       ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('What this account can reach', style: theme.textTheme.titleMedium),
-                    const SizedBox(height: 12),
-                    _Fact(
-                      label: 'Tribes',
-                      value: user.tribeIds.isEmpty ? 'No memberships yet' : '${user.tribeIds.length}',
-                      icon: Icons.groups_outlined,
-                    ),
-                    _Fact(
-                      label: 'Clans',
-                      value: '${user.clanIds.length}',
-                      icon: Icons.account_tree_outlined,
-                    ),
-                    _Fact(
-                      label: 'Permissions',
-                      value: user.isSuperAdmin
-                          ? 'Full administrator'
-                          : '${user.permissions.length}',
-                      icon: Icons.key_outlined,
                     ),
                   ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: InkWell(
-                onTap: () => context.push(Routes.tree),
-                borderRadius: BorderRadius.circular(14),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      Icon(Icons.account_tree_outlined, size: 32, color: theme.colorScheme.primary),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Family tree', style: theme.textTheme.titleLarge),
-                            Text(
-                              user.hasClaimedPerson
-                                  ? 'Start from ${user.personName}'
-                                  : 'Browse the people you can see',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right),
-                    ],
+                  const SizedBox(height: 24),
+                  _PendingRequests(),
+                  _Shortcut(
+                    icon: Icons.account_tree_outlined,
+                    title: 'Family tree',
+                    subtitle: user.hasClaimedPerson
+                        ? 'Start from ${user.personName}'
+                        : 'Browse the people you can see',
+                    onTap: () => context.go(Routes.tree),
                   ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: InkWell(
-                onTap: () => context.push(Routes.contributions),
-                borderRadius: BorderRadius.circular(14),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.rate_review_outlined,
-                        size: 32,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Contributions', style: theme.textTheme.titleLarge),
-                            Text(
-                              'Corrections you have suggested, and any waiting '
-                              'for you to review',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right),
-                    ],
+                  const SizedBox(height: 16),
+                  _Shortcut(
+                    icon: Icons.rate_review_outlined,
+                    title: 'Contributions',
+                    subtitle:
+                        'Corrections you have suggested, and any waiting '
+                        'for you to review',
+                    onTap: () => context.go(Routes.contributions),
                   ),
-                ),
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            _PendingRequests(),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Connected to', style: theme.textTheme.labelMedium),
-                    const SizedBox(height: 4),
-                    Text(ApiConfig.defaultBaseUrl, style: theme.textTheme.bodyLarge),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Pull down to re-read your account from the server.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-              ],
-            ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// First name only. "Welcome back, Nguyen Van Minh" reads as a form letter;
+  /// the short form reads as somebody's own archive.
+  static String _greeting(String name) {
+    final first = name.trim().split(RegExp(r'\s+')).first;
+
+    return first.isEmpty ? 'Welcome back' : 'Welcome back, $first';
+  }
+}
+
+/// A place worth going, stated as a place rather than a menu row.
+class _Shortcut extends StatelessWidget {
+  const _Shortcut({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(icon, size: 32, color: theme.colorScheme.primary),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: theme.textTheme.titleLarge),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -246,15 +180,15 @@ class _PendingRequests extends ConsumerWidget {
 
     final pending = <String>[
       ...memberships.maybeWhen(
-        data: (list) => list.where((m) => m.isPending).map(
-              (m) => 'Joining ${m.scopeName ?? 'a tribe'}',
-            ),
+        data: (list) => list
+            .where((m) => m.isPending)
+            .map((m) => 'Joining ${m.scopeName ?? 'a tribe'}'),
         orElse: () => const <String>[],
       ),
       ...claims.maybeWhen(
-        data: (list) => list.where((c) => c.isPending).map(
-              (c) => 'Being recognised as ${c.personName ?? 'a person'}',
-            ),
+        data: (list) => list
+            .where((c) => c.isPending)
+            .map((c) => 'Being recognised as ${c.personName ?? 'a person'}'),
         orElse: () => const <String>[],
       ),
     ];
@@ -283,40 +217,21 @@ class _PendingRequests extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
-                      Icon(Icons.schedule, size: 18, color: theme.colorScheme.tertiary),
+                      Icon(
+                        Icons.schedule,
+                        size: 18,
+                        color: theme.colorScheme.tertiary,
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: Text(item, style: theme.textTheme.bodyLarge)),
+                      Expanded(
+                        child: Text(item, style: theme.textTheme.bodyLarge),
+                      ),
                     ],
                   ),
                 ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Fact extends StatelessWidget {
-  const _Fact({required this.label, required this.value, required this.icon});
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label, style: theme.textTheme.bodyLarge)),
-          Text(value, style: theme.textTheme.titleMedium),
-        ],
       ),
     );
   }
