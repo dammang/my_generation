@@ -196,6 +196,38 @@ class MediaTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
+    public function test_public_media_falls_back_to_signing_when_no_public_domain_is_set(): void
+    {
+        Storage::fake('r2');
+        config(['filesystems.disks.r2.url' => null]);
+
+        $person = $this->person();
+
+        $media = Media::create([
+            'mediable_type' => $person->getMorphClass(),
+            'mediable_id' => $person->getKey(),
+            'disk' => 'r2',
+            'path' => 'media/1/ef/efg.jpg',
+            'original_filename' => 'efg.jpg',
+            'mime_type' => 'image/jpeg',
+            'extension' => 'jpg',
+            'size_bytes' => 512,
+            'checksum_sha256' => str_repeat('c', 64),
+            'is_private' => false,
+        ]);
+
+        $url = app(MediaUrlResolver::class)->url($media);
+
+        // With no public base configured the s3 driver still returns a URL,
+        // built from the endpoint and unsigned — which would look like it
+        // worked and serve nothing. Signing is the honest answer.
+        $this->assertNotNull($url);
+        $this->assertTrue(
+            str_contains($url, 'Signature') || str_contains($url, 'expiration'),
+            'public media was given an unsigned URL with no public domain configured',
+        );
+    }
+
     public function test_a_file_that_is_not_an_image_is_refused(): void
     {
         Storage::fake('r2');

@@ -24,6 +24,16 @@ use Throwable;
  * that stops working, which is the difference between showing a family album
  * to a member and publishing it.
  *
+ * That guarantee is only as good as the bucket. An R2 custom domain serves the
+ * *whole* bucket anonymously, not the objects an application considers public,
+ * so attaching one to the bucket that also holds private media makes every
+ * private photograph permanently fetchable by anyone holding its path — and
+ * the path is the readable half of every signed URL ever issued. Verified
+ * against production: the object came back byte-identical over the custom
+ * domain with no credentials at all. Private media therefore belongs in a
+ * bucket with no custom domain attached, and R2_URL should be left empty
+ * unless a separate public bucket exists.
+ *
  * The entitlement check itself is not here: this answers "what URL", never
  * "may they". The controller decides that before asking.
  */
@@ -45,7 +55,11 @@ class MediaUrlResolver
             return null;
         }
 
-        if (! $media->is_private) {
+        // Only when a public base URL is actually configured. With none, the
+        // s3 driver still returns a URL — built from the endpoint, unsigned
+        // and useless — and handing that out for public media would look like
+        // it worked while serving nothing.
+        if (! $media->is_private && filled(config("filesystems.disks.{$this->diskName($media)}.url"))) {
             return $disk->url($media->path);
         }
 
@@ -65,10 +79,15 @@ class MediaUrlResolver
 
     private function disk(Media $media): ?Filesystem
     {
-        $name = $media->disk ?: 'r2';
+        $name = $this->diskName($media);
 
         return config("filesystems.disks.{$name}") === null
             ? null
             : Storage::disk($name);
+    }
+
+    private function diskName(Media $media): string
+    {
+        return $media->disk ?: 'r2';
     }
 }
