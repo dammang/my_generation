@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\ProfileClaimController;
 use App\Http\Controllers\Api\V1\RelationshipController;
 use App\Http\Controllers\Api\V1\RevisionController;
 use App\Http\Controllers\Api\V1\ScopeRoleController;
+use App\Http\Controllers\Api\V1\StoryController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TreeController;
 use App\Http\Controllers\Api\V1\TribeController;
@@ -101,6 +102,11 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::post('disputes', [DisputeController::class, 'store'])->name('disputes.store');
             Route::post('disputes/{dispute}/resolve', [DisputeController::class, 'resolve'])->name('disputes.resolve');
             Route::get('event-types', [PersonEventController::class, 'types'])->name('event-types.index');
+
+            // Stories are scoped by Story::visibleTo, not by this route — a
+            // guest listing them gets the public ones and nothing else.
+            Route::get('stories', [StoryController::class, 'index'])->name('stories.index');
+            Route::get('stories/{story}', [StoryController::class, 'show'])->name('stories.show');
             Route::get('unions/{union}', [UnionController::class, 'show'])->name('unions.show');
 
             // ── Organisation ─────────────────────────────────────────────
@@ -162,6 +168,8 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
 
             Route::post('people/{person}/names', [PersonController::class, 'storeName'])->name('people.names.store');
             Route::delete('people/{person}/names/{person_name}', [PersonController::class, 'destroyName'])->name('people.names.destroy');
+
+            Route::post('stories', [StoryController::class, 'store'])->name('stories.store');
 
             Route::post('person-events', [PersonEventController::class, 'store'])->name('events.store');
             Route::patch('person-events/{person_event}', [PersonEventController::class, 'update'])->name('events.update');

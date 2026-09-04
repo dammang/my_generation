@@ -30,6 +30,24 @@ class FlushRequestScopedState
         app()->forgetInstance(ViewerScope::class);
         PersonResource::forgetRequestState();
 
+        // Forgetting the container binding is not enough on its own.
+        //
+        // Route::getController() memoises the controller on the Route, and the
+        // Route lives in the router's collection for the life of the process.
+        // Eleven controllers take ViewerScope in their constructor, so the
+        // instance built for the first request stays reachable through
+        // $this->viewer no matter what the container is told to forget — and
+        // the second request answers as the first requester. Proven by logging
+        // spl_object_id: same controller, same scope, different authenticated
+        // user.
+        //
+        // Clearing it here rather than dropping constructor injection from
+        // eleven files keeps the guarantee in one place, and keeps it true for
+        // the next controller somebody writes without knowing any of this.
+        if (($route = $request->route()) !== null) {
+            $route->controller = null;
+        }
+
         return $next($request);
     }
 }
