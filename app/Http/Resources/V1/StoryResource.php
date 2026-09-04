@@ -14,18 +14,26 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * A family narrative. The body is only sent when a single story was asked
  * for — a listing carries the summary, because a screen showing twenty
  * stories has no use for twenty full texts and every reason not to move them.
+ *
+ * Whether to include it is a property set after construction, never a second
+ * constructor argument. Collection::mapInto() builds resources as
+ * `new static($item, $key)`, so a second parameter silently receives the
+ * collection index: every story after the first would be constructed with a
+ * truthy value and send its whole body. That is exactly what happened, and
+ * the listing test did not catch it because it only looked at the first item —
+ * the one index that is falsy.
  */
 class StoryResource extends JsonResource
 {
-    public function __construct($resource, private readonly bool $withBody = false)
-    {
-        parent::__construct($resource);
-    }
+    private bool $withBody = false;
 
     /** A single story, body included. */
     public static function full(Story $story): self
     {
-        return new self($story, withBody: true);
+        $resource = new self($story);
+        $resource->withBody = true;
+
+        return $resource;
     }
 
     /** @return array<string, mixed> */

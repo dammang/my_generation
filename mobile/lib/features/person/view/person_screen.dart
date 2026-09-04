@@ -6,19 +6,24 @@ import '../../../core/errors/api_exception.dart';
 import '../../../models/change_request.dart';
 import '../../../models/person_detail.dart';
 import '../../../models/person_summary.dart';
+import '../../../models/story.dart';
 import '../../../providers/person_provider.dart';
 import '../../../providers/review_provider.dart';
+import '../../../providers/story_provider.dart';
 import '../../../providers/tree_provider.dart';
 import '../../../repositories/person_repository.dart';
 import '../../../routing/app_router.dart';
 import '../widgets/family_tab.dart';
 import '../widgets/history_tab.dart';
 import '../widgets/person_header.dart';
+import '../widgets/stories_tab.dart';
 import '../widgets/timeline_tab.dart';
 import 'add_event_screen.dart';
 import 'add_relative_screen.dart';
 import 'edit_person_screen.dart';
 import 'raise_dispute_screen.dart';
+import 'story_screen.dart';
+import 'write_story_screen.dart';
 
 /// One person, in full.
 ///
@@ -72,7 +77,7 @@ class _Loaded extends ConsumerStatefulWidget {
 class _LoadedState extends ConsumerState<_Loaded>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(
-    length: 4,
+    length: 5,
     initialIndex: widget.initialTab,
     vsync: this,
   );
@@ -130,6 +135,23 @@ class _LoadedState extends ConsumerState<_Loaded>
     );
   }
 
+  Future<void> _writeStory() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => WriteStoryScreen(
+          personUlid: detail.ulid,
+          personName: detail.displayName,
+        ),
+      ),
+    );
+  }
+
+  void _openStory(Story story) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => StoryScreen(ulid: story.ulid)),
+    );
+  }
+
   Future<void> _addEvent() async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -154,6 +176,7 @@ class _LoadedState extends ConsumerState<_Loaded>
   Widget build(BuildContext context) {
     final family = ref.watch(familyProvider(detail.ulid));
     final timeline = ref.watch(timelineProvider(detail.ulid));
+    final stories = ref.watch(personStoriesProvider(detail.ulid));
 
     return Scaffold(
       body: NestedScrollView(
@@ -187,6 +210,7 @@ class _LoadedState extends ConsumerState<_Loaded>
                   Tab(text: 'Overview'),
                   Tab(text: 'Family'),
                   Tab(text: 'Timeline'),
+                  Tab(text: 'Stories'),
                   Tab(text: 'History'),
                 ],
               ),
@@ -219,6 +243,18 @@ class _LoadedState extends ConsumerState<_Loaded>
               data: (data) =>
                   TimelineTab(timeline: data, onAddEvent: _addEvent),
             ),
+            stories.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => _Failure(
+                error: error,
+                onRetry: () => ref.invalidate(personStoriesProvider(detail.ulid)),
+              ),
+              data: (data) => StoriesTab(
+                stories: data,
+                onOpen: _openStory,
+                onWrite: _writeStory,
+              ),
+            ),
             _HistoryPane(ulid: detail.ulid, onRaiseDispute: _raiseDispute),
           ],
         ),
@@ -235,6 +271,11 @@ class _LoadedState extends ConsumerState<_Loaded>
             onPressed: _addEvent,
             icon: const Icon(Icons.add),
             label: const Text('Add event'),
+          ),
+          3 => FloatingActionButton.extended(
+            onPressed: _writeStory,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Write a story'),
           ),
           _ => const SizedBox.shrink(),
         },

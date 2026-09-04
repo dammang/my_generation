@@ -181,14 +181,36 @@ class StoryTest extends TestCase
 
     public function test_a_listing_carries_the_summary_and_not_the_whole_body(): void
     {
+        // Three, not one. Collection::mapInto() constructs each resource as
+        // `new static($item, $key)`, so anything reading a second constructor
+        // argument gets the collection index — and index 0 is the one value
+        // that behaves. A single-story listing passed this while every story
+        // after the first was sending its whole body.
+        $this->story(PrivacyLevel::Public);
+        $this->story(PrivacyLevel::Public);
         $this->story(PrivacyLevel::Public);
 
         $response = $this->actingAs($this->outsider())
             ->getJson(route('api.v1.stories.index'))
             ->assertOk();
 
-        $this->assertArrayHasKey('summary', $response->json('data.0'));
-        $this->assertArrayNotHasKey('body', $response->json('data.0'));
+        $rows = $response->json('data');
+        $this->assertCount(3, $rows);
+
+        foreach ($rows as $index => $row) {
+            $this->assertArrayHasKey('summary', $row, "row {$index} lost its summary");
+            $this->assertArrayNotHasKey('body', $row, "row {$index} leaked its body");
+        }
+    }
+
+    public function test_asking_for_one_story_does_return_its_body(): void
+    {
+        $story = $this->story(PrivacyLevel::Public);
+
+        $this->actingAs($this->outsider())
+            ->getJson(route('api.v1.stories.show', $story))
+            ->assertOk()
+            ->assertJsonPath('data.body', $story->body);
     }
 
     public function test_writing_a_story_is_recorded_against_its_author(): void
