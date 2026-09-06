@@ -54,10 +54,15 @@ class RolePermissionSeeder extends Seeder
             'changes.*', 'disputes.resolve', 'duplicates.review', 'claims.approve', 'roles.assign',
         ],
 
+        // clans.manage is scoped to their own clan and whatever sits under it,
+        // which is what running a clan means: setting where it begins, and
+        // creating the sub-clans inside it. Without it a committee could add
+        // family branches to a clan whose own starting point it could not
+        // record — half of what it was appointed to do.
         'clan-admin' => [
             'people.*', 'relationships.*', 'unions.*', 'events.*', 'stories.*', 'sources.*',
-            'media.*', 'families.manage', 'changes.*', 'disputes.resolve', 'duplicates.review',
-            'claims.approve',
+            'media.*', 'clans.manage', 'families.manage', 'changes.*', 'disputes.resolve',
+            'duplicates.review', 'claims.approve',
         ],
 
         'family-admin' => [

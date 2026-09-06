@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Models\ChangeRequest;
 use App\Models\Citation;
 use App\Models\Clan;
+use App\Models\ClanRegistration;
 use App\Models\Dispute;
 use App\Models\DisputeClaim;
 use App\Models\DuplicateCandidate;
@@ -108,6 +109,7 @@ class AppServiceProvider extends ServiceProvider
             'oral_history' => OralHistory::class,
             'tribe' => Tribe::class,
             'clan' => Clan::class,
+            'clan_registration' => ClanRegistration::class,
             'family_branch' => FamilyBranch::class,
             'generation' => Generation::class,
             'place' => Place::class,

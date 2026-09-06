@@ -74,6 +74,8 @@ class Clan extends Model
         'slug',
         'native_name',
         'description',
+        // Where the clan begins, mirroring family_branches.
+        'ancestor_person_id',
         'history',
         'logo_media_id',
         'cover_media_id',
