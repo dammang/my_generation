@@ -21,6 +21,7 @@ use App\Models\Tribe;
 use App\Models\User;
 use App\Services\Permissions\PermissionResolver;
 use Database\Seeders\RolePermissionSeeder;
+use Filament\Auth\Pages\EditProfile;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -118,6 +119,45 @@ class AdminPanelTest extends TestCase
         Livewire::actingAs(User::factory()->create(['is_super_admin' => true]))
             ->test(ListPeople::class)
             ->assertTableActionVisible('edit', $person);
+    }
+
+    public function test_an_admin_can_reach_a_page_to_edit_their_own_account(): void
+    {
+        // The user menu showed a name and offered nothing to do with it: no
+        // way to change your own password, and no way to correct the name that
+        // signs every audit entry in the archive.
+        $this->actingAs(User::factory()->create(['is_super_admin' => true]))
+            ->get(route('filament.admin.auth.profile'))
+            ->assertOk()
+            ->assertSee('Name')
+            ->assertSee('Password');
+    }
+
+    public function test_changing_an_email_does_not_grant_a_verified_address(): void
+    {
+        $user = User::factory()->create([
+            'is_super_admin' => true,
+            'email' => 'before@example.com',
+            'email_verified_at' => now(),
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(EditProfile::class)
+            ->fillForm([
+                'name' => $user->name,
+                'email' => 'after@example.com',
+                // Required, and rightly so: an unattended session should not
+                // be able to move the account to somebody else's address.
+                'currentPassword' => 'password',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        // Held, not applied. This app refuses contributions from an unverified
+        // address, so writing the new one straight in would leave somebody
+        // verified against an address they might never have owned.
+        $this->assertSame('before@example.com', $user->refresh()->email);
+        $this->assertNotNull($user->email_verified_at);
     }
 
     public function test_a_super_admin_can_open_the_panel(): void

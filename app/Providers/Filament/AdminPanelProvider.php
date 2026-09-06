@@ -29,6 +29,19 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // Without this the user menu shows a name and offers nothing to do
+            // with it: no way to change your own password, and no way to fix
+            // the name every audit entry in the archive is signed with.
+            //
+            // isSimple: false renders it inside the panel, so leaving the page
+            // does not mean leaving the navigation and finding your way back.
+            ->profile(isSimple: false)
+            // Changing an address is not the same as owning the new one. This
+            // app refuses contributions from an unverified email, so applying
+            // the change immediately would leave somebody verified against an
+            // address they may never have had. Filament holds the change until
+            // the new address confirms it.
+            ->emailChangeVerification()
             ->brandName('My Generation')
             ->colors([
                 'primary' => Color::Emerald,
