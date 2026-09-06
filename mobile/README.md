@@ -28,6 +28,53 @@ because "localhost" is not one address:
 For a physical device, serve on all interfaces (`php artisan serve --host=0.0.0.0`)
 and pass your machine's address.
 
+## Releasing
+
+`API_BASE_URL` is **not optional** here. It defaults to empty, and
+`ApiConfig.defaultBaseUrl` then falls back to loopback — `127.0.0.1:8000` on
+iOS, `10.0.2.2:8000` on Android. On a phone that is the phone's own loopback,
+so a release build without the define installs cleanly, launches cleanly, and
+fails every request with "Cannot reach My Generation". Nothing about the build
+says anything is wrong.
+
+```bash
+flutter build ios --release --dart-define=API_BASE_URL=https://khanggui.com
+```
+
+```bash
+flutter build apk --release --dart-define=API_BASE_URL=https://khanggui.com
+```
+
+To put it on a connected device (`flutter devices` for the id — Dam's iPhone
+pairs wirelessly):
+
+```bash
+flutter install --release -d <device-id>
+```
+
+Check the flag actually took, rather than trusting that you typed it. The
+define is compiled into the Dart snapshot, so it is visible in the binary:
+
+```bash
+strings build/ios/iphoneos/Runner.app/Frameworks/App.framework/App | grep -oE 'https?://[a-z0-9.:]+' | sort -u
+```
+
+Framework documentation URLs (`pub.dev`, `api.flutter.dev`) come back too and
+are noise. What matters is that the production host is present and neither
+loopback address is:
+
+```
+https://api.flutter.dev
+https://docs.flutter.dev
+https://khanggui.com      <- the one that matters
+https://pub.dev
+```
+
+`flutter install` **uninstalls the old copy first**, and iOS removes app data
+with the app: the signed-in session, the offline archive, and anything still
+waiting in the Outbox all go. Warn whoever holds the phone that they will be
+signing in again and re-granting notification permission.
+
 ## Tests
 
 ```bash
