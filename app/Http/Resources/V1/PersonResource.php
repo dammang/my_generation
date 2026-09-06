@@ -28,6 +28,27 @@ class PersonResource extends JsonResource
 
     private static ?ViewerScope $viewer = null;
 
+    /**
+     * Masks against [$scope] rather than whoever the request is.
+     *
+     * The ambient viewer is right almost everywhere, and wrong in exactly one
+     * place: the sign-in response, where the request has no authenticated user
+     * yet because the credentials are still being checked. Serialising an
+     * account's own claimed record there masked it to "Private" — the app told
+     * somebody they were recorded in their own family archive as a person they
+     * were not allowed to see.
+     */
+    public static function maskedFor(mixed $person, ViewerScope $scope): self
+    {
+        $resource = new self($person);
+        $resource->scope = $scope;
+
+        return $resource;
+    }
+
+    /** Overrides the ambient viewer for this instance only. */
+    private ?ViewerScope $scope = null;
+
     /** Cleared between requests by FlushRequestScopedState. */
     public static function forgetRequestState(): void
     {
@@ -199,6 +220,6 @@ class PersonResource extends JsonResource
         self::$resolver ??= app(PersonVisibilityResolver::class);
         self::$viewer ??= app(ViewerScope::class);
 
-        return self::$resolver->mask(self::$viewer, $this->resource);
+        return self::$resolver->mask($this->scope ?? self::$viewer, $this->resource);
     }
 }

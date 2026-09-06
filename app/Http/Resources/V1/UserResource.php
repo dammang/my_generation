@@ -45,7 +45,10 @@ class UserResource extends JsonResource
 
             // The genealogy record this account has been verified as, if any.
             // Usually null: most people in the database never had an account.
-            'person' => $this->whenLoaded('person', fn () => PersonResource::make($this->person)),
+            // Masked for this account, not for the request. At sign-in the
+            // request is still a guest, and the ambient viewer would hide the
+            // person's own record from them.
+            'person' => $this->whenLoaded('person', fn () => PersonResource::maskedFor($this->person, $scope)),
 
             'scopes' => [
                 'tribe_ids' => $scope->tribeIds,

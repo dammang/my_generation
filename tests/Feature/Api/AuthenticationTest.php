@@ -156,6 +156,35 @@ class AuthenticationTest extends TestCase
         $this->assertSame($me->json('data.permissions'), $login->json('data.user.permissions'));
     }
 
+    public function test_login_does_not_hide_the_accounts_own_record_from_it(): void
+    {
+        $tribe = Tribe::factory()->create();
+        $person = Person::factory()->create([
+            'tribe_id' => $tribe->id,
+            'first_name' => 'Susan',
+            'last_name' => 'Whitfield',
+        ]);
+
+        $user = User::factory()->create(['email' => 'dam@example.com', 'password' => 'correct-horse-9']);
+        $user->forceFill(['person_id' => $person->id])->save();
+
+        $login = $this->postJson(route('api.v1.auth.login'), [
+            'email' => 'dam@example.com',
+            'password' => 'correct-horse-9',
+        ])->assertOk();
+
+        // Masked against the request, which at sign-in has no authenticated
+        // user, this came back as a placeholder called "Private" — the app
+        // told somebody they were recorded in their own family archive as a
+        // person they were not allowed to see.
+        $this->assertSame(
+            'Susan Whitfield',
+            $login->json('data.user.person.display_name'),
+            'sign-in hid the account\'s own record from it',
+        );
+        $this->assertNotTrue($login->json('data.user.person.placeholder'));
+    }
+
     public function test_login_returns_422_for_a_wrong_password(): void
     {
         User::factory()->create(['email' => 'dam@example.com', 'password' => 'correct-horse-9']);
