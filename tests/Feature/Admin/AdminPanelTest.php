@@ -7,15 +7,18 @@ namespace Tests\Feature\Admin;
 use App\Actions\Verification\SubmitChangeRequest;
 use App\Enums\ChangeRequestOperation;
 use App\Enums\ChangeRequestStatus;
+use App\Enums\ClaimStatus;
 use App\Enums\DuplicateStatus;
 use App\Enums\UserStatus;
 use App\Enums\VerificationStatus;
 use App\Filament\Resources\ChangeRequests\Pages\ListChangeRequests;
 use App\Filament\Resources\DuplicateCandidates\Pages\ListDuplicateCandidates;
 use App\Filament\Resources\People\Pages\ListPeople;
+use App\Filament\Resources\ProfileClaims\Pages\ListProfileClaims;
 use App\Filament\Widgets\ArchiveOverview;
 use App\Models\DuplicateCandidate;
 use App\Models\Person;
+use App\Models\ProfileClaim;
 use App\Models\Scope;
 use App\Models\Tribe;
 use App\Models\User;
@@ -158,6 +161,52 @@ class AdminPanelTest extends TestCase
         // verified against an address they might never have owned.
         $this->assertSame('before@example.com', $user->refresh()->email);
         $this->assertNotNull($user->email_verified_at);
+    }
+
+    public function test_a_super_admin_can_approve_a_profile_claim(): void
+    {
+        $person = Person::factory()->create(['tribe_id' => $this->tribe->id]);
+        $claimant = User::factory()->create();
+
+        $claim = ProfileClaim::create([
+            'user_id' => $claimant->id,
+            'person_id' => $person->id,
+            'status' => ClaimStatus::Pending,
+            'relationship_statement' => 'This is me.',
+        ]);
+
+        // The API could approve these since claims shipped; nothing in the
+        // product could reach it, so every request sat pending forever.
+        Livewire::actingAs(User::factory()->create(['is_super_admin' => true]))
+            ->test(ListProfileClaims::class)
+            ->callTableAction('approve', $claim, ['note' => 'Known to me.'])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertSame(ClaimStatus::Approved, $claim->refresh()->status);
+
+        // The point of approving: the account is now that person.
+        $this->assertSame($person->id, $claimant->refresh()->person_id);
+    }
+
+    public function test_nobody_can_approve_their_own_claim(): void
+    {
+        $person = Person::factory()->create(['tribe_id' => $this->tribe->id]);
+        $admin = User::factory()->create(['is_super_admin' => true]);
+
+        $claim = ProfileClaim::create([
+            'user_id' => $admin->id,
+            'person_id' => $person->id,
+            'status' => ClaimStatus::Pending,
+        ]);
+
+        Livewire::actingAs($admin)
+            ->test(ListProfileClaims::class)
+            ->callTableAction('approve', $claim, ['note' => null]);
+
+        // Being a super admin is not an exemption from this one: deciding your
+        // own claim is how somebody quietly becomes a member of a family.
+        $this->assertSame(ClaimStatus::Pending, $claim->refresh()->status);
+        $this->assertNull($admin->refresh()->person_id);
     }
 
     public function test_a_super_admin_can_open_the_panel(): void

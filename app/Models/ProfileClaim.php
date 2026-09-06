@@ -59,6 +59,12 @@ class ProfileClaim extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** Who approved or rejected this, once somebody has. */
+    public function decidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'decided_by');
+    }
+
     public function person(): BelongsTo
     {
         return $this->belongsTo(Person::class);
