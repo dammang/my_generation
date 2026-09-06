@@ -24,6 +24,7 @@ import '../widgets/timeline_tab.dart';
 import 'add_event_screen.dart';
 import 'add_photo_screen.dart';
 import 'add_relative_screen.dart';
+import 'link_family_sheet.dart';
 import 'edit_person_screen.dart';
 import 'photo_screen.dart';
 import 'raise_dispute_screen.dart';
@@ -46,11 +47,11 @@ class PersonScreen extends ConsumerWidget {
 
   /// Maps the `tab` query parameter of a deep link onto a tab index.
   static int tabIndexFor(String? name) => switch (name) {
-        'family' => 1,
-        'timeline' => 2,
-        'history' => 3,
-        _ => 0,
-      };
+    'family' => 1,
+    'timeline' => 2,
+    'history' => 3,
+    _ => 0,
+  };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -101,6 +102,26 @@ class _LoadedState extends ConsumerState<_Loaded>
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => PersonScreen(ulid: person.ulid)));
+  }
+
+  /// Records which family somebody married in from.
+  ///
+  /// A spouse takes their generation from their partner, which is right for
+  /// the chart and says nothing about where they actually came from. This is
+  /// where that gets recorded — as a proposal, because attaching somebody to a
+  /// family asserts kinship with everybody in it.
+  Future<void> _linkFamily(PersonDetail detail) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => LinkFamilySheet(
+        personUlid: detail.ulid,
+        personName: detail.displayName,
+      ),
+    );
+
+    if (mounted) ref.invalidate(familyProvider(detail.ulid));
   }
 
   Future<void> _addRelative(String relation) async {
@@ -205,9 +226,9 @@ class _LoadedState extends ConsumerState<_Loaded>
   }
 
   void _openPhoto(MediaItem item) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (_) => PhotoScreen(item: item)),
-    );
+    Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => PhotoScreen(item: item)));
   }
 
   void _openStory(Story story) {
@@ -298,6 +319,7 @@ class _LoadedState extends ConsumerState<_Loaded>
                 bundle: bundle,
                 onOpenPerson: _openPerson,
                 onAddRelative: _addRelative,
+                onLinkFamily: () => _linkFamily(detail),
               ),
             ),
             timeline.when(
@@ -313,7 +335,8 @@ class _LoadedState extends ConsumerState<_Loaded>
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => _Failure(
                 error: error,
-                onRetry: () => ref.invalidate(personStoriesProvider(detail.ulid)),
+                onRetry: () =>
+                    ref.invalidate(personStoriesProvider(detail.ulid)),
               ),
               data: (data) => StoriesTab(
                 stories: data,
@@ -327,11 +350,8 @@ class _LoadedState extends ConsumerState<_Loaded>
                 error: error,
                 onRetry: () => ref.invalidate(personMediaProvider(detail.ulid)),
               ),
-              data: (album) => PhotosTab(
-                album: album,
-                onOpen: _openPhoto,
-                onAdd: _addPhoto,
-              ),
+              data: (album) =>
+                  PhotosTab(album: album, onOpen: _openPhoto, onAdd: _addPhoto),
             ),
             _HistoryPane(ulid: detail.ulid, onRaiseDispute: _raiseDispute),
           ],
@@ -427,10 +447,10 @@ class _OverviewTab extends StatelessWidget {
                 // stored, so "nothing recorded" would be a lie about the
                 // record rather than a statement about the device.
                 ? 'Only the basics are saved on this device. Connect to see '
-                    'the full record.'
+                      'the full record.'
                 : person.redacted
-                    ? 'The details of this record are not shown to you.'
-                    : 'Nothing has been recorded about this person yet.',
+                ? 'The details of this record are not shown to you.'
+                : 'Nothing has been recorded about this person yet.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

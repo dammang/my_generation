@@ -37,6 +37,10 @@ class ApiPaths {
   static String personDisputes(String ulid) => '$prefix/people/$ulid/disputes';
   static String personVerify(String ulid) => '$prefix/people/$ulid/verify';
 
+  /// Named family lines, for linking somebody who married in to the family
+  /// they came from.
+  static const String familyBranches = '$prefix/family-branches';
+
   // Sync
   static const String syncBatch = '$prefix/sync/batch';
 

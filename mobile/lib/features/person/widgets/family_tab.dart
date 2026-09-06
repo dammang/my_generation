@@ -16,11 +16,16 @@ class FamilyTab extends StatelessWidget {
     required this.bundle,
     required this.onOpenPerson,
     required this.onAddRelative,
+    required this.onLinkFamily,
   });
 
   final FamilyBundle bundle;
   final void Function(PersonSummary person) onOpenPerson;
   final void Function(String relation) onAddRelative;
+
+  /// Somebody who married in belongs to a family of their own, and the archive
+  /// has no way to work out which. Asked for rather than guessed at.
+  final VoidCallback onLinkFamily;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +34,15 @@ class FamilyTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(6, 4, 6, 12),
+          child: OutlinedButton.icon(
+            onPressed: onLinkFamily,
+            icon: const Icon(Icons.link),
+            label: const Text('Link to another family'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+          ),
+        ),
         if (bundle.fromCache)
           Padding(
             padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),

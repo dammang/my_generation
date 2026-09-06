@@ -110,7 +110,10 @@ class TreeLayoutEngine {
     _Relations relations,
   ) {
     final depths = rows.keys.toList()..sort();
-    var current = {for (final entry in rows.entries) entry.key: List<String>.from(entry.value)};
+    var current = {
+      for (final entry in rows.entries)
+        entry.key: List<String>.from(entry.value),
+    };
 
     for (var sweep = 0; sweep < _orderingSweeps; sweep++) {
       final downward = sweep.isEven;
@@ -122,15 +125,21 @@ class TreeLayoutEngine {
 
         if (fixed == null) continue;
 
-        final index = {for (var i = 0; i < fixed.length; i++) fixed[i]: i.toDouble()};
+        final index = {
+          for (var i = 0; i < fixed.length; i++) fixed[i]: i.toDouble(),
+        };
         final row = current[depth]!;
 
         final keys = <String, double>{};
 
         for (var i = 0; i < row.length; i++) {
           final ulid = row[i];
-          final neighbours = downward ? relations.parentsOf(ulid) : relations.childrenOf(ulid);
-          final positions = neighbours.map((n) => index[n]).whereType<double>().toList()..sort();
+          final neighbours = downward
+              ? relations.parentsOf(ulid)
+              : relations.childrenOf(ulid);
+          final positions =
+              neighbours.map((n) => index[n]).whereType<double>().toList()
+                ..sort();
 
           // No neighbour in the fixed row means nothing pulls this node; its
           // current position is as good as any, so it keeps it.
@@ -162,7 +171,10 @@ class TreeLayoutEngine {
   /// Rows are packed from the deepest upward so parents can be centred over
   /// children that already have positions. Centring is what makes a family look
   /// like a family; without it the chart is a correct but unreadable grid.
-  Map<String, double> _assignX(Map<int, List<String>> rows, _Relations relations) {
+  Map<String, double> _assignX(
+    Map<int, List<String>> rows,
+    _Relations relations,
+  ) {
     final depths = rows.keys.toList()..sort();
     final x = <String, double>{};
 
@@ -172,7 +184,10 @@ class TreeLayoutEngine {
 
       for (var i = 0; i < row.length; i++) {
         final ulid = row[i];
-        final children = relations.childrenOf(ulid).where(x.containsKey).toList();
+        final children = relations
+            .childrenOf(ulid)
+            .where(x.containsKey)
+            .toList();
 
         // Preferred position: over the middle of this person's children.
         double desired;
@@ -192,9 +207,11 @@ class TreeLayoutEngine {
         // The narrow gap belongs between two people who are actually a couple,
         // not after anybody who happens to have a partner somewhere in the row.
         final next = i + 1 < row.length ? row[i + 1] : null;
-        final nextIsPartner = next != null && relations.partnersOf(ulid).contains(next);
+        final nextIsPartner =
+            next != null && relations.partnersOf(ulid).contains(next);
 
-        cursor = placed +
+        cursor =
+            placed +
             metrics.cardWidth +
             (nextIsPartner ? metrics.partnerGap : metrics.horizontalGap);
       }
@@ -203,7 +220,11 @@ class TreeLayoutEngine {
     return x;
   }
 
-  TreeLayout _build(TreeGraph graph, Map<int, List<String>> rows, Map<String, double> x) {
+  TreeLayout _build(
+    TreeGraph graph,
+    Map<int, List<String>> rows,
+    Map<String, double> x,
+  ) {
     final depths = rows.keys.toList()..sort();
     final minDepth = depths.first;
 
@@ -218,7 +239,12 @@ class TreeLayoutEngine {
       for (final ulid in entry.value) {
         nodes[ulid] = NodeBox(
           ulid: ulid,
-          rect: Rect.fromLTWH(x[ulid]! - minX + pad, y, metrics.cardWidth, metrics.cardHeight),
+          rect: Rect.fromLTWH(
+            x[ulid]! - minX + pad,
+            y,
+            metrics.cardWidth,
+            metrics.cardHeight,
+          ),
           depth: entry.key,
         );
       }
@@ -243,12 +269,19 @@ class TreeLayoutEngine {
     final shapes = <UnionShape>[];
 
     final dashedPairs = {
-      for (final edge in graph.edges.where((e) => e.dashed)) '${edge.parentUlid}|${edge.childUlid}',
+      for (final edge in graph.edges.where((e) => e.dashed))
+        '${edge.parentUlid}|${edge.childUlid}',
     };
 
     for (final union in graph.unions) {
-      final partners = union.partnerUlids.map((p) => nodes[p]).whereType<NodeBox>().toList();
-      final children = union.childUlids.map((c) => nodes[c]).whereType<NodeBox>().toList();
+      final partners = union.partnerUlids
+          .map((p) => nodes[p])
+          .whereType<NodeBox>()
+          .toList();
+      final children = union.childUlids
+          .map((c) => nodes[c])
+          .whereType<NodeBox>()
+          .toList();
 
       if (partners.isEmpty) continue;
 
@@ -265,7 +298,9 @@ class TreeLayoutEngine {
       if (partners.length >= 2) {
         final left = partners.map((p) => p.rect.right).reduce(math.min);
         final right = partners.map((p) => p.rect.left).reduce(math.max);
-        final y = partners.map((p) => p.rect.center.dy).reduce((a, b) => (a + b) / 2);
+        final y = partners
+            .map((p) => p.rect.center.dy)
+            .reduce((a, b) => (a + b) / 2);
 
         if (right > left) {
           partnerBar = Rect.fromLTRB(left, y, right, y);
@@ -273,44 +308,51 @@ class TreeLayoutEngine {
       }
 
       if (children.isEmpty) {
-        shapes.add(UnionShape(
-          unionUlid: union.ulid,
-          partnerBar: partnerBar,
-          junction: Offset(junctionX, partnerBottom),
-          siblingBar: null,
-          childDrops: const [],
-          dashedChildUlids: const {},
-        ));
+        shapes.add(
+          UnionShape(
+            unionUlid: union.ulid,
+            partnerBar: partnerBar,
+            junction: Offset(junctionX, partnerBottom),
+            siblingBar: null,
+            childDrops: const [],
+            dashedChildUlids: const {},
+          ),
+        );
         continue;
       }
 
       final barY = partnerBottom + metrics.siblingBarOffset;
-      final childCentres = children.map((c) => c.rect.center.dx).toList()..sort();
+      final childCentres = children.map((c) => c.rect.center.dx).toList()
+        ..sort();
 
       // One child needs no bar; a zero-width bar is just a smudge.
       final siblingBar = children.length > 1
           ? Rect.fromLTRB(childCentres.first, barY, childCentres.last, barY)
           : null;
 
-      shapes.add(UnionShape(
-        unionUlid: union.ulid,
-        partnerBar: partnerBar,
-        junction: Offset(junctionX, partnerBottom),
-        siblingBar: siblingBar,
-        childDrops: [
-          for (final child in children)
-            (
-              from: Offset(child.rect.center.dx, barY),
-              to: child.topCentre,
-              childUlid: child.ulid,
-            ),
-        ],
-        dashedChildUlids: {
-          for (final child in children)
-            if (union.partnerUlids.any((p) => dashedPairs.contains('$p|${child.ulid}')))
-              child.ulid,
-        },
-      ));
+      shapes.add(
+        UnionShape(
+          unionUlid: union.ulid,
+          partnerBar: partnerBar,
+          junction: Offset(junctionX, partnerBottom),
+          siblingBar: siblingBar,
+          childDrops: [
+            for (final child in children)
+              (
+                from: Offset(child.rect.center.dx, barY),
+                to: child.topCentre,
+                childUlid: child.ulid,
+              ),
+          ],
+          dashedChildUlids: {
+            for (final child in children)
+              if (union.partnerUlids.any(
+                (p) => dashedPairs.contains('$p|${child.ulid}'),
+              ))
+                child.ulid,
+          },
+        ),
+      );
     }
 
     return shapes;
@@ -348,7 +390,9 @@ class TreeLayoutEngine {
     if (sorted.isEmpty) return 0;
     final mid = sorted.length ~/ 2;
 
-    return sorted.length.isOdd ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    return sorted.length.isOdd
+        ? sorted[mid]
+        : (sorted[mid - 1] + sorted[mid]) / 2;
   }
 }
 

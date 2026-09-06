@@ -70,11 +70,19 @@ class TreePersonCard extends StatelessWidget {
                     _Avatar(person: person),
                     if (person.isVerified) ...[
                       const SizedBox(width: 4),
-                      const Icon(Icons.verified, size: 14, color: AppTheme.verified),
+                      const Icon(
+                        Icons.verified,
+                        size: 14,
+                        color: AppTheme.verified,
+                      ),
                     ],
                     if (person.hasOpenDispute) ...[
                       const SizedBox(width: 4),
-                      const Icon(Icons.help_outline, size: 14, color: AppTheme.disputed),
+                      const Icon(
+                        Icons.help_outline,
+                        size: 14,
+                        color: AppTheme.disputed,
+                      ),
                     ],
                   ],
                 ),
@@ -99,7 +107,9 @@ class TreePersonCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: person.redacted ? AppTheme.redacted : scheme.onSurfaceVariant,
+                    color: person.redacted
+                        ? AppTheme.redacted
+                        : scheme.onSurfaceVariant,
                     fontStyle: person.redacted ? FontStyle.italic : null,
                   ),
                 ),
@@ -112,28 +122,32 @@ class TreePersonCard extends StatelessWidget {
   }
 
   Widget _placeholder(ThemeData theme) => Semantics(
-        label: 'A person you do not have permission to see',
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: theme.colorScheme.outlineVariant,
-              style: BorderStyle.solid,
-            ),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.lock_outline, size: 20, color: theme.colorScheme.onSurfaceVariant),
-                const SizedBox(height: 6),
-                Text('Private', style: theme.textTheme.labelMedium),
-              ],
-            ),
-          ),
+    label: 'A person you do not have permission to see',
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant,
+          style: BorderStyle.solid,
         ),
-      );
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 6),
+            Text('Private', style: theme.textTheme.labelMedium),
+          ],
+        ),
+      ),
+    ),
+  );
 
   String get _semanticsLabel {
     final parts = <String>[person.displayName];
@@ -143,8 +157,12 @@ class TreePersonCard extends StatelessWidget {
     if (person.hasOpenDispute) parts.add('has a disputed fact');
     if (person.redacted) parts.add('some details are withheld');
     if (isFocus) parts.add('currently centred');
-    if (expandable.parents > 0) parts.add('${expandable.parents} more parents not shown');
-    if (expandable.children > 0) parts.add('${expandable.children} more children not shown');
+    if (expandable.parents > 0) {
+      parts.add('${expandable.parents} more parents not shown');
+    }
+    if (expandable.children > 0) {
+      parts.add('${expandable.children} more children not shown');
+    }
 
     return parts.join(', ');
   }
@@ -162,7 +180,9 @@ class _Avatar extends StatelessWidget {
     return CircleAvatar(
       radius: 14,
       backgroundColor: theme.colorScheme.surfaceContainerHighest,
-      backgroundImage: person.photoUrl == null ? null : NetworkImage(person.photoUrl!),
+      backgroundImage: person.photoUrl == null
+          ? null
+          : NetworkImage(person.photoUrl!),
       child: person.photoUrl != null
           ? null
           : Text(
@@ -173,10 +193,16 @@ class _Avatar extends StatelessWidget {
   }
 
   static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
 
     if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.characters.take(1).toString().toUpperCase();
+    if (parts.length == 1) {
+      return parts.first.characters.take(1).toString().toUpperCase();
+    }
 
     return (parts.first.characters.take(1).toString() +
             parts.last.characters.take(1).toString())
@@ -204,7 +230,9 @@ class ExpandChip extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: ancestors ? 'Show $count more ancestors' : 'Show $count more children',
+      label: ancestors
+          ? 'Show $count more ancestors'
+          : 'Show $count more children',
       child: Material(
         color: theme.colorScheme.secondaryContainer,
         shape: const StadiumBorder(),
@@ -217,7 +245,9 @@ class ExpandChip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  ancestors ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  ancestors
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
                   size: 16,
                   color: theme.colorScheme.onSecondaryContainer,
                 ),

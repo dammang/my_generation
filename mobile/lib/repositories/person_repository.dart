@@ -7,6 +7,7 @@ import '../models/family_bundle.dart';
 import '../models/media_item.dart';
 import '../models/person_detail.dart';
 import '../models/person_event.dart';
+import '../models/family_branch_summary.dart';
 import '../models/person_summary.dart';
 
 /// The outcome of adding a relative.
@@ -43,6 +44,28 @@ class PersonRepository {
   PersonRepository(this._api);
 
   final ApiClient _api;
+
+  /// Named family lines, for linking somebody who married in.
+  ///
+  /// A spouse belongs to a family of their own, and the archive has no way to
+  /// know which one — so it is asked for rather than guessed at.
+  Future<List<FamilyBranchSummary>> familyBranches({String? query}) async {
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.familyBranches,
+      query: {
+        if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+        'per_page': 30,
+      },
+      parse: (data) => data as List<dynamic>,
+    );
+
+    return (envelope.data ?? const [])
+        .map(
+          (b) =>
+              FamilyBranchSummary.fromJson((b as Map).cast<String, dynamic>()),
+        )
+        .toList(growable: false);
+  }
 
   /// People whose name begins with [query].
   ///

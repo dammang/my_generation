@@ -36,13 +36,15 @@ class TreePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     for (final shape in layout.unionShapes) {
-      final touchesFocus = shape.childDrops.any((d) => d.childUlid == focusUlid);
+      final touchesFocus = shape.childDrops.any(
+        (d) => d.childUlid == focusUlid,
+      );
       final paint = touchesFocus
           ? (Paint()
-            ..color = accentColour
-            ..strokeWidth = _strokeWidth + 0.6
-            ..style = PaintingStyle.stroke
-            ..strokeCap = StrokeCap.round)
+              ..color = accentColour
+              ..strokeWidth = _strokeWidth + 0.6
+              ..style = PaintingStyle.stroke
+              ..strokeCap = StrokeCap.round)
           : solid;
 
       // The bar joining two partners.
@@ -72,7 +74,13 @@ class TreePainter extends CustomPainter {
     }
   }
 
-  void _drawDrop(Canvas canvas, Offset from, Offset to, Paint paint, {required bool dashed}) {
+  void _drawDrop(
+    Canvas canvas,
+    Offset from,
+    Offset to,
+    Paint paint, {
+    required bool dashed,
+  }) {
     if (dashed) {
       _drawDashedLine(canvas, from, to, paint);
     } else {
@@ -82,7 +90,13 @@ class TreePainter extends CustomPainter {
 
   /// An orthogonal connector with rounded corners, for links with no union
   /// behind them. Diagonals read as arbitrary; right angles read as structure.
-  void _drawElbow(Canvas canvas, Offset from, Offset to, Paint paint, {required bool dashed}) {
+  void _drawElbow(
+    Canvas canvas,
+    Offset from,
+    Offset to,
+    Paint paint, {
+    required bool dashed,
+  }) {
     final midY = (from.dy + to.dy) / 2;
     final path = Path()..moveTo(from.dx, from.dy);
 
@@ -107,7 +121,14 @@ class TreePainter extends CustomPainter {
   }
 
   void _drawDashedLine(Canvas canvas, Offset from, Offset to, Paint paint) {
-    canvas.drawPath(_dashPath(Path()..moveTo(from.dx, from.dy)..lineTo(to.dx, to.dy)), paint);
+    canvas.drawPath(
+      _dashPath(
+        Path()
+          ..moveTo(from.dx, from.dy)
+          ..lineTo(to.dx, to.dy),
+      ),
+      paint,
+    );
   }
 
   /// Adoptive and step links are drawn dashed. Not decoration: the chart should

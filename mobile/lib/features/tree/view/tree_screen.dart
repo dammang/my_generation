@@ -194,6 +194,9 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                           onPersonTap: _onPersonTap,
                           onPersonLongPress: _openProfile,
                           onExpand: _onExpand,
+                          onScaleSettled: (scale) => ref
+                              .read(treeQueryProvider.notifier)
+                              .deepenForScale(scale),
                         ),
                         _Legend(
                           graph: graph,

@@ -37,7 +37,10 @@ class FamilyBranchController extends Controller
                 Clan::where('ulid', $request->string('clan'))->value('id')
             ))
             ->when($request->filled('q'), fn (Builder $q) => $q->where('name', 'like', $request->string('q').'%'))
-            ->with(['tribe:id,ulid,name', 'clan:id,ulid,name'])
+            // The apical ancestor is what actually tells two families with
+            // the same name apart, so the list that asks somebody to choose
+            // between them carries it.
+            ->with(['tribe:id,ulid,name', 'clan:id,ulid,name', 'ancestor'])
             ->orderBy('name')
             ->orderBy('id')
             ->cursorPaginate($request->integer('per_page', 25));
