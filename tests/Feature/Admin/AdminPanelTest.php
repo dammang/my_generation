@@ -15,6 +15,7 @@ use App\Filament\Resources\ChangeRequests\Pages\ListChangeRequests;
 use App\Filament\Resources\DuplicateCandidates\Pages\ListDuplicateCandidates;
 use App\Filament\Resources\People\Pages\ListPeople;
 use App\Filament\Resources\ProfileClaims\Pages\ListProfileClaims;
+use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Widgets\ArchiveOverview;
 use App\Models\DuplicateCandidate;
 use App\Models\Person;
@@ -207,6 +208,50 @@ class AdminPanelTest extends TestCase
         // own claim is how somebody quietly becomes a member of a family.
         $this->assertSame(ClaimStatus::Pending, $claim->refresh()->status);
         $this->assertNull($admin->refresh()->person_id);
+    }
+
+    public function test_an_account_can_be_edited_without_retyping_its_password(): void
+    {
+        $target = User::factory()->create([
+            'is_super_admin' => false,
+            'password' => 'the-original-one',
+        ]);
+        $before = $target->password;
+
+        // password was ->required() on the edit form too, and Filament loads
+        // it blank because a hash is not something to put back in a box. So
+        // every save failed validation and no account could be edited at all —
+        // which is why granting somebody super admin was impossible here.
+        Livewire::actingAs(User::factory()->create(['is_super_admin' => true]))
+            ->test(EditUser::class, ['record' => $target->getRouteKey()])
+            ->fillForm(['is_super_admin' => true])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertTrue($target->refresh()->is_super_admin);
+
+        // And the untouched password is left alone rather than overwritten
+        // with an empty string.
+        $this->assertSame($before, $target->password);
+    }
+
+    public function test_granting_super_admin_is_written_down(): void
+    {
+        $target = User::factory()->create(['is_super_admin' => false]);
+
+        Livewire::actingAs($admin = User::factory()->create(['is_super_admin' => true]))
+            ->test(EditUser::class, ['record' => $target->getRouteKey()])
+            ->fillForm(['is_super_admin' => true])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        // Handing somebody full administrator rights should not be a thing you
+        // can only discover by noticing it already happened.
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $admin->id,
+            'action' => 'user.super_admin_granted',
+            'auditable_id' => $target->id,
+        ]);
     }
 
     public function test_a_super_admin_can_open_the_panel(): void
