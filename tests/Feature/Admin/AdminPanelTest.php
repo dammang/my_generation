@@ -109,6 +109,17 @@ class AdminPanelTest extends TestCase
             ->assertCanNotSeeTableRecords(Person::where('first_name', 'Unchecked')->get());
     }
 
+    public function test_a_super_admin_can_edit_a_person(): void
+    {
+        $person = Person::factory()->create(['tribe_id' => $this->tribe->id]);
+
+        // Filament hides an action the policy denies, so a missing Edit button
+        // and a refused save are the same fault wearing different clothes.
+        Livewire::actingAs(User::factory()->create(['is_super_admin' => true]))
+            ->test(ListPeople::class)
+            ->assertTableActionVisible('edit', $person);
+    }
+
     public function test_a_super_admin_can_open_the_panel(): void
     {
         $this->assertTrue(
