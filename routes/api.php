@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChangeRequestController;
 use App\Http\Controllers\Api\V1\ClanController;
+use App\Http\Controllers\Api\V1\ClanRegistrationController;
 use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\DisputeController;
 use App\Http\Controllers\Api\V1\FamilyBranchController;
@@ -133,6 +134,10 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             // ── Membership ───────────────────────────────────────────────
             Route::get('memberships', [MembershipController::class, 'index'])->name('memberships.index');
             Route::get('profile-claims', [ProfileClaimController::class, 'index'])->name('claims.index');
+
+            // Requests to start a clan: the caller's own, plus anything
+            // they are able to decide.
+            Route::get('clan-registrations', [ClanRegistrationController::class, 'index'])->name('clan-registrations.index');
             Route::get('scope-members', [MembershipController::class, 'forScope'])->name('memberships.scope');
         });
 
@@ -210,6 +215,11 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::post('memberships/{membership}/approve', [MembershipController::class, 'approve'])->name('memberships.approve');
             Route::post('memberships/{membership}/reject', [MembershipController::class, 'reject'])->name('memberships.reject');
             Route::delete('memberships/{membership}', [MembershipController::class, 'destroy'])->name('memberships.destroy');
+
+            Route::post('clan-registrations', [ClanRegistrationController::class, 'store'])->name('clan-registrations.store');
+            Route::post('clan-registrations/{clan_registration}/approve', [ClanRegistrationController::class, 'approve'])->name('clan-registrations.approve');
+            Route::post('clan-registrations/{clan_registration}/reject', [ClanRegistrationController::class, 'reject'])->name('clan-registrations.reject');
+            Route::post('clan-registrations/{clan_registration}/withdraw', [ClanRegistrationController::class, 'withdraw'])->name('clan-registrations.withdraw');
 
             Route::post('profile-claims', [ProfileClaimController::class, 'store'])->name('claims.store');
             Route::post('profile-claims/{profile_claim}/approve', [ProfileClaimController::class, 'approve'])->name('claims.approve');

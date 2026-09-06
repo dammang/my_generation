@@ -118,6 +118,62 @@ class ClanRegistrationTest extends TestCase
     }
 
     #[Test]
+    public function the_endpoints_carry_the_whole_flow(): void
+    {
+        $requester = $this->member();
+        $admin = $this->member('tribe-admin');
+
+        $created = $this->actingAs($requester)
+            ->postJson(route('api.v1.clan-registrations.store'), [
+                'tribe_ulid' => $this->tribe->ulid,
+                'name' => 'Guite',
+                'statement' => 'My grandfather always said we were Guite.',
+            ])
+            ->assertCreated();
+
+        $ulid = $created->json('data.ulid');
+        $this->assertSame('pending', $created->json('data.status'));
+        $this->assertSame(0, Clan::count(), 'nothing is created until somebody approves');
+
+        // The requester sees their own request without being able to decide it.
+        $this->actingAs($requester)
+            ->getJson(route('api.v1.clan-registrations.index'))
+            ->assertOk()
+            ->assertJsonPath('data.0.ulid', $ulid);
+
+        // Somebody with no authority here cannot decide it.
+        $this->actingAs($this->member('contributor'))
+            ->postJson(route('api.v1.clan-registrations.approve', $ulid))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->postJson(route('api.v1.clan-registrations.approve', $ulid), ['note' => 'Known family.'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'approved')
+            ->assertJsonPath('data.clan.name', 'Guite');
+
+        $this->assertSame(1, Clan::count());
+    }
+
+    #[Test]
+    public function withdrawing_is_the_requesters_own_to_do(): void
+    {
+        $requester = $this->member();
+        $registration = $this->request($requester);
+
+        // Changing your mind is not the same as being refused, and it is not
+        // somebody else's to do on your behalf.
+        $this->actingAs($this->member('tribe-admin'))
+            ->postJson(route('api.v1.clan-registrations.withdraw', $registration->ulid))
+            ->assertForbidden();
+
+        $this->actingAs($requester)
+            ->postJson(route('api.v1.clan-registrations.withdraw', $registration->ulid))
+            ->assertOk()
+            ->assertJsonPath('data.status', 'withdrawn');
+    }
+
+    #[Test]
     public function nobody_decides_their_own_request(): void
     {
         $requester = $this->member('tribe-admin');

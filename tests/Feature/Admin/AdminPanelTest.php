@@ -8,15 +8,18 @@ use App\Actions\Verification\SubmitChangeRequest;
 use App\Enums\ChangeRequestOperation;
 use App\Enums\ChangeRequestStatus;
 use App\Enums\ClaimStatus;
+use App\Enums\ClanRegistrationStatus;
 use App\Enums\DuplicateStatus;
 use App\Enums\UserStatus;
 use App\Enums\VerificationStatus;
 use App\Filament\Resources\ChangeRequests\Pages\ListChangeRequests;
+use App\Filament\Resources\ClanRegistrations\Pages\ListClanRegistrations;
 use App\Filament\Resources\DuplicateCandidates\Pages\ListDuplicateCandidates;
 use App\Filament\Resources\People\Pages\ListPeople;
 use App\Filament\Resources\ProfileClaims\Pages\ListProfileClaims;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Widgets\ArchiveOverview;
+use App\Models\ClanRegistration;
 use App\Models\DuplicateCandidate;
 use App\Models\Person;
 use App\Models\ProfileClaim;
@@ -252,6 +255,38 @@ class AdminPanelTest extends TestCase
             'action' => 'user.super_admin_granted',
             'auditable_id' => $target->id,
         ]);
+    }
+
+    public function test_a_clan_registration_is_approved_from_the_panel(): void
+    {
+        $requester = User::factory()->create();
+
+        $registration = ClanRegistration::create([
+            'tribe_id' => $this->tribe->id,
+            'name' => 'Guite',
+            'requested_by' => $requester->id,
+            'statement' => 'My grandfather always said we were Guite.',
+        ]);
+
+        Livewire::actingAs(User::factory()->create(['is_super_admin' => true]))
+            ->test(ListClanRegistrations::class)
+            ->callTableAction('approve', $registration, ['note' => 'Known family.'])
+            ->assertHasNoTableActionErrors();
+
+        $registration->refresh();
+
+        $this->assertSame(ClanRegistrationStatus::Approved, $registration->status);
+        $this->assertNotNull($registration->clan_id, 'approving did not create the clan');
+
+        // The point of approving: somebody can now actually run it.
+        $scope = Scope::where('scopeable_type', 'clan')
+            ->where('scopeable_id', $registration->clan_id)
+            ->firstOrFail();
+
+        $this->assertTrue(
+            app(PermissionResolver::class)->can($requester->refresh(), 'clans.manage', $scope->path),
+            'the requester cannot administer the clan they started',
+        );
     }
 
     public function test_a_super_admin_can_open_the_panel(): void
