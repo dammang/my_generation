@@ -96,6 +96,42 @@ class LineageAndPathTest extends TestCase
         $this->assertFalse($response->json('data.generation.collapsed'));
     }
 
+    public function test_the_chart_labels_a_great_grandchild_the_fourth_generation(): void
+    {
+        $founder = $this->person(1860);
+        $branch = FamilyBranch::factory()->create([
+            'tribe_id' => $this->tribe->id,
+            'ancestor_person_id' => $founder->id,
+        ]);
+        $founder->forceFill(['family_branch_id' => $branch->id])->save();
+
+        $child = $this->person(1890, ['family_branch_id' => $branch->id]);
+        $grandchild = $this->person(1920, ['family_branch_id' => $branch->id]);
+        $greatGrandchild = $this->person(1950, ['family_branch_id' => $branch->id]);
+
+        $this->parent($founder, $child);
+        $this->parent($child, $grandchild);
+        $this->parent($grandchild, $greatGrandchild);
+
+        $this->artisan('genealogy:recompute-lineage')->assertSuccessful();
+
+        $response = $this->actingAs($this->user)
+            ->getJson(route('api.v1.tree.show', ['person' => $greatGrandchild, 'ancestors' => 3]))
+            ->assertOk();
+
+        $labels = collect($response->json('data.people'))
+            ->pluck('generation_label', 'ulid');
+
+        // The label came from a hand-assigned generation_id: seeded wrong for
+        // the fourth generation, never set for anybody added through the app,
+        // and never maintained when parentage changed. A grandchild carried
+        // their parent's label. lineage_depths was right the whole time.
+        $this->assertSame('1st Generation', $labels[$founder->ulid]);
+        $this->assertSame('2nd Generation', $labels[$child->ulid]);
+        $this->assertSame('3rd Generation', $labels[$grandchild->ulid]);
+        $this->assertSame('4th Generation', $labels[$greatGrandchild->ulid]);
+    }
+
     public function test_pedigree_collapse_reports_a_range_not_a_single_number(): void
     {
         // Cousins marrying is common in small clans. A person can genuinely sit

@@ -111,8 +111,16 @@ class TreeResource
         }
 
         return [
+            // What was asked for, kept because the client uses it to decide
+            // whether asking for more would return anything new.
             'ancestors_depth' => $graph->ancestorsDepth,
             'descendants_depth' => $graph->descendantsDepth,
+
+            // What is actually in this graph. The chart shows these, because
+            // "2 down" under somebody with no children is a statement about
+            // the request and reads as a statement about the family.
+            'reached_above' => $graph->reachedAbove(),
+            'reached_below' => $graph->reachedBelow(),
             'node_count' => $graph->nodeCount(),
             'truncated' => $graph->truncated,
             'graph_version' => $graph->graphVersion,

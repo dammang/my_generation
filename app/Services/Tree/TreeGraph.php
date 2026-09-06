@@ -24,6 +24,24 @@ final readonly class TreeGraph
      * @param  array<int, int>  $depths  person id => depth relative to the focus
      * @param  array<int, array{children: int, parents: int}>  $expandable
      */
+    /**
+     * How far the graph actually reaches, rather than how far was asked for.
+     *
+     * ancestorsDepth and descendantsDepth are the request's parameters. The
+     * chart reported them as "3 up, 2 down", which describes the query and not
+     * the family: a person with no children was told there were two
+     * generations below them.
+     */
+    public function reachedAbove(): int
+    {
+        return $this->depths === [] ? 0 : max(0, -min($this->depths));
+    }
+
+    public function reachedBelow(): int
+    {
+        return $this->depths === [] ? 0 : max(0, max($this->depths));
+    }
+
     public function __construct(
         public Person $focus,
         public Collection $people,

@@ -106,16 +106,68 @@ class PersonResource extends JsonResource
                 'ulid' => $this->familyBranch->ulid,
                 'name' => $this->familyBranch->name,
             ]),
-            'generation_label' => $this->whenLoaded(
-                'generation',
-                fn () => $this->generation?->generation_name,
-            ),
+            // Derived from the computed distance to the branch's founder, not
+            // from the generation_id column.
+            //
+            // That column is assigned by hand: it was seeded wrong for the
+            // fourth generation — grandchildren carried their parents' label —
+            // it is never set for anybody added through the app, and nothing
+            // maintains it when parentage changes. lineage_depths is computed
+            // from the graph and was right the whole time; it simply was not
+            // what the label read.
+            'generation_label' => $this->generationLabel(),
 
             'merged_into' => $this->when(
                 $this->merged_into_person_id !== null,
                 fn () => $this->mergedInto?->ulid,
             ),
         ];
+    }
+
+    /**
+     * "4th Generation", counted from the branch's apical ancestor.
+     *
+     * Falls back to the assigned generation where depths have not been
+     * computed — a tribe whose branch names no founder has nothing to count
+     * from, and saying nothing is better than saying something wrong.
+     */
+    private function generationLabel(): ?string
+    {
+        // relationLoaded rather than whenLoaded: whenLoaded hands back a
+        // MissingValue sentinel, which is not a string and not null.
+        if (! $this->resource->relationLoaded('lineageDepths')) {
+            return $this->resource->relationLoaded('generation')
+                ? $this->generation?->generation_name
+                : null;
+        }
+
+        $root = $this->resource->relationLoaded('familyBranch')
+            ? $this->familyBranch?->ancestor_person_id
+            : null;
+
+        $row = $this->lineageDepths->firstWhere('root_person_id', $root);
+
+        if ($row === null) {
+            return $this->resource->relationLoaded('generation')
+                ? $this->generation?->generation_name
+                : null;
+        }
+
+        return self::ordinal($row->depth + 1).' Generation';
+    }
+
+    /** 1st, 2nd, 3rd, 4th … 11th, 12th, 13th. */
+    private static function ordinal(int $n): string
+    {
+        $suffix = match (true) {
+            in_array($n % 100, [11, 12, 13], true) => 'th',
+            $n % 10 === 1 => 'st',
+            $n % 10 === 2 => 'nd',
+            $n % 10 === 3 => 'rd',
+            default => 'th',
+        };
+
+        return $n.$suffix;
     }
 
     /**

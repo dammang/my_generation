@@ -82,6 +82,35 @@ class TreeTraversalTest extends TestCase
         $this->assertSame(2, $depths[$chain[4]->ulid]);
     }
 
+    public function test_the_tree_reports_how_far_it_actually_reaches(): void
+    {
+        $chain = $this->chain(5);
+
+        // The youngest person in the chain: nothing below them at all.
+        $response = $this->actingAs($this->user)
+            ->getJson(route('api.v1.tree.show', [
+                'person' => $chain[4],
+                'ancestors' => 3,
+                'descendants' => 2,
+            ]))
+            ->assertOk();
+
+        // What was asked for stays available: the client uses it to decide
+        // whether asking for more would return anything new.
+        $this->assertSame(3, $response->json('meta.ancestors_depth'));
+        $this->assertSame(2, $response->json('meta.descendants_depth'));
+
+        // What is actually there. The chart showed the request, so a person
+        // with no children was labelled "2 down" — a statement about the query
+        // that reads as a statement about the family.
+        $this->assertSame(3, $response->json('meta.reached_above'));
+        $this->assertSame(
+            0,
+            $response->json('meta.reached_below'),
+            'nobody is below the youngest person in the chain',
+        );
+    }
+
     public function test_depth_limits_are_honoured(): void
     {
         $chain = $this->chain(6);

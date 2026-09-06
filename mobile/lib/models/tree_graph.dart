@@ -29,14 +29,18 @@ class TreeUnion {
   bool get isSingleParent => partnerUlids.length < 2;
 
   factory TreeUnion.fromJson(Map<String, dynamic> json) => TreeUnion(
-        ulid: json['ulid'] as String,
-        partnerUlids: (json['partners'] as List? ?? const []).map((p) => p.toString()).toList(),
-        childUlids: (json['children'] as List? ?? const []).map((c) => c.toString()).toList(),
-        unionType: json['union_type'] as String? ?? 'marriage',
-        status: json['status'] as String? ?? 'unknown',
-        marriageYear: json['marriage_year'] as int?,
-        orderIndex: json['order_index'] as int? ?? 1,
-      );
+    ulid: json['ulid'] as String,
+    partnerUlids: (json['partners'] as List? ?? const [])
+        .map((p) => p.toString())
+        .toList(),
+    childUlids: (json['children'] as List? ?? const [])
+        .map((c) => c.toString())
+        .toList(),
+    unionType: json['union_type'] as String? ?? 'marriage',
+    status: json['status'] as String? ?? 'unknown',
+    marriageYear: json['marriage_year'] as int?,
+    orderIndex: json['order_index'] as int? ?? 1,
+  );
 }
 
 /// A parent-child edge. `dashed` is the server's decision, not a style choice:
@@ -56,11 +60,11 @@ class TreeEdge {
   final bool dashed;
 
   factory TreeEdge.fromJson(Map<String, dynamic> json) => TreeEdge(
-        parentUlid: json['parent'] as String,
-        childUlid: json['child'] as String,
-        kind: json['kind'] as String? ?? 'biological',
-        dashed: json['dashed'] as bool? ?? false,
-      );
+    parentUlid: json['parent'] as String,
+    childUlid: json['child'] as String,
+    kind: json['kind'] as String? ?? 'biological',
+    dashed: json['dashed'] as bool? ?? false,
+  );
 }
 
 /// How much more there is, beyond what was returned.
@@ -86,6 +90,8 @@ class TreeGraph {
     required this.expandable,
     this.ancestorsDepth = 0,
     this.descendantsDepth = 0,
+    this.reachedAbove = 0,
+    this.reachedBelow = 0,
     this.nodeCount = 0,
     this.truncated = false,
     this.graphVersion = 0,
@@ -101,8 +107,16 @@ class TreeGraph {
   /// letting somebody discover the boundary by tapping into nothing.
   final Map<String, Expandable> expandable;
 
+  /// What was asked for. Used to decide whether asking for more would return
+  /// anything new, never to describe the family.
   final int ancestorsDepth;
   final int descendantsDepth;
+
+  /// What the graph actually contains. The chart shows these: telling somebody
+  /// with no children that there are two generations below them describes the
+  /// request rather than their family.
+  final int reachedAbove;
+  final int reachedBelow;
   final int nodeCount;
   final bool truncated;
   final int graphVersion;
@@ -115,7 +129,8 @@ class TreeGraph {
 
   PersonSummary? person(String ulid) => people[ulid];
 
-  Expandable expandableFor(String ulid) => expandable[ulid] ?? const Expandable();
+  Expandable expandableFor(String ulid) =>
+      expandable[ulid] ?? const Expandable();
 
   bool get isEmpty => people.isEmpty;
 
@@ -127,11 +142,16 @@ class TreeGraph {
     expandable: {},
   );
 
-  factory TreeGraph.fromResponse(Map<String, dynamic> data, Map<String, dynamic> meta) {
+  factory TreeGraph.fromResponse(
+    Map<String, dynamic> data,
+    Map<String, dynamic> meta,
+  ) {
     final people = <String, PersonSummary>{};
 
     for (final raw in (data['people'] as List? ?? const [])) {
-      final person = PersonSummary.fromJson((raw as Map).cast<String, dynamic>());
+      final person = PersonSummary.fromJson(
+        (raw as Map).cast<String, dynamic>(),
+      );
       people[person.ulid] = person;
     }
 
@@ -157,6 +177,8 @@ class TreeGraph {
       expandable: expandable,
       ancestorsDepth: meta['ancestors_depth'] as int? ?? 0,
       descendantsDepth: meta['descendants_depth'] as int? ?? 0,
+      reachedAbove: meta['reached_above'] as int? ?? 0,
+      reachedBelow: meta['reached_below'] as int? ?? 0,
       nodeCount: meta['node_count'] as int? ?? people.length,
       truncated: meta['truncated'] as bool? ?? false,
       graphVersion: meta['graph_version'] as int? ?? 0,

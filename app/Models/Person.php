@@ -238,6 +238,17 @@ class Person extends Model
         return $this->belongsTo(FamilyBranch::class);
     }
 
+    /**
+     * Computed distance from each apical ancestor this person descends from.
+     *
+     * Eager-loadable, because the displayed generation is derived from it and
+     * asking per person costs three queries each.
+     */
+    public function lineageDepths(): HasMany
+    {
+        return $this->hasMany(LineageDepth::class);
+    }
+
     public function generation(): BelongsTo
     {
         return $this->belongsTo(Generation::class);

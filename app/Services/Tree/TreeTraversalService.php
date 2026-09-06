@@ -185,6 +185,10 @@ class TreeTraversalService
                 'tribe:id,ulid,name',
                 'clan:id,ulid,name',
                 'generation:id,generation_name',
+                // The displayed generation is derived from these; the branch
+                // carries which ancestor the depth is measured from.
+                'lineageDepths:person_id,root_person_id,depth',
+                'familyBranch:id,ulid,name,ancestor_person_id',
             ])
             ->get();
     }

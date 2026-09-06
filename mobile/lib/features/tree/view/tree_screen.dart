@@ -32,6 +32,7 @@ class TreeScreen extends ConsumerStatefulWidget {
 
 class _TreeScreenState extends ConsumerState<TreeScreen> {
   final _controller = TransformationController();
+
   /// Rebuilt per frame from the device's text scale: the card is a fixed box
   /// and the engine has to be told how tall the text inside it will actually
   /// be, or the two disagree and the difference is clipped.
@@ -256,7 +257,7 @@ class _Legend extends StatelessWidget {
                       ),
                       Text(
                         '${graph.nodeCount} people · '
-                        '${graph.ancestorsDepth} up, ${graph.descendantsDepth} down'
+                        '${graph.reachedAbove} up, ${graph.reachedBelow} down'
                         '${graph.truncated ? ' · showing the nearest' : ''}'
                         // A tree rebuilt from the device is necessarily partial.
                         // Presenting a fragment as the whole family is the
