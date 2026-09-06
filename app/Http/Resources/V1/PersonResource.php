@@ -136,9 +136,7 @@ class PersonResource extends JsonResource
         // relationLoaded rather than whenLoaded: whenLoaded hands back a
         // MissingValue sentinel, which is not a string and not null.
         if (! $this->resource->relationLoaded('lineageDepths')) {
-            return $this->resource->relationLoaded('generation')
-                ? $this->generation?->generation_name
-                : null;
+            return null;
         }
 
         $root = $this->resource->relationLoaded('familyBranch')
@@ -147,10 +145,15 @@ class PersonResource extends JsonResource
 
         $row = $this->lineageDepths->firstWhere('root_person_id', $root);
 
+        // Nothing rather than the generation_id column.
+        //
+        // Somebody who married in has no distance from the founder, because
+        // they do not descend from them — and that column said "1st
+        // Generation" for Edward Whitfield's wife while Edward himself, four
+        // generations below the founder, read fifth. A blank is honest; a
+        // number that confident and that wrong is not.
         if ($row === null) {
-            return $this->resource->relationLoaded('generation')
-                ? $this->generation?->generation_name
-                : null;
+            return null;
         }
 
         return self::ordinal($row->depth + 1).' Generation';

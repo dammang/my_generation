@@ -10,6 +10,7 @@ use App\Models\FamilyBranch;
 use App\Models\Person;
 use App\Models\Relationship;
 use App\Models\Tribe;
+use App\Models\Union;
 use App\Models\User;
 use App\Services\Tree\LineageDepthService;
 use App\Services\Tree\RelationshipPathFinder;
@@ -171,6 +172,42 @@ class LineageAndPathTest extends TestCase
 
         $this->assertSame('1st Generation', $labels[$outcome->record->ulid]);
         $this->assertSame('2nd Generation', $labels[$founder->ulid], 'the old founder should have moved down one');
+    }
+
+    public function test_somebody_who_married_in_is_given_no_generation(): void
+    {
+        $founder = $this->person(1900);
+        $branch = FamilyBranch::factory()->create([
+            'tribe_id' => $this->tribe->id,
+            'ancestor_person_id' => $founder->id,
+        ]);
+        $founder->forceFill(['family_branch_id' => $branch->id])->save();
+
+        $child = $this->person(1930, ['family_branch_id' => $branch->id]);
+        $this->parent($founder, $child);
+
+        // A spouse: in the family, not descended from its founder.
+        $spouse = $this->person(1932, ['family_branch_id' => $branch->id]);
+        $union = Union::create(['partner_1_id' => $child->id, 'partner_2_id' => $spouse->id]);
+        $this->assertNotNull($union);
+
+        $this->artisan('genealogy:recompute-lineage')->assertSuccessful();
+
+        $response = $this->actingAs($this->user)
+            ->getJson(route('api.v1.tree.show', ['person' => $child, 'ancestors' => 2]))
+            ->assertOk();
+
+        $labels = collect($response->json('data.people'))->pluck('generation_label', 'ulid');
+
+        $this->assertSame('2nd Generation', $labels[$child->ulid]);
+
+        // Not "1st Generation" from the hand-assigned column, which said
+        // exactly that for a woman standing beside a husband four generations
+        // further down. A blank is honest; a number that wrong is not.
+        $this->assertNull(
+            $labels[$spouse->ulid],
+            'somebody who married in was given a generation they cannot have',
+        );
     }
 
     public function test_pedigree_collapse_reports_a_range_not_a_single_number(): void
