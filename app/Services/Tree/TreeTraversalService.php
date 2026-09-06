@@ -189,6 +189,12 @@ class TreeTraversalService
                 // carries which ancestor the depth is measured from.
                 'lineageDepths:person_id,root_person_id,depth',
                 'familyBranch:id,ulid,name,ancestor_person_id',
+                // For somebody who married in: they have no descent from the
+                // founder, so their generation is their partner's. Loaded from
+                // both sides of a union because a marriage is stored once, not
+                // twice, and either partner may be the one on screen.
+                'unionsAsPartner1.partner2.lineageDepths:person_id,root_person_id,depth',
+                'unionsAsPartner2.partner1.lineageDepths:person_id,root_person_id,depth',
             ])
             ->get();
     }

@@ -133,8 +133,15 @@ class PersonResource extends JsonResource
      */
     private function generationLabel(): ?string
     {
-        // relationLoaded rather than whenLoaded: whenLoaded hands back a
-        // MissingValue sentinel, which is not a string and not null.
+        // Recorded by hand, and therefore deliberate. It wins over anything
+        // derived: a tribe that does not count women's generations the way it
+        // counts men's needs to be able to say so, and no amount of walking
+        // the graph will work that out.
+        if ($this->resource->relationLoaded('generation') && $this->generation !== null) {
+            return $this->generation->generation_name
+                ?? self::ordinal((int) $this->generation->generation_number).' Generation';
+        }
+
         if (! $this->resource->relationLoaded('lineageDepths')) {
             return null;
         }
@@ -145,18 +152,44 @@ class PersonResource extends JsonResource
 
         $row = $this->lineageDepths->firstWhere('root_person_id', $root);
 
-        // Nothing rather than the generation_id column.
-        //
-        // Somebody who married in has no distance from the founder, because
-        // they do not descend from them — and that column said "1st
-        // Generation" for Edward Whitfield's wife while Edward himself, four
-        // generations below the founder, read fifth. A blank is honest; a
-        // number that confident and that wrong is not.
-        if ($row === null) {
+        if ($row !== null) {
+            return self::ordinal($row->depth + 1).' Generation';
+        }
+
+        // Married in. They have no descent from the founder, so they have no
+        // depth of their own — they stand where their husband or wife stands,
+        // which is what a family tree on paper has always shown.
+        return $this->partnerGeneration($root);
+    }
+
+    /** The generation of whoever this person is partnered with, if any. */
+    private function partnerGeneration(mixed $root): ?string
+    {
+        if ($root === null) {
             return null;
         }
 
-        return self::ordinal($row->depth + 1).' Generation';
+        foreach (['unionsAsPartner1' => 'partner2', 'unionsAsPartner2' => 'partner1'] as $side => $other) {
+            if (! $this->resource->relationLoaded($side)) {
+                continue;
+            }
+
+            foreach ($this->resource->{$side} as $union) {
+                $partner = $union->{$other};
+
+                if ($partner === null || ! $partner->relationLoaded('lineageDepths')) {
+                    continue;
+                }
+
+                $row = $partner->lineageDepths->firstWhere('root_person_id', $root);
+
+                if ($row !== null) {
+                    return self::ordinal($row->depth + 1).' Generation';
+                }
+            }
+        }
+
+        return null;
     }
 
     /** 1st, 2nd, 3rd, 4th … 11th, 12th, 13th. */

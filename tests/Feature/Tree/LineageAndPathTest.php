@@ -7,6 +7,7 @@ namespace Tests\Feature\Tree;
 use App\Actions\Genealogy\AddRelative;
 use App\Enums\PrivacyLevel;
 use App\Models\FamilyBranch;
+use App\Models\Generation;
 use App\Models\Person;
 use App\Models\Relationship;
 use App\Models\Tribe;
@@ -174,7 +175,7 @@ class LineageAndPathTest extends TestCase
         $this->assertSame('2nd Generation', $labels[$founder->ulid], 'the old founder should have moved down one');
     }
 
-    public function test_somebody_who_married_in_is_given_no_generation(): void
+    public function test_somebody_who_married_in_stands_at_their_partners_generation(): void
     {
         $founder = $this->person(1900);
         $branch = FamilyBranch::factory()->create([
@@ -201,13 +202,48 @@ class LineageAndPathTest extends TestCase
 
         $this->assertSame('2nd Generation', $labels[$child->ulid]);
 
-        // Not "1st Generation" from the hand-assigned column, which said
-        // exactly that for a woman standing beside a husband four generations
-        // further down. A blank is honest; a number that wrong is not.
-        $this->assertNull(
+        // Where a family tree on paper has always put them: beside their
+        // husband or wife, not at the "1st Generation" the hand-assigned
+        // column used to claim for a woman standing next to a man four
+        // generations further down.
+        $this->assertSame(
+            '2nd Generation',
             $labels[$spouse->ulid],
-            'somebody who married in was given a generation they cannot have',
+            'somebody who married in should stand where their partner stands',
         );
+    }
+
+    public function test_a_generation_set_by_hand_wins_over_anything_derived(): void
+    {
+        $founder = $this->person(1900);
+        $branch = FamilyBranch::factory()->create([
+            'tribe_id' => $this->tribe->id,
+            'ancestor_person_id' => $founder->id,
+        ]);
+        $founder->forceFill(['family_branch_id' => $branch->id])->save();
+
+        $child = $this->person(1930, ['family_branch_id' => $branch->id]);
+        $this->parent($founder, $child);
+        $this->artisan('genealogy:recompute-lineage')->assertSuccessful();
+
+        // A tribe that does not count generations the way descent does needs to
+        // be able to say so, and no amount of walking the graph will work that
+        // out. Recorded by hand means deliberate, so it wins.
+        $named = Generation::create([
+            'tribe_id' => $this->tribe->id,
+            'generation_number' => 9,
+            'generation_name' => 'Elders',
+        ]);
+        $child->forceFill(['generation_id' => $named->id])->save();
+
+        $response = $this->actingAs($this->user)
+            ->getJson(route('api.v1.tree.show', ['person' => $child, 'ancestors' => 2]))
+            ->assertOk();
+
+        $labels = collect($response->json('data.people'))->pluck('generation_label', 'ulid');
+
+        $this->assertSame('Elders', $labels[$child->ulid]);
+        $this->assertSame('1st Generation', $labels[$founder->ulid], 'and nobody else is affected');
     }
 
     public function test_pedigree_collapse_reports_a_range_not_a_single_number(): void

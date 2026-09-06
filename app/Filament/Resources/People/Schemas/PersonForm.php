@@ -76,8 +76,26 @@ class PersonForm
                     ->relationship('clan', 'name'),
                 Select::make('family_branch_id')
                     ->relationship('familyBranch', 'name'),
+                // Overrides the generation the archive works out from descent.
+                //
+                // It offered a list of database ids, which nobody can choose
+                // from. It matters more than it looks: a tribe that does not
+                // count generations the way descent does — women's not counted
+                // alongside men's, say — has no other way to record that, and
+                // walking the graph will never discover it.
+                //
+                // Left empty, the generation is computed: distance from the
+                // family branch's founder, or a partner's generation for
+                // somebody who married in.
                 Select::make('generation_id')
-                    ->relationship('generation', 'id'),
+                    ->label('Generation (set by hand)')
+                    ->relationship('generation', 'generation_name')
+                    ->getOptionLabelFromRecordUsing(
+                        fn ($record) => $record->generation_name ?? "Generation {$record->generation_number}"
+                    )
+                    ->searchable()
+                    ->preload()
+                    ->helperText('Leave empty to count it from descent.'),
                 Select::make('privacy_level')
                     ->options(PrivacyLevel::class)
                     ->default('family')
