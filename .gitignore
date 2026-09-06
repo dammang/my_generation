@@ -44,3 +44,7 @@ firebase-adminsdk-*.json
 # What actually protects the project is the restriction attached to each key —
 # package name plus signing certificate on Android, bundle id on iOS — set in
 # the Google Cloud console. That is the control worth checking.
+
+# The Flutter web client is built and uploaded, never committed: it is 42MB of
+# generated output and it changes on every mobile build.
+/public/app

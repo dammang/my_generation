@@ -3,6 +3,7 @@
 use App\Http\Controllers\Web\ResetPasswordController;
 use App\Http\Controllers\Web\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
+use Symfony\Component\HttpFoundation\Response;
 
 Route::get('/', function () {
     return view('welcome');
@@ -39,3 +40,23 @@ Route::get('/reset-password/done', [ResetPasswordController::class, 'done'])
 Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
     ->middleware(['signed', 'throttle:6,1'])
     ->name('verification.verify');
+
+/*
+ * The Flutter client, served from this same origin on purpose.
+ *
+ * A browser build talking to an API on another host needs CORS configured and
+ * every request preflighted; serving it from /app makes it same-origin with
+ * /api, so there is nothing to configure and nothing to get wrong.
+ *
+ * The web server answers for files that exist, so this only ever runs for the
+ * app's own client-side routes — /app/tree, /app/person/01ABC — which have no
+ * file behind them. Without it, opening one of those directly, or reloading
+ * the page you are on, is a 404 from Laravel.
+ */
+Route::get('/app/{path?}', function (): Response {
+    $index = public_path('app/index.html');
+
+    abort_unless(is_file($index), 404, 'The web client has not been deployed.');
+
+    return response()->file($index);
+})->where('path', '.*')->name('web-client');
