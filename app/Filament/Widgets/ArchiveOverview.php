@@ -27,37 +27,55 @@ class ArchiveOverview extends StatsOverviewWidget
     {
         $counts = Cache::remember('admin:overview', 60, fn () => $this->counts());
 
+        // Every card goes somewhere, and somewhere useful: a number that
+        // reports work to be done and cannot be clicked makes the reader hunt
+        // the navigation for the page it came from. The two that describe a
+        // subset carry the filter with them, so "Verified 4" opens those four
+        // rather than all fifteen people.
         return [
             Stat::make('People', number_format($counts['people']))
                 ->description(number_format($counts['living']).' living · '.number_format($counts['deceased']).' deceased')
                 ->descriptionIcon('heroicon-m-users')
-                ->color('primary'),
+                ->color('primary')
+                ->url(route('filament.admin.resources.people.index')),
 
             Stat::make('Relationships', number_format($counts['relationships']))
                 ->description(number_format($counts['unions']).' unions')
-                ->descriptionIcon('heroicon-m-arrows-right-left'),
+                ->descriptionIcon('heroicon-m-arrows-right-left')
+                ->url(route('filament.admin.resources.relationships.index')),
 
             Stat::make('Structure', number_format($counts['tribes']).' tribes')
                 ->description(number_format($counts['clans']).' clans · '.number_format($counts['branches']).' branches')
-                ->descriptionIcon('heroicon-m-rectangle-group'),
+                ->descriptionIcon('heroicon-m-rectangle-group')
+                ->url(route('filament.admin.resources.tribes.index')),
 
             Stat::make('Verified', number_format($counts['verified']))
                 ->description($counts['people'] > 0
                     ? number_format($counts['verified'] / $counts['people'] * 100, 1).'% of people'
                     : 'No people yet')
                 ->descriptionIcon('heroicon-m-check-badge')
-                ->color('success'),
+                ->color('success')
+                ->url(route('filament.admin.resources.people.index', [
+                    'tableFilters' => ['verification_status' => ['value' => VerificationStatus::Verified->value]],
+                ])),
 
-            // The two numbers that mean somebody has work to do.
+            // The two numbers that mean somebody has work to do, so these are
+            // the two most worth being one click from the number itself.
             Stat::make('Awaiting review', number_format($counts['pending']))
                 ->description('Change requests in the queue')
                 ->descriptionIcon('heroicon-m-inbox-arrow-down')
-                ->color($counts['pending'] > 0 ? 'warning' : 'gray'),
+                ->color($counts['pending'] > 0 ? 'warning' : 'gray')
+                ->url(route('filament.admin.resources.change-requests.index', [
+                    'tableFilters' => ['status' => ['value' => ChangeRequestStatus::Pending->value]],
+                ])),
 
             Stat::make('Possible duplicates', number_format($counts['duplicates']))
                 ->description('Open, awaiting a merge decision')
                 ->descriptionIcon('heroicon-m-document-duplicate')
-                ->color($counts['duplicates'] > 0 ? 'warning' : 'gray'),
+                ->color($counts['duplicates'] > 0 ? 'warning' : 'gray')
+                ->url(route('filament.admin.resources.duplicate-candidates.index', [
+                    'tableFilters' => ['status' => ['value' => DuplicateStatus::Open->value]],
+                ])),
         ];
     }
 

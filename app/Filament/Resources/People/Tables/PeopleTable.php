@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\People\Tables;
 
+use App\Enums\VerificationStatus;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -9,6 +10,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
@@ -122,6 +124,12 @@ class PeopleTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                // Also what the dashboard's "Verified" card links to. A card
+                // reading 4 that opens a list of 15 is not a shortcut, it is a
+                // riddle.
+                SelectFilter::make('verification_status')
+                    ->label('Verification')
+                    ->options(VerificationStatus::class),
                 TrashedFilter::make(),
             ])
             ->recordActions([

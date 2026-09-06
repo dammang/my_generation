@@ -9,8 +9,11 @@ use App\Enums\ChangeRequestOperation;
 use App\Enums\ChangeRequestStatus;
 use App\Enums\DuplicateStatus;
 use App\Enums\UserStatus;
+use App\Enums\VerificationStatus;
 use App\Filament\Resources\ChangeRequests\Pages\ListChangeRequests;
 use App\Filament\Resources\DuplicateCandidates\Pages\ListDuplicateCandidates;
+use App\Filament\Resources\People\Pages\ListPeople;
+use App\Filament\Widgets\ArchiveOverview;
 use App\Models\DuplicateCandidate;
 use App\Models\Person;
 use App\Models\Scope;
@@ -18,6 +21,7 @@ use App\Models\Tribe;
 use App\Models\User;
 use App\Services\Permissions\PermissionResolver;
 use Database\Seeders\RolePermissionSeeder;
+use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -55,6 +59,55 @@ class AdminPanelTest extends TestCase
     }
 
     // ── Access ───────────────────────────────────────────────────────────
+
+    public function test_every_dashboard_card_links_somewhere_that_exists(): void
+    {
+        $widget = Livewire::actingAs(User::factory()->create(['is_super_admin' => true]))
+            ->test(ArchiveOverview::class)
+            ->instance();
+
+        $method = new \ReflectionMethod($widget, 'getStats');
+        $method->setAccessible(true);
+
+        /** @var array<int, Stat> $stats */
+        $stats = $method->invoke($widget);
+
+        $this->assertCount(6, $stats, 'a card was added or removed without updating this test');
+
+        foreach ($stats as $stat) {
+            $url = $stat->getUrl();
+
+            // route() throws on a name that does not exist, so a typo here is
+            // a 500 on the first page every admin loads. Building the widget
+            // at all is most of the assertion; this is the rest of it.
+            $this->assertNotNull($url, $stat->getLabel().' does not go anywhere');
+            $this->assertStringStartsWith('http', $url);
+        }
+    }
+
+    public function test_the_verified_card_opens_only_the_verified_people(): void
+    {
+        $tribe = $this->tribe;
+
+        Person::factory()->create([
+            'tribe_id' => $tribe->id,
+            'verification_status' => VerificationStatus::Verified,
+            'first_name' => 'Checked',
+        ]);
+        Person::factory()->create([
+            'tribe_id' => $tribe->id,
+            'verification_status' => VerificationStatus::Unverified,
+            'first_name' => 'Unchecked',
+        ]);
+
+        // The filter the dashboard link carries. Without it the card reports a
+        // subset and opens the whole list, which is worse than not linking.
+        Livewire::actingAs(User::factory()->create(['is_super_admin' => true]))
+            ->test(ListPeople::class)
+            ->set('tableFilters.verification_status.value', VerificationStatus::Verified->value)
+            ->assertCanSeeTableRecords(Person::where('first_name', 'Checked')->get())
+            ->assertCanNotSeeTableRecords(Person::where('first_name', 'Unchecked')->get());
+    }
 
     public function test_a_super_admin_can_open_the_panel(): void
     {
