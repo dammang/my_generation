@@ -48,6 +48,30 @@ void main() {
       expect(union.marriageYear, 1893);
     });
 
+    test('survives an empty object arriving as an empty list', () {
+      // PHP encodes an empty associative array as `[]`, so the server really
+      // does send "expandable": [] for somebody with nothing left to expand.
+      // Casting that to a Map threw, and the tree screen showed an error for
+      // the one person whose tree was already complete.
+      final graph = TreeGraph.fromResponse(
+        data(people: [
+          {
+            'ulid': '01A',
+            'display_name': 'Khai Nang',
+            'gender': 'male',
+            'is_living': false,
+            'redacted': false,
+            'depth': 0,
+          },
+        ]),
+        const {'expandable': [], 'clan': [], 'node_count': 1},
+      );
+
+      expect(graph.expandable, isEmpty);
+      expect(graph.clanPeople, 0);
+      expect(graph.people, hasLength(1));
+    });
+
     test('recognises a single-parent union', () {
       // Real and common in historical records; the chart must not draw a
       // partner bar to somebody nobody recorded.

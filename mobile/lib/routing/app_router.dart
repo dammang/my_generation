@@ -9,6 +9,10 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/forgot_password_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/auth/sign_in_screen.dart';
+import '../features/clans/view/clan_registrations_screen.dart';
+import '../features/clans/view/committee_scopes_screen.dart';
+import '../features/clans/view/committee_screen.dart';
+import '../features/clans/view/start_clan_screen.dart';
 import '../features/connection/startup_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/claim_profile_screen.dart';
@@ -48,7 +52,17 @@ class Routes {
   /// and returns to the tree rather than to wherever you came from.
   static const String personSearch = '/tree/search';
 
+  /// Running a family: asking to start a clan, and appointing the people who
+  /// run one. Children of the profile branch, because they are things this
+  /// account does rather than places in the archive.
+  static const String clanRegistrations = '/profile/clans';
+  static const String startClan = '/profile/clans/new';
+  static const String committees = '/profile/committee';
+
   static String personPath(String ulid) => '$person/$ulid';
+
+  static String committeePath(String scopeType, String scopeUlid) =>
+      '$committees/$scopeType/$scopeUlid';
 }
 
 /// What sends screen views to Firebase.
@@ -201,6 +215,31 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.profile,
                 builder: (_, _) => const ProfileScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'clans',
+                    builder: (_, _) => const ClanRegistrationsScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'new',
+                        builder: (_, _) => const StartClanScreen(),
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: 'committee',
+                    builder: (_, _) => const CommitteeScopesScreen(),
+                    routes: [
+                      GoRoute(
+                        path: ':type/:ulid',
+                        builder: (_, state) => CommitteeScreen(
+                          scopeType: state.pathParameters['type']!,
+                          scopeUlid: state.pathParameters['ulid']!,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),

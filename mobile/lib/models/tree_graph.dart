@@ -149,6 +149,10 @@ class TreeGraph {
     expandable: {},
   );
 
+  /// A JSON object, whatever an empty one arrived as.
+  static Map<String, dynamic> _object(dynamic raw) =>
+      raw is Map ? raw.cast<String, dynamic>() : const {};
+
   factory TreeGraph.fromResponse(
     Map<String, dynamic> data,
     Map<String, dynamic> meta,
@@ -164,9 +168,13 @@ class TreeGraph {
 
     final expandable = <String, Expandable>{};
 
-    final clan = ((meta['clan'] as Map?) ?? const {}).cast<String, dynamic>();
+    // `as Map?` is not enough: PHP encodes an empty associative array as `[]`,
+    // so a person with nothing left to expand arrives as a List and the cast
+    // throws — the whole tree screen failing for the one case where there was
+    // nothing to draw anyway.
+    final clan = _object(meta['clan']);
 
-    ((meta['expandable'] as Map?) ?? const {}).forEach((key, value) {
+    _object(meta['expandable']).forEach((key, value) {
       final counts = (value as Map).cast<String, dynamic>();
       expandable[key.toString()] = Expandable(
         children: counts['children'] as int? ?? 0,

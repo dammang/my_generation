@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/api_paths.dart';
 import '../../../models/api_user.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/clan_provider.dart';
 import '../../../providers/onboarding_provider.dart';
 import '../../../routing/app_router.dart';
 
@@ -161,6 +162,8 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            const _RunningAFamily(),
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -388,6 +391,57 @@ class ProfileScreen extends ConsumerWidget {
 /// overflowed by 156 pixels the moment the value was a sentence rather than a
 /// number — and "Not yet linked to a person" always is. Giving both halves a
 /// flex lets the long ones wrap instead of running off the card.
+
+/// Starting a clan, and running one.
+///
+/// The committee row appears only once this account actually administers
+/// something. A permanent entry that answers "nobody, nowhere" for almost
+/// every member is a row people tap once and then learn to ignore.
+class _RunningAFamily extends ConsumerWidget {
+  const _RunningAFamily();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final scopes = ref.watch(administeredScopesProvider);
+    final committees = scopes.value ?? const [];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Running a family', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.account_tree_outlined),
+              title: const Text('Clans'),
+              subtitle: const Text('Ask to start one, or answer a request'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push(Routes.clanRegistrations),
+            ),
+            if (committees.isNotEmpty)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.shield_outlined),
+                title: const Text('Committee'),
+                subtitle: Text(
+                  committees.length == 1
+                      ? 'Appoint people to ${committees.first.name}'
+                      : 'Appoint people in ${committees.length} places',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(Routes.committees),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Fact extends StatelessWidget {
   const _Fact({
     required this.label,

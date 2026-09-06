@@ -9,6 +9,8 @@ import 'dart:ui';
 
 import 'package:my_generation/features/tree/layout/tree_layout_engine.dart';
 import 'package:my_generation/models/api_user.dart';
+import 'package:my_generation/models/clan_registration.dart';
+import 'package:my_generation/models/committee.dart';
 import 'package:my_generation/models/tree_graph.dart';
 import 'package:my_generation/models/membership.dart';
 import 'package:my_generation/models/tribe_summary.dart';
@@ -35,12 +37,14 @@ void main() {
   setUpAll(() async {
     if (!_enabled) return;
 
-    dio = Dio(BaseOptions(
-      baseUrl: 'http://127.0.0.1:8000',
-      headers: const {'Accept': 'application/json'},
-      validateStatus: (status) => status != null && status < 500,
-      connectTimeout: const Duration(seconds: 3),
-    ));
+    dio = Dio(
+      BaseOptions(
+        baseUrl: 'http://127.0.0.1:8000',
+        headers: const {'Accept': 'application/json'},
+        validateStatus: (status) => status != null && status < 500,
+        connectTimeout: const Duration(seconds: 3),
+      ),
+    );
 
     try {
       final response = await dio.get(ApiPaths.health);
@@ -61,11 +65,14 @@ void main() {
   Future<String> signIn() async {
     if (cachedToken != null) return cachedToken!;
 
-    final response = await dio.post(ApiPaths.login, data: {
-      'email': 'admin@mygeneration.test',
-      'password': 'password',
-      'device_name': 'contract-test',
-    });
+    final response = await dio.post(
+      ApiPaths.login,
+      data: {
+        'email': 'admin@mygeneration.test',
+        'password': 'password',
+        'device_name': 'contract-test',
+      },
+    );
 
     final body = (response.data as Map).cast<String, dynamic>();
 
@@ -76,7 +83,9 @@ void main() {
     return cachedToken = (body['data'] as Map)['token'] as String;
   }
 
-  const skipReason = _enabled ? null : 'Set --dart-define=LIVE_API=true and run the API';
+  const skipReason = _enabled
+      ? null
+      : 'Set --dart-define=LIVE_API=true and run the API';
 
   test('the health endpoint answers in the expected envelope', () async {
     if (!reachable) return;
@@ -92,16 +101,20 @@ void main() {
     expect(envelope.data!['version'], 'v1');
   }, skip: skipReason);
 
-  test('an unauthenticated request is refused in the error envelope', () async {
-    if (!reachable) return;
+  test(
+    'an unauthenticated request is refused in the error envelope',
+    () async {
+      if (!reachable) return;
 
-    final response = await dio.get(ApiPaths.me);
-    final json = (response.data as Map).cast<String, dynamic>();
+      final response = await dio.get(ApiPaths.me);
+      final json = (response.data as Map).cast<String, dynamic>();
 
-    expect(response.statusCode, 401);
-    expect(json['success'], isFalse);
-    expect(json['code'], 'UNAUTHENTICATED');
-  }, skip: skipReason);
+      expect(response.statusCode, 401);
+      expect(json['success'], isFalse);
+      expect(json['code'], 'UNAUTHENTICATED');
+    },
+    skip: skipReason,
+  );
 
   test('sign in returns a token the client can store', () async {
     if (!reachable) return;
@@ -109,121 +122,155 @@ void main() {
     final token = await signIn();
 
     expect(token, isNotEmpty);
-    expect(token, contains('|'), reason: 'Sanctum personal access tokens are id|plaintext');
+    expect(
+      token,
+      contains('|'),
+      reason: 'Sanctum personal access tokens are id|plaintext',
+    );
   }, skip: skipReason);
 
-  test('/auth/me parses into ApiUser with real scopes and permissions', () async {
-    if (!reachable) return;
+  test(
+    '/auth/me parses into ApiUser with real scopes and permissions',
+    () async {
+      if (!reachable) return;
 
-    final token = await signIn();
+      final token = await signIn();
 
-    final response = await dio.get(
-      ApiPaths.me,
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+      final response = await dio.get(
+        ApiPaths.me,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
 
-    final envelope = ApiEnvelope.fromJson<ApiUser>(
-      (response.data as Map).cast<String, dynamic>(),
-      (data) => ApiUser.fromJson((data as Map).cast<String, dynamic>()),
-    );
+      final envelope = ApiEnvelope.fromJson<ApiUser>(
+        (response.data as Map).cast<String, dynamic>(),
+        (data) => ApiUser.fromJson((data as Map).cast<String, dynamic>()),
+      );
 
-    final user = envelope.data!;
+      final user = envelope.data!;
 
-    expect(envelope.success, isTrue);
-    expect(user.email, 'admin@mygeneration.test');
-    expect(user.isSuperAdmin, isTrue);
-    expect(user.can('anything'), isTrue, reason: 'A super admin needs no listed permission');
-    // A user is not a person. Whether this particular account has been linked
-    // depends on what the database has been used for, so the contract point is
-    // that the field is optional and parses either way.
-    expect(user.personUlid, anyOf(isNull, isA<String>()));
-  }, skip: skipReason);
+      expect(envelope.success, isTrue);
+      expect(user.email, 'admin@mygeneration.test');
+      expect(user.isSuperAdmin, isTrue);
+      expect(
+        user.can('anything'),
+        isTrue,
+        reason: 'A super admin needs no listed permission',
+      );
+      // A user is not a person. Whether this particular account has been linked
+      // depends on what the database has been used for, so the contract point is
+      // that the field is optional and parses either way.
+      expect(user.personUlid, anyOf(isNull, isA<String>()));
+    },
+    skip: skipReason,
+  );
 
-  test('people parse into PersonSummary, already masked by the server', () async {
-    if (!reachable) return;
+  test(
+    'people parse into PersonSummary, already masked by the server',
+    () async {
+      if (!reachable) return;
 
-    final token = await signIn();
+      final token = await signIn();
 
-    final response = await dio.get(
-      ApiPaths.people,
-      queryParameters: {'per_page': 10},
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
+      final response = await dio.get(
+        ApiPaths.people,
+        queryParameters: {'per_page': 10},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
 
-    final json = (response.data as Map).cast<String, dynamic>();
-    final people = (json['data'] as List)
-        .map((p) => PersonSummary.fromJson((p as Map).cast<String, dynamic>()))
-        .toList();
+      final json = (response.data as Map).cast<String, dynamic>();
+      final people = (json['data'] as List)
+          .map(
+            (p) => PersonSummary.fromJson((p as Map).cast<String, dynamic>()),
+          )
+          .toList();
 
-    expect(people, isNotEmpty, reason: 'The demo seeder provides people');
-    expect(json['meta']['per_page'], 10);
+      expect(people, isNotEmpty, reason: 'The demo seeder provides people');
+      expect(json['meta']['per_page'], 10);
 
-    // Every person carries the fields the UI branches on, whatever the mask did.
-    for (final person in people) {
-      expect(person.ulid, isNotEmpty);
-      expect(person.displayName, isNotEmpty);
-    }
+      // Every person carries the fields the UI branches on, whatever the mask did.
+      for (final person in people) {
+        expect(person.ulid, isNotEmpty);
+        expect(person.displayName, isNotEmpty);
+      }
 
-    // The seeded demo includes deceased ancestors with uncertain dates, and the
-    // client must render the source's own wording rather than reformatting.
-    final dated = people.where((p) => p.birthDisplay != null);
-    expect(dated, isNotEmpty);
-  }, skip: skipReason);
+      // The seeded demo includes deceased ancestors with uncertain dates, and the
+      // client must render the source's own wording rather than reformatting.
+      final dated = people.where((p) => p.birthDisplay != null);
+      expect(dated, isNotEmpty);
+    },
+    skip: skipReason,
+  );
 
-  test('a new account can register, join a tribe and see it pending', () async {
-    if (!_enabled) return;
+  test(
+    'a new account can register, join a tribe and see it pending',
+    () async {
+      if (!_enabled) return;
 
-    // The whole joining flow, against the real server. Registration returns a
-    // token directly, so a new user is signed in without a second round trip
-    // against the auth throttle.
-    final email = 'contract-${DateTime.now().microsecondsSinceEpoch}@example.test';
+      // The whole joining flow, against the real server. Registration returns a
+      // token directly, so a new user is signed in without a second round trip
+      // against the auth throttle.
+      final email =
+          'contract-${DateTime.now().microsecondsSinceEpoch}@example.test';
 
-    final registered = await dio.post(ApiPaths.register, data: {
-      'name': 'Contract Test',
-      'email': email,
-      'password': 'correct-horse-9',
-      'password_confirmation': 'correct-horse-9',
-      'device_name': 'contract-test',
-    });
+      final registered = await dio.post(
+        ApiPaths.register,
+        data: {
+          'name': 'Contract Test',
+          'email': email,
+          'password': 'correct-horse-9',
+          'password_confirmation': 'correct-horse-9',
+          'device_name': 'contract-test',
+        },
+      );
 
-    expect(registered.statusCode, 201);
+      expect(registered.statusCode, 201);
 
-    final newToken = registered.data['data']['token'] as String;
-    final auth = Options(headers: {'Authorization': 'Bearer $newToken'});
+      final newToken = registered.data['data']['token'] as String;
+      final auth = Options(headers: {'Authorization': 'Bearer $newToken'});
 
-    // Registration never links the account to a genealogy record.
-    final user = ApiUser.fromJson(
-      (registered.data['data']['user'] as Map).cast<String, dynamic>(),
-    );
-    expect(user.hasClaimedPerson, isFalse);
-    expect(user.tribeIds, isEmpty, reason: 'A new account belongs to nothing yet');
+      // Registration never links the account to a genealogy record.
+      final user = ApiUser.fromJson(
+        (registered.data['data']['user'] as Map).cast<String, dynamic>(),
+      );
+      expect(user.hasClaimedPerson, isFalse);
+      expect(
+        user.tribeIds,
+        isEmpty,
+        reason: 'A new account belongs to nothing yet',
+      );
 
-    final tribes = await dio.get(ApiPaths.tribes, options: auth);
-    final tribeList = (tribes.data['data'] as List)
-        .map((t) => TribeSummary.fromJson((t as Map).cast<String, dynamic>()))
-        .toList();
+      final tribes = await dio.get(ApiPaths.tribes, options: auth);
+      final tribeList = (tribes.data['data'] as List)
+          .map((t) => TribeSummary.fromJson((t as Map).cast<String, dynamic>()))
+          .toList();
 
-    expect(tribeList, isNotEmpty, reason: 'Tribes are public enough to be joinable');
+      expect(
+        tribeList,
+        isNotEmpty,
+        reason: 'Tribes are public enough to be joinable',
+      );
 
-    final membership = await dio.post(
-      ApiPaths.memberships,
-      data: {'scope_type': 'tribe', 'scope_ulid': tribeList.first.ulid},
-      options: auth,
-    );
+      final membership = await dio.post(
+        ApiPaths.memberships,
+        data: {'scope_type': 'tribe', 'scope_ulid': tribeList.first.ulid},
+        options: auth,
+      );
 
-    expect(membership.statusCode, 201);
+      expect(membership.statusCode, 201);
 
-    final created = Membership.fromJson(
-      (membership.data['data'] as Map).cast<String, dynamic>(),
-    );
+      final created = Membership.fromJson(
+        (membership.data['data'] as Map).cast<String, dynamic>(),
+      );
 
-    expect(created.isPending, isTrue);
-    expect(created.isActive, isFalse, reason: 'Asking is not belonging');
+      expect(created.isPending, isTrue);
+      expect(created.isActive, isFalse, reason: 'Asking is not belonging');
 
-    // And a pending membership still grants nothing.
-    final people = await dio.get(ApiPaths.people, options: auth);
-    expect((people.data['data'] as List), isEmpty);
-  }, skip: skipReason);
+      // And a pending membership still grants nothing.
+      final people = await dio.get(ApiPaths.people, options: auth);
+      expect((people.data['data'] as List), isEmpty);
+    },
+    skip: skipReason,
+  );
 
   test('a real tree parses and lays out without a screen', () async {
     if (!_enabled) return;
@@ -231,7 +278,11 @@ void main() {
     final token = await signIn();
     final auth = Options(headers: {'Authorization': 'Bearer $token'});
 
-    final list = await dio.get(ApiPaths.people, queryParameters: {'per_page': 1}, options: auth);
+    final list = await dio.get(
+      ApiPaths.people,
+      queryParameters: {'per_page': 1},
+      options: auth,
+    );
     final ulid = (list.data['data'] as List).first['ulid'] as String;
 
     final response = await dio.get(
@@ -250,8 +301,11 @@ void main() {
     // shape the seeder produces breaks it.
     final layout = const TreeLayoutEngine().layout(graph);
 
-    expect(layout.nodes.keys.toSet(), graph.people.keys.toSet(),
-        reason: 'Every person returned gets a position');
+    expect(
+      layout.nodes.keys.toSet(),
+      graph.people.keys.toSet(),
+      reason: 'Every person returned gets a position',
+    );
     expect(layout.focusRect, isNot(Rect.zero));
     expect(layout.canvasSize.width > 0 && layout.canvasSize.height > 0, isTrue);
 
@@ -280,7 +334,11 @@ void main() {
     final token = await signIn();
     final auth = Options(headers: {'Authorization': 'Bearer $token'});
 
-    final list = await dio.get(ApiPaths.people, queryParameters: {'per_page': 1}, options: auth);
+    final list = await dio.get(
+      ApiPaths.people,
+      queryParameters: {'per_page': 1},
+      options: auth,
+    );
     final ulid = (list.data['data'] as List).first['ulid'] as String;
 
     final response = await dio.get(
@@ -305,6 +363,84 @@ void main() {
         .map((p) => PersonSummary.fromJson((p as Map).cast<String, dynamic>()))
         .toList();
 
-    expect(people.any((p) => p.depth == 0), isTrue, reason: 'The focus sits at depth 0');
+    expect(
+      people.any((p) => p.depth == 0),
+      isTrue,
+      reason: 'The focus sits at depth 0',
+    );
+  }, skip: skipReason);
+
+  test(
+    'what a super admin may appoint parses into AdministeredScope',
+    () async {
+      if (!reachable) return;
+
+      final token = await signIn();
+      final auth = Options(headers: {'Authorization': 'Bearer $token'});
+
+      final response = await dio.get(
+        ApiPaths.administeredScopes,
+        options: auth,
+      );
+      final scopes = (response.data['data'] as List)
+          .map(
+            (s) =>
+                AdministeredScope.fromJson((s as Map).cast<String, dynamic>()),
+          )
+          .toList();
+
+      expect(scopes, isNotEmpty, reason: 'A super admin appoints everywhere');
+
+      for (final scope in scopes) {
+        expect(scope.scopeUlid, hasLength(26));
+        expect(scope.scopeType, anyOf('tribe', 'clan'));
+        // The client renders one button per role in this list, so an empty one
+        // would be a committee screen that can appoint nobody.
+        expect(scope.assignableRoles, isNotEmpty);
+        expect(scope.assignableRoles, isNot(contains('super-admin')));
+      }
+
+      // And the roster for one of them, which is where a renamed field would
+      // otherwise first show up as an empty list on a real phone.
+      final appointments = await dio.get(
+        ApiPaths.scopeRoles,
+        queryParameters: {
+          'scope_type': scopes.first.scopeType,
+          'scope_ulid': scopes.first.scopeUlid,
+        },
+        options: auth,
+      );
+
+      for (final row in appointments.data['data'] as List) {
+        final appointment = Appointment.fromJson(
+          (row as Map).cast<String, dynamic>(),
+        );
+        expect(appointment.userUlid, hasLength(26));
+        expect(appointment.role, isNotEmpty);
+      }
+    },
+    skip: skipReason,
+  );
+
+  test('clan registrations carry what the reader may do with them', () async {
+    if (!reachable) return;
+
+    final token = await signIn();
+    final auth = Options(headers: {'Authorization': 'Bearer $token'});
+
+    final response = await dio.get(ApiPaths.clanRegistrations, options: auth);
+
+    for (final row in response.data['data'] as List) {
+      final json = (row as Map).cast<String, dynamic>();
+
+      // Both flags are booleans on the wire, not absent: the client shows a
+      // button on each, and a missing field silently means "no button".
+      expect(json['can_decide'], isA<bool>());
+      expect(json['can_withdraw'], isA<bool>());
+
+      final registration = ClanRegistration.fromJson(json);
+      expect(registration.ulid, hasLength(26));
+      expect(registration.name, isNotEmpty);
+    }
   }, skip: skipReason);
 }
