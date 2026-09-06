@@ -49,7 +49,9 @@ class AuthNotifier extends Notifier<AuthState> {
     // failing request racing to send the person back to sign-in.
     ref.listen<int>(unauthenticatedSignalProvider, (previous, next) {
       if (previous != null && next > previous) {
-        state = const AuthSignedOut(message: 'Your session has ended. Please sign in again.');
+        state = const AuthSignedOut(
+          message: 'Your session has ended. Please sign in again.',
+        );
       }
     });
 
@@ -75,7 +77,9 @@ class AuthNotifier extends Notifier<AuthState> {
       state = AuthSignedIn(await _repository.me());
     } on ApiException catch (error) {
       if (error.isUnauthenticated) {
-        state = const AuthSignedOut(message: 'Your session has ended. Please sign in again.');
+        state = const AuthSignedOut(
+          message: 'Your session has ended. Please sign in again.',
+        );
         return;
       }
 
@@ -102,14 +106,22 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> signInWithApple() => _exchange(_firebase.withApple());
 
-  Future<void> signInWithFirebasePassword({required String email, required String password}) =>
-      _exchange(_firebase.withPassword(email: email, password: password));
+  Future<void> signInWithFirebasePassword({
+    required String email,
+    required String password,
+  }) => _exchange(_firebase.withPassword(email: email, password: password));
 
   Future<void> registerWithFirebase({
     required String name,
     required String email,
     required String password,
-  }) => _exchange(_firebase.registerWithPassword(name: name, email: email, password: password));
+  }) => _exchange(
+    _firebase.registerWithPassword(
+      name: name,
+      email: email,
+      password: password,
+    ),
+  );
 
   Future<void> _exchange(Future<String> idToken) async {
     final token = await idToken;
@@ -138,7 +150,9 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> signIn({required String email, required String password}) async {
-    state = AuthSignedIn(await _repository.login(email: email, password: password));
+    state = AuthSignedIn(
+      await _repository.login(email: email, password: password),
+    );
   }
 
   /// Accepts a user the repository has already authenticated — registration
@@ -146,14 +160,32 @@ class AuthNotifier extends Notifier<AuthState> {
   /// and spend an attempt against the auth throttle.
   void adopt(ApiUser user) => state = AuthSignedIn(user);
 
+  /// Runs [work], and gives up on it rather than letting it hold up sign-out.
+  ///
+  /// Ten seconds is far longer than any of these should take and short enough
+  /// that nobody concludes the button is broken.
+  Future<void> _bounded(Future<void> Function() work, String what) async {
+    try {
+      await work().timeout(const Duration(seconds: 10));
+    } catch (error) {
+      if (kDebugMode) debugPrint('Could not $what: $error');
+    }
+  }
+
   Future<void> signOut() async {
     // Before the token goes: the next person to hold this phone must not
     // receive notifications about a family they have nothing to do with.
-    try {
-      await ref.read(pushServiceProvider).unregister();
-    } catch (error) {
-      if (kDebugMode) debugPrint('Could not unregister this device: $error');
-    }
+    // Bounded, not merely guarded. Every one of these talks to something
+    // outside the app, and the failure that actually happened was not an
+    // exception but a call that never returned: Firebase Messaging's getToken
+    // on a web build hangs, so sign-out stopped here and the person stayed
+    // signed in with no error and nothing in the network log.
+    //
+    // A try/catch cannot rescue an await that never completes. A timeout can.
+    await _bounded(
+      () => ref.read(pushServiceProvider).unregister(),
+      'unregister this device',
+    );
 
     // Two sessions, ended together. Leaving the Firebase one behind means the
     // next sign-in silently reuses the previous account without asking.
@@ -161,13 +193,13 @@ class AuthNotifier extends Notifier<AuthState> {
     // Guarded, like everything else touching Firebase: somebody pressing sign
     // out on a shared phone must end up signed out whether or not a third
     // party is reachable. Local state is cleared below regardless.
-    try {
-      await _firebase.signOut();
-    } catch (error) {
-      if (kDebugMode) debugPrint('Firebase sign-out failed: $error');
-    }
+    await _bounded(() => _firebase.signOut(), 'sign out of Firebase');
 
-    await _repository.logout();
+    // Local state goes last and unconditionally. Somebody who pressed sign out
+    // on a shared computer must end up signed out whatever any third party did
+    // or failed to do.
+    await _bounded(() => _repository.logout(), 'clear the local session');
+
     state = const AuthSignedOut();
   }
 
@@ -199,7 +231,10 @@ class AuthNotifier extends Notifier<AuthState> {
     ref.read(apiClientProvider).forgetToken();
   }
 
-  void forceSignedOut(String message) => state = AuthSignedOut(message: message);
+  void forceSignedOut(String message) =>
+      state = AuthSignedOut(message: message);
 }
 
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
