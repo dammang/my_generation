@@ -56,13 +56,61 @@ class RecomputeLineageDepths extends Command
             return Person::where('ulid', $ulid)->get();
         }
 
-        $ids = DB::table('family_branches')
+        $branches = DB::table('family_branches')
             ->whereNotNull('ancestor_person_id')
             ->whereNull('deleted_at')
             ->when($this->option('tribe'), fn ($q, $tribe) => $q->where('tribe_id', $tribe))
-            ->pluck('ancestor_person_id')
+            ->get(['id', 'ancestor_person_id']);
+
+        $ids = $branches
+            ->map(fn ($branch) => $this->topmostAncestorOf($branch))
             ->unique();
 
         return Person::whereIn('id', $ids)->get();
+    }
+
+    /**
+     * The highest ancestor actually recorded, promoting the branch if it has
+     * fallen behind.
+     *
+     * Generations are counted from the branch's founder, and adding somebody
+     * above that founder used to leave the count where it was — a person
+     * labelled the first generation with their own grandfather above them on
+     * the same screen. AddRelative moves it as it goes; this catches the rest:
+     * a parent added through the admin panel, an import, or anything written
+     * before that existed.
+     */
+    private function topmostAncestorOf(object $branch): int
+    {
+        $id = (int) $branch->ancestor_person_id;
+        $seen = [$id => true];
+
+        while (true) {
+            // family_edges is the denormalised parent/child view the walker
+            // uses; going through it keeps this consistent with how every
+            // other traversal in the app sees the graph.
+            $parent = DB::table('family_edges')
+                ->where('child_id', $id)
+                ->value('parent_id');
+
+            // No parent, or a cycle somebody managed to record. Either way this
+            // is as far up as the data goes.
+            if ($parent === null || isset($seen[(int) $parent])) {
+                break;
+            }
+
+            $id = (int) $parent;
+            $seen[$id] = true;
+        }
+
+        if ($id !== (int) $branch->ancestor_person_id) {
+            DB::table('family_branches')
+                ->where('id', $branch->id)
+                ->update(['ancestor_person_id' => $id, 'updated_at' => now()]);
+
+            $this->line("  Branch {$branch->id}: founder moved up to person {$id}.");
+        }
+
+        return $id;
     }
 }
