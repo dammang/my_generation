@@ -10,6 +10,7 @@ use App\Models\Scope;
 use App\Models\User;
 use App\Services\Permissions\PermissionResolver;
 use App\Services\Privacy\ViewerScopeResolver;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 
@@ -25,6 +26,26 @@ use Spatie\Permission\Models\Role;
  */
 class AssignScopedRole
 {
+    /**
+     * The roles that may ever be granted at a scope.
+     *
+     * super-admin is deliberately absent: it is a global bypass and no scoped
+     * grant should be able to mint one. Kept here rather than in the form
+     * request because the API, Filament and this action must agree on the
+     * list, and a second copy of it would eventually be a different copy.
+     *
+     * @var list<string>
+     */
+    public const ASSIGNABLE = [
+        'tribe-admin',
+        'clan-admin',
+        'family-admin',
+        'historian',
+        'contributor',
+        'member',
+        'viewer',
+    ];
+
     public function __construct(
         private readonly PermissionResolver $permissions,
         private readonly ViewerScopeResolver $scopes,
@@ -36,7 +57,12 @@ class AssignScopedRole
             throw new CannotAssignRole('You may not assign roles in this scope.');
         }
 
-        $this->assertNoEscalation($granter, $role, $scope);
+        if (! $this->mayAssign($granter, $role, $scope)) {
+            throw new CannotAssignRole(
+                'You may not grant a role carrying permissions you do not hold here: '
+                .$this->beyond($granter, $role, $scope)->take(3)->implode(', ').'.'
+            );
+        }
 
         DB::transaction(function () use ($granter, $subject, $role, $scope): void {
             DB::table('scope_role_user')->updateOrInsert(
@@ -67,23 +93,55 @@ class AssignScopedRole
         $this->scopes->forget($subject);
     }
 
-    private function assertNoEscalation(User $granter, Role $role, Scope $scope): void
+    /**
+     * Whether this granter may hand out this role here.
+     *
+     * Public because a client that offers a role it will then be refused is
+     * worse than one that never offered it — the committee screen asks this
+     * to decide what to put in its list.
+     */
+    public function mayAssign(User $granter, Role $role, Scope $scope): bool
     {
         if ($granter->is_super_admin) {
-            return;
+            return true;
         }
 
-        $granted = $role->permissions->pluck('name');
+        return $this->beyond($granter, $role, $scope)->isEmpty();
+    }
 
-        $beyond = $granted->reject(
+    /**
+     * The roles this granter may hand out here, in ASSIGNABLE order.
+     *
+     * Empty when they hold no standing in the scope at all, so "nothing to
+     * offer" and "may not appoint" are the same answer to a client.
+     *
+     * @return list<string>
+     */
+    public function assignableRoles(User $granter, Scope $scope): array
+    {
+        if (! $this->permissions->can($granter, 'roles.assign', $scope->path)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            self::ASSIGNABLE,
+            function (string $name) use ($granter, $scope): bool {
+                $role = Role::where('name', $name)->where('guard_name', 'web')->first();
+
+                return $role !== null && $this->mayAssign($granter, $role, $scope);
+            },
+        ));
+    }
+
+    /**
+     * The permissions the role carries that the granter does not hold here.
+     *
+     * @return Collection<int, string>
+     */
+    private function beyond(User $granter, Role $role, Scope $scope): Collection
+    {
+        return $role->permissions->pluck('name')->reject(
             fn (string $permission) => $this->permissions->can($granter, $permission, $scope->path)
         );
-
-        if ($beyond->isNotEmpty()) {
-            throw new CannotAssignRole(
-                'You may not grant a role carrying permissions you do not hold here: '
-                .$beyond->take(3)->implode(', ').'.'
-            );
-        }
     }
 }

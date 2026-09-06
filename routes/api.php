@@ -139,6 +139,12 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             // they are able to decide.
             Route::get('clan-registrations', [ClanRegistrationController::class, 'index'])->name('clan-registrations.index');
             Route::get('scope-members', [MembershipController::class, 'forScope'])->name('memberships.scope');
+
+            // The committee: where this account may appoint, who is appointed
+            // there already, and who is eligible to be.
+            Route::get('scope-roles/administered', [ScopeRoleController::class, 'administered'])->name('scope-roles.administered');
+            Route::get('scope-roles/candidates', [ScopeRoleController::class, 'candidates'])->name('scope-roles.candidates');
+            Route::get('scope-roles', [ScopeRoleController::class, 'index'])->name('scope-roles.index');
         });
 
         // Tree traversal runs recursive CTEs, so it gets its own tighter

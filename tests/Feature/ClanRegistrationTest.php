@@ -136,10 +136,20 @@ class ClanRegistrationTest extends TestCase
         $this->assertSame(0, Clan::count(), 'nothing is created until somebody approves');
 
         // The requester sees their own request without being able to decide it.
+        // Both answers travel with the row, so a client shows the right button
+        // rather than inferring one from permissions it only half models.
         $this->actingAs($requester)
             ->getJson(route('api.v1.clan-registrations.index'))
             ->assertOk()
-            ->assertJsonPath('data.0.ulid', $ulid);
+            ->assertJsonPath('data.0.ulid', $ulid)
+            ->assertJsonPath('data.0.can_decide', false)
+            ->assertJsonPath('data.0.can_withdraw', true);
+
+        $this->actingAs($admin)
+            ->getJson(route('api.v1.clan-registrations.index'))
+            ->assertOk()
+            ->assertJsonPath('data.0.can_decide', true)
+            ->assertJsonPath('data.0.can_withdraw', false);
 
         // Somebody with no authority here cannot decide it.
         $this->actingAs($this->member('contributor'))

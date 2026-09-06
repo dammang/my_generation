@@ -59,10 +59,16 @@ class RolePermissionSeeder extends Seeder
         // creating the sub-clans inside it. Without it a committee could add
         // family branches to a clan whose own starting point it could not
         // record — half of what it was appointed to do.
+        //
+        // roles.assign is what makes a committee possible at all: the founder
+        // is handed the clan alone, and must be able to appoint the rest.
+        // It reaches no further than their own clan, and AssignScopedRole
+        // refuses any role carrying a permission they do not themselves hold
+        // there — so tribe-admin stays out of their gift.
         'clan-admin' => [
             'people.*', 'relationships.*', 'unions.*', 'events.*', 'stories.*', 'sources.*',
             'media.*', 'clans.manage', 'families.manage', 'changes.*', 'disputes.resolve',
-            'duplicates.review', 'claims.approve',
+            'duplicates.review', 'claims.approve', 'roles.assign',
         ],
 
         'family-admin' => [

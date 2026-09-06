@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Resources\V1;
 
 use App\Models\ClanRegistration;
+use App\Models\Scope;
+use App\Models\User;
+use App\Services\Permissions\PermissionResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -53,6 +56,34 @@ class ClanRegistrationResource extends JsonResource
                 'ulid' => $this->clan->ulid,
                 'name' => $this->clan->name,
             ]),
+
+            // What the reader may do with it, answered here rather than left
+            // for a client to infer from permissions it does not fully model.
+            // The two are mutually exclusive by design: nobody decides their
+            // own request, and nobody withdraws somebody else's.
+            'can_decide' => $this->canDecide($request->user()),
+            'can_withdraw' => $this->isPending() && $request->user()?->is($this->requester) === true,
         ];
+    }
+
+    /**
+     * Mirrors DecideClanRegistration::assertMayDecide.
+     *
+     * A near-copy of a rule is a liability, but the alternative is a screen
+     * that offers an Approve button and then refuses it — and the action's
+     * check throws rather than returning, so it cannot be asked politely.
+     */
+    private function canDecide(?User $user): bool
+    {
+        if ($user === null || ! $this->isPending() || $user->is($this->requester)) {
+            return false;
+        }
+
+        $scope = Scope::where('scopeable_type', 'tribe')
+            ->where('scopeable_id', $this->tribe_id)
+            ->first();
+
+        return $scope !== null
+            && app(PermissionResolver::class)->can($user, 'clans.manage', $scope->path);
     }
 }
