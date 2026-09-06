@@ -46,6 +46,9 @@ class AssignScopedRole
         'viewer',
     ];
 
+    /** @var Collection<string, Role>|null */
+    private ?Collection $roleRows = null;
+
     public function __construct(
         private readonly PermissionResolver $permissions,
         private readonly ViewerScopeResolver $scopes,
@@ -126,11 +129,30 @@ class AssignScopedRole
         return array_values(array_filter(
             self::ASSIGNABLE,
             function (string $name) use ($granter, $scope): bool {
-                $role = Role::where('name', $name)->where('guard_name', 'web')->first();
+                $role = $this->assignableRoleRows()->get($name);
 
                 return $role !== null && $this->mayAssign($granter, $role, $scope);
             },
         ));
+    }
+
+    /**
+     * The grantable roles with their permissions already loaded.
+     *
+     * Held for the life of the instance because the committee screen asks
+     * this for every scope an account administers, and a query per role per
+     * scope is how a list of a hundred becomes seven hundred round trips.
+     *
+     * @return Collection<string, Role>
+     */
+    private function assignableRoleRows(): Collection
+    {
+        return $this->roleRows ??= Role::query()
+            ->with('permissions')
+            ->where('guard_name', 'web')
+            ->whereIn('name', self::ASSIGNABLE)
+            ->get()
+            ->keyBy('name');
     }
 
     /**
