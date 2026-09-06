@@ -2,13 +2,21 @@
 
 use App\Http\Controllers\Web\ResetPasswordController;
 use App\Http\Controllers\Web\VerifyEmailController;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\Response;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+/*
+ * The Flutter client owns the site root.
+ *
+ * Its shell is app.html rather than index.html on purpose: an index.html
+ * beside Laravel's index.php makes which one answers "/" a question about the
+ * web server's DirectoryIndex order, and the answer differs between machines.
+ * Serving it from a route is the same everywhere.
+ */
+Route::get('/', fn (): Response => response()->file(public_path('app.html')))
+    ->name('web-client');
 
 /*
  * The reset link in a password email lands here. The route is named
@@ -43,27 +51,31 @@ Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
     ->name('verification.verify');
 
 /*
- * The Flutter client, served from this same origin on purpose.
- *
- * A browser build talking to an API on another host needs CORS configured and
- * every request preflighted; serving it from /app makes it same-origin with
- * /api, so there is nothing to configure and nothing to get wrong.
- *
- * The web server answers for files that exist, so this only ever runs for the
- * app's own client-side routes — /app/tree, /app/person/01ABC — which have no
- * file behind them. Without it, opening one of those directly, or reloading
- * the page you are on, is a 404 from Laravel.
+ * Where the client used to live. Kept so a bookmark or a link somebody shared
+ * still arrives somewhere, rather than at a 404 with no explanation.
  */
-Route::get('/app/{path?}', function (Request $request): Response {
-    $index = public_path('app/index.html');
+Route::get('/app/{path?}', fn (): RedirectResponse => redirect('/', 301))
+    ->where('path', '.*')
+    ->name('web-client.legacy');
 
-    abort_unless(is_file($index), 404, 'The web client has not been deployed.');
+/*
+ * Everything the app routes on the client — /tree, /person/01ABC — has no file
+ * and no route behind it. Without this, opening one directly, or reloading the
+ * page you are already on, is a 404.
+ *
+ * Last in the file and last in Laravel's matching order, so every real route
+ * above still wins.
+ */
+Route::fallback(function (Request $request): Response {
+    // The API answers its own 404s as JSON. A client handed an HTML page where
+    // it expected an envelope reports something that has nothing to do with
+    // what went wrong.
+    abort_if($request->is('api/*'), 404);
 
-    // Only for a browser asking for a page. Answering every unmatched path
-    // with the index means a missing asset — a wasm file the database needs,
-    // say — comes back as 200 HTML instead of 404, and the failure that
-    // follows names something else entirely. That cost an hour once already.
+    // And a missing asset must stay a missing asset: answering every unmatched
+    // path with the shell means a 404 arrives as 200 HTML, and the failure that
+    // follows names something else entirely.
     abort_unless($request->accepts(['text/html']), 404);
 
-    return response()->file($index);
-})->where('path', '.*')->name('web-client');
+    return response()->file(public_path('app.html'));
+});
