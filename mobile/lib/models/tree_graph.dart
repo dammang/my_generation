@@ -92,6 +92,9 @@ class TreeGraph {
     this.descendantsDepth = 0,
     this.reachedAbove = 0,
     this.reachedBelow = 0,
+    this.clanPeople = 0,
+    this.clanAbove = 0,
+    this.clanBelow = 0,
     this.nodeCount = 0,
     this.truncated = false,
     this.graphVersion = 0,
@@ -112,11 +115,15 @@ class TreeGraph {
   final int ancestorsDepth;
   final int descendantsDepth;
 
-  /// What the graph actually contains. The chart shows these: telling somebody
-  /// with no children that there are two generations below them describes the
-  /// request rather than their family.
+  /// What this graph contains — the window, not the family.
   final int reachedAbove;
   final int reachedBelow;
+
+  /// The whole family. The chart shows these, because a count of what happened
+  /// to be fetched reads as a count of how many relatives somebody has.
+  final int clanPeople;
+  final int clanAbove;
+  final int clanBelow;
   final int nodeCount;
   final bool truncated;
   final int graphVersion;
@@ -157,6 +164,8 @@ class TreeGraph {
 
     final expandable = <String, Expandable>{};
 
+    final clan = ((meta['clan'] as Map?) ?? const {}).cast<String, dynamic>();
+
     ((meta['expandable'] as Map?) ?? const {}).forEach((key, value) {
       final counts = (value as Map).cast<String, dynamic>();
       expandable[key.toString()] = Expandable(
@@ -179,6 +188,9 @@ class TreeGraph {
       descendantsDepth: meta['descendants_depth'] as int? ?? 0,
       reachedAbove: meta['reached_above'] as int? ?? 0,
       reachedBelow: meta['reached_below'] as int? ?? 0,
+      clanPeople: clan['people'] as int? ?? 0,
+      clanAbove: clan['above'] as int? ?? 0,
+      clanBelow: clan['below'] as int? ?? 0,
       nodeCount: meta['node_count'] as int? ?? people.length,
       truncated: meta['truncated'] as bool? ?? false,
       graphVersion: meta['graph_version'] as int? ?? 0,

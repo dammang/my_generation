@@ -8,7 +8,9 @@ use App\Enums\EdgeKind;
 use App\Models\Person;
 use App\Models\Union;
 use App\Models\UnionChild;
+use App\Services\Privacy\ViewerScope;
 use App\Services\Tree\TreeGraph;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Serialises a traversal into the shape a layered chart needs.
@@ -67,6 +69,52 @@ class TreeResource
     }
 
     /** @return array<string, mixed> */
+
+    /**
+     * How large the family actually is, and where the focus sits within it.
+     *
+     * Counted through the viewer's own scope, so this never reports people
+     * somebody is not allowed to know exist.
+     *
+     * @return array{people: int, above: int, below: int}
+     */
+    private static function clanTotals(Person $focus): array
+    {
+        $viewer = app(ViewerScope::class);
+
+        $people = Person::query()
+            ->visibleTo($viewer)
+            ->notMerged()
+            ->when(
+                $focus->clan_id !== null,
+                fn ($q) => $q->where('clan_id', $focus->clan_id),
+                fn ($q) => $q->where('tribe_id', $focus->tribe_id),
+            )
+            ->count();
+
+        $root = DB::table('family_branches')
+            ->where('id', $focus->family_branch_id)
+            ->value('ancestor_person_id');
+
+        if ($root === null) {
+            return ['people' => $people, 'above' => 0, 'below' => 0];
+        }
+
+        $depths = DB::table('lineage_depths')->where('root_person_id', $root);
+
+        // Depth is measured from the apical ancestor, so the focus's own depth
+        // is how many generations sit above it, and whatever is left of the
+        // deepest line is how many sit below.
+        $here = (int) ((clone $depths)->where('person_id', $focus->getKey())->value('depth') ?? 0);
+        $deepest = (int) ((clone $depths)->max('depth') ?? 0);
+
+        return [
+            'people' => $people,
+            'above' => $here,
+            'below' => max(0, $deepest - $here),
+        ];
+    }
+
     public static function meta(TreeGraph $graph): array
     {
         $ulids = $graph->people->pluck('ulid', 'id');
@@ -121,6 +169,12 @@ class TreeResource
             // the request and reads as a statement about the family.
             'reached_above' => $graph->reachedAbove(),
             'reached_below' => $graph->reachedBelow(),
+
+            // The family, rather than the window onto it. The chart is a
+            // few generations of a much larger thing, and "14 people" said
+            // about what had been fetched reads as a statement about how
+            // many relatives somebody has.
+            'clan' => self::clanTotals($graph->focus),
             'node_count' => $graph->nodeCount(),
             'truncated' => $graph->truncated,
             'graph_version' => $graph->graphVersion,

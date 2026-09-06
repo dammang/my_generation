@@ -74,7 +74,12 @@ class _TreeCanvasState extends State<TreeCanvas> {
 
         return InteractiveViewer(
           transformationController: widget.controller,
-          minScale: 0.25,
+          // Far enough out to take in a whole family at once. 0.25 stopped
+          // while the chart was still wider than the screen, which is the
+          // moment somebody most wants to see all of it. A card at 0.08 is
+          // too small to read, and reading is not what that gesture is for:
+          // it is for finding where you are before going back in.
+          minScale: 0.08,
           maxScale: 2.5,
           // Generous margins so the outermost people can be brought to the
           // middle of the screen rather than pinned against an edge.

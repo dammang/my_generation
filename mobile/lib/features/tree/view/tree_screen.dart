@@ -256,8 +256,11 @@ class _Legend extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        '${graph.nodeCount} people · '
-                        '${graph.reachedAbove} up, ${graph.reachedBelow} down'
+                        // The family, not the window onto it. A count of
+                        // what happened to be fetched reads as a count of
+                        // how many relatives somebody has.
+                        '${graph.clanPeople} people · '
+                        '${graph.clanAbove} up, ${graph.clanBelow} down'
                         '${graph.truncated ? ' · showing the nearest' : ''}'
                         // A tree rebuilt from the device is necessarily partial.
                         // Presenting a fragment as the whole family is the

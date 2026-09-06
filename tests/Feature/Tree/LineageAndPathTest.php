@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Tree;
 
+use App\Actions\Genealogy\AddRelative;
 use App\Enums\PrivacyLevel;
 use App\Models\FamilyBranch;
 use App\Models\Person;
@@ -130,6 +131,46 @@ class LineageAndPathTest extends TestCase
         $this->assertSame('2nd Generation', $labels[$child->ulid]);
         $this->assertSame('3rd Generation', $labels[$grandchild->ulid]);
         $this->assertSame('4th Generation', $labels[$greatGrandchild->ulid]);
+    }
+
+    public function test_adding_a_parent_above_the_founder_moves_the_founder(): void
+    {
+        $founder = $this->person(1920);
+        $branch = FamilyBranch::factory()->create([
+            'tribe_id' => $this->tribe->id,
+            'ancestor_person_id' => $founder->id,
+        ]);
+        $founder->forceFill(['family_branch_id' => $branch->id])->save();
+
+        $child = $this->person(1945, ['family_branch_id' => $branch->id]);
+        $this->parent($founder, $child);
+        $this->artisan('genealogy:recompute-lineage')->assertSuccessful();
+
+        // Somebody adds the founder's own father.
+        $outcome = app(AddRelative::class)->handle(
+            author: $this->user,
+            anchor: $founder,
+            relation: 'parent',
+            attributes: ['first_name' => 'Jessi', 'family_branch_id' => $branch->id],
+        );
+
+        // The branch counted generations from Edward, and nothing moved that
+        // when his father was added — so he stayed "1st Generation" with his
+        // own father above him on the same screen.
+        $this->assertSame(
+            $outcome->record->id,
+            FamilyBranch::find($branch->id)->ancestor_person_id,
+            'the branch still counts from the old founder',
+        );
+
+        $response = $this->actingAs($this->user)
+            ->getJson(route('api.v1.tree.show', ['person' => $founder, 'ancestors' => 2]))
+            ->assertOk();
+
+        $labels = collect($response->json('data.people'))->pluck('generation_label', 'ulid');
+
+        $this->assertSame('1st Generation', $labels[$outcome->record->ulid]);
+        $this->assertSame('2nd Generation', $labels[$founder->ulid], 'the old founder should have moved down one');
     }
 
     public function test_pedigree_collapse_reports_a_range_not_a_single_number(): void

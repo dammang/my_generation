@@ -15,6 +15,7 @@ use App\Models\Union;
 use App\Models\UnionChild;
 use App\Models\User;
 use App\Services\Integrity\GenealogyWarnings;
+use App\Services\Tree\LineageDepthService;
 use App\Support\WriteOutcome;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,7 @@ class AddRelative
         private readonly CreateRelationship $createRelationship,
         private readonly AddChildToUnion $addChildToUnion,
         private readonly GenealogyWarnings $warnings,
+        private readonly LineageDepthService $depths,
     ) {}
 
     /**
@@ -87,12 +89,54 @@ class AddRelative
                 default => $this->addOther($anchor, $person, $customLabel),
             };
 
+            // Somebody has just been added above the person the branch counts
+            // generations from, so the branch counts from the wrong person now.
+            $this->promoteApicalAncestor($anchor, $person, $relation);
+
             return new WriteOutcome(
                 record: $person->refresh(),
                 warnings: [...$warnings, ...$result['warnings']],
                 created: [...$created, ...$result['created']],
             );
         });
+    }
+
+    /**
+     * Moves a branch's apical ancestor when a parent is added above it.
+     *
+     * Generations are counted from the branch's named founder, and nothing
+     * updated that founder when somebody added their parent. Adding three
+     * generations above Edward Whitfield left him labelled "1st Generation"
+     * with his own grandfather above him on the same screen, because the
+     * archive still counted from Edward.
+     *
+     * Only when the anchor IS the founder: a parent added anywhere else in the
+     * tree is an ordinary addition and changes nothing about where the line
+     * starts.
+     */
+    private function promoteApicalAncestor(Person $anchor, Person $parent, string $relation): void
+    {
+        if (! in_array($relation, ['father', 'mother', 'parent'], true)) {
+            return;
+        }
+
+        $branch = DB::table('family_branches')
+            ->where('ancestor_person_id', $anchor->getKey())
+            ->first();
+
+        if ($branch === null) {
+            return;
+        }
+
+        DB::table('family_branches')
+            ->where('id', $branch->id)
+            ->update(['ancestor_person_id' => $parent->getKey(), 'updated_at' => now()]);
+
+        // Recomputed now rather than waiting for the hourly pass: somebody who
+        // has just added their great-grandfather is looking at the screen, and
+        // a generation label that corrects itself an hour later reads as a bug
+        // twice — once when it is wrong and once when it silently changes.
+        $this->depths->recomputeFor($parent->refresh());
     }
 
     /**
