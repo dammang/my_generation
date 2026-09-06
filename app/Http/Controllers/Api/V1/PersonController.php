@@ -27,11 +27,14 @@ use App\Models\PersonName;
 use App\Models\Place;
 use App\Models\Tribe;
 use App\Models\Union;
+use App\Models\User;
 use App\Policies\ResolvesScopePath;
 use App\Services\Integrity\GenealogyWarnings;
+use App\Services\Permissions\PermissionResolver;
 use App\Services\Privacy\ViewerScope;
 use App\Services\Verification\WriteGate;
 use App\Support\ApiResponse;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -52,6 +55,7 @@ class PersonController extends Controller
         private readonly ViewerScope $viewer,
         private readonly WriteGate $gate,
         private readonly GenealogyWarnings $warnings,
+        private readonly PermissionResolver $permissions,
     ) {}
 
     public function index(IndexPeopleRequest $request): JsonResponse
@@ -115,6 +119,8 @@ class PersonController extends Controller
     public function store(StorePersonRequest $request, CreatePerson $action): JsonResponse
     {
         $attributes = $this->mapAttributes($request->validated());
+
+        $this->assertMayCreateIn($request->user(), $attributes);
 
         $person = $action->handle($request->user(), $attributes);
 
@@ -371,6 +377,37 @@ class PersonController extends Controller
         $personName->delete();
 
         return ApiResponse::noContent();
+    }
+
+    /**
+     * "May create people" is not the same as "may create people here".
+     *
+     * The class-level policy only asks whether this account may add anybody at
+     * all, which is true of every contributor. Placing somebody in a clan is a
+     * claim about that family — the same claim the update path always sends to
+     * review — so creating them straight into one has to be checked against
+     * that family, not against the account in general.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function assertMayCreateIn(User $user, array $attributes): void
+    {
+        $placement = (new Person)->forceFill(array_intersect_key(
+            $attributes,
+            array_flip(['family_branch_id', 'clan_id', 'tribe_id']),
+        ));
+
+        $path = $this->scopePathFor($placement);
+
+        // Unplaced people are common and deliberate: an oral record often
+        // names somebody long before anybody knows which branch they sit in.
+        if ($path === null) {
+            return;
+        }
+
+        if (! $this->permissions->can($user, 'people.create', $path)) {
+            throw new AuthorizationException('You may not add people to that family.');
+        }
     }
 
     /**

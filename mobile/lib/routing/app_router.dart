@@ -9,9 +9,9 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/forgot_password_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/auth/sign_in_screen.dart';
+import '../features/clans/view/administer_screen.dart';
+import '../features/clans/view/administered_scopes_screen.dart';
 import '../features/clans/view/clan_registrations_screen.dart';
-import '../features/clans/view/committee_scopes_screen.dart';
-import '../features/clans/view/committee_screen.dart';
 import '../features/clans/view/start_clan_screen.dart';
 import '../features/connection/startup_screen.dart';
 import '../features/home/home_screen.dart';
@@ -228,11 +228,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'committee',
-                    builder: (_, _) => const CommitteeScopesScreen(),
+                    builder: (_, _) => const AdministeredScopesScreen(),
                     routes: [
                       GoRoute(
                         path: ':type/:ulid',
-                        builder: (_, state) => CommitteeScreen(
+                        builder: (_, state) => AdministerScreen(
                           scopeType: state.pathParameters['type']!,
                           scopeUlid: state.pathParameters['ulid']!,
                         ),

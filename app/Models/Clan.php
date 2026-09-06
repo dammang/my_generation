@@ -107,6 +107,17 @@ class Clan extends Model
         return $this->hasMany(self::class, 'parent_clan_id');
     }
 
+    /**
+     * The ancestor the clan descends from — where its tree begins.
+     *
+     * Optional, and often unknown at first: a clan is usually registered
+     * before anybody has entered a single person.
+     */
+    public function ancestor(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'ancestor_person_id');
+    }
+
     public function familyBranches(): HasMany
     {
         return $this->hasMany(FamilyBranch::class);

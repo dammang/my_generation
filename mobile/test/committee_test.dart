@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:my_generation/features/clans/view/committee_screen.dart';
+import 'package:my_generation/features/clans/view/administer_screen.dart';
 import 'package:my_generation/providers/app_providers.dart';
 
 import 'support/fake_api.dart';
@@ -37,6 +37,10 @@ Map<String, List<FakeReply>> _replies({
         },
       ]),
     ),
+  ],
+  // The clan the page also renders a "where this family begins" card for.
+  'GET /api/v1/clans/$_clanUlid': [
+    FakeReply(200, _ok({'ulid': _clanUlid, 'name': 'Guite', 'ancestor': null})),
   ],
   'GET /api/v1/scope-roles': [FakeReply(200, _ok(appointments))],
   'GET /api/v1/scope-roles/candidates': [
@@ -79,7 +83,7 @@ Future<FakeAdapter> pumpCommittee(
         secureStorageProvider.overrideWithValue(FakeSecureStorage()),
       ],
       child: const MaterialApp(
-        home: CommitteeScreen(scopeType: 'clan', scopeUlid: _clanUlid),
+        home: AdministerScreen(scopeType: 'clan', scopeUlid: _clanUlid),
       ),
     ),
   );
@@ -170,7 +174,7 @@ void main() {
           secureStorageProvider.overrideWithValue(FakeSecureStorage()),
         ],
         child: const MaterialApp(
-          home: CommitteeScreen(scopeType: 'clan', scopeUlid: _clanUlid),
+          home: AdministerScreen(scopeType: 'clan', scopeUlid: _clanUlid),
         ),
       ),
     );

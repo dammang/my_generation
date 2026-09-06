@@ -6,12 +6,12 @@ import '../../../core/errors/api_exception.dart';
 import '../../../providers/clan_provider.dart';
 import '../../../routing/app_router.dart';
 
-/// The tribes and clans this account may appoint people to.
+/// The tribes and clans this account runs.
 ///
-/// Almost every account may appoint nowhere, so this screen is reached from a
-/// tile that only appears once there is something in it.
-class CommitteeScopesScreen extends ConsumerWidget {
-  const CommitteeScopesScreen({super.key});
+/// Almost every account runs nothing, so this screen is reached from a tile
+/// that only appears once there is something in it.
+class AdministeredScopesScreen extends ConsumerWidget {
+  const AdministeredScopesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -19,7 +19,7 @@ class CommitteeScopesScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Committees')),
+      appBar: AppBar(title: const Text('Families you run')),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(administeredScopesProvider),
         child: scopes.when(
@@ -47,14 +47,15 @@ class CommitteeScopesScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'You do not appoint anybody yet',
+                    'You do not run anything yet',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Whoever runs a clan can appoint its committee. Start a '
-                    'clan, or ask an administrator to appoint you.',
+                    'Whoever runs a clan records where its tree begins and '
+                    'appoints its committee. Start a clan, or ask an '
+                    'administrator to appoint you.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,

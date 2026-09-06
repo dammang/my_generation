@@ -91,6 +91,10 @@ class ApiPaths {
   static String withdrawClanRegistration(String ulid) =>
       '$clanRegistrations/$ulid/withdraw';
 
+  /// One clan, and the ancestor its tree begins with.
+  static const String clans = '$prefix/clans';
+  static String clan(String ulid) => '$clans/$ulid';
+
   /// The committee: appointments at one scope, plus the two lists a screen
   /// needs before it can offer to make one.
   static const String scopeRoles = '$prefix/scope-roles';

@@ -24,6 +24,37 @@ class AdministeredScope {
       );
 }
 
+/// A clan, as the page for one shows it.
+///
+/// `ancestor` is where its tree begins, and is null far more often than not:
+/// a clan is registered before anybody has entered a single person.
+class ClanDetail {
+  const ClanDetail({
+    required this.ulid,
+    required this.name,
+    this.ancestorUlid,
+    this.ancestorName,
+  });
+
+  final String ulid;
+  final String name;
+  final String? ancestorUlid;
+  final String? ancestorName;
+
+  bool get hasAncestor => ancestorUlid != null;
+
+  factory ClanDetail.fromJson(Map<String, dynamic> json) {
+    final ancestor = (json['ancestor'] as Map?)?.cast<String, dynamic>();
+
+    return ClanDetail(
+      ulid: json['ulid'] as String,
+      name: json['name'] as String? ?? 'Unnamed',
+      ancestorUlid: ancestor?['ulid'] as String?,
+      ancestorName: ancestor?['display_name'] as String?,
+    );
+  }
+}
+
 /// One person holding one role at one scope.
 ///
 /// Flat rather than grouped by person, because a role is what gets granted and

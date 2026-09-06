@@ -39,6 +39,11 @@ class ClanResource extends JsonResource
                 'ulid' => $this->tribe->ulid,
                 'name' => $this->tribe->name,
             ]),
+            // Where the clan's tree begins. Masked like any other person: a
+            // clan being public does not make its founder visible.
+            'ancestor' => $this->whenLoaded('ancestor', fn () => $this->ancestor === null
+                ? null
+                : PersonResource::make($this->ancestor)),
             'parent_clan' => $this->whenLoaded('parentClan', fn () => $this->parentClan === null ? null : [
                 'ulid' => $this->parentClan->ulid,
                 'name' => $this->parentClan->name,

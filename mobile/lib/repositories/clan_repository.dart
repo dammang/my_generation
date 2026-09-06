@@ -67,6 +67,54 @@ class ClanRepository {
     parse: (_) {},
   );
 
+  // ── The clan itself ──────────────────────────────────────────────────
+
+  Future<ClanDetail> clan(String ulid) async {
+    final envelope = await _api.get<Map<String, dynamic>>(
+      ApiPaths.clan(ulid),
+      parse: (data) => (data as Map).cast<String, dynamic>(),
+    );
+
+    return ClanDetail.fromJson(envelope.data!);
+  }
+
+  /// Creates the ancestor a clan descends from and records them as its
+  /// starting point.
+  ///
+  /// Two calls, in this order, because the second cannot be made until the
+  /// first has an id — and the server refuses an ancestor who is not in the
+  /// clan, so creating them anywhere else would fail on the way back.
+  ///
+  /// Returns the new person's ulid, so the caller can open them and carry
+  /// straight on adding their children.
+  Future<String> startTreeWith({
+    required String clanUlid,
+    required String displayName,
+    String? gender,
+    String? birth,
+  }) async {
+    final created = await _api.post<Map<String, dynamic>>(
+      ApiPaths.people,
+      body: {
+        'display_name': displayName,
+        'clan_ulid': clanUlid,
+        if (gender != null && gender.isNotEmpty) 'gender': gender,
+        if (birth != null && birth.trim().isNotEmpty) 'birth': birth.trim(),
+      },
+      parse: (data) => (data as Map).cast<String, dynamic>(),
+    );
+
+    final personUlid = created.data!['ulid'] as String;
+
+    await _api.patch<Map<String, dynamic>>(
+      ApiPaths.clan(clanUlid),
+      body: {'ancestor_person_ulid': personUlid},
+      parse: (data) => (data as Map).cast<String, dynamic>(),
+    );
+
+    return personUlid;
+  }
+
   // ── The committee ────────────────────────────────────────────────────
 
   /// Where this account may appoint, and what it may hand out in each.

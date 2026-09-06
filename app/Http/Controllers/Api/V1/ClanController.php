@@ -10,6 +10,7 @@ use App\Http\Requests\V1\UpdateClanRequest;
 use App\Http\Resources\V1\ClanResource;
 use App\Http\Resources\V1\FamilyBranchResource;
 use App\Models\Clan;
+use App\Models\Person;
 use App\Models\Tribe;
 use App\Services\Privacy\ViewerScope;
 use App\Support\ApiResponse;
@@ -59,7 +60,7 @@ class ClanController extends Controller
     public function show(Clan $clan): JsonResponse
     {
         $clan->loadCount('childClans');
-        $clan->load(['tribe:id,ulid,name', 'parentClan:id,ulid,name', 'childClans']);
+        $clan->load(['tribe:id,ulid,name', 'parentClan:id,ulid,name', 'childClans', 'ancestor']);
 
         return ApiResponse::success(ClanResource::make($clan));
     }
@@ -67,6 +68,13 @@ class ClanController extends Controller
     public function update(UpdateClanRequest $request, Clan $clan): JsonResponse
     {
         $data = $request->validated();
+
+        if (array_key_exists('ancestor_person_ulid', $data)) {
+            $data['ancestor_person_id'] = $data['ancestor_person_ulid'] === null
+                ? null
+                : Person::where('ulid', $data['ancestor_person_ulid'])->value('id');
+            unset($data['ancestor_person_ulid']);
+        }
 
         if (array_key_exists('parent_clan_ulid', $data)) {
             $data['parent_clan_id'] = $data['parent_clan_ulid'] === null
@@ -80,7 +88,9 @@ class ClanController extends Controller
         // hierarchy. ScopedEntityObserver handles that.
         $clan->update($data);
 
-        return ApiResponse::success(ClanResource::make($clan->fresh(['tribe:id,ulid,name', 'parentClan:id,ulid,name'])));
+        return ApiResponse::success(ClanResource::make(
+            $clan->fresh(['tribe:id,ulid,name', 'parentClan:id,ulid,name', 'ancestor']),
+        ));
     }
 
     public function destroy(Clan $clan): JsonResponse

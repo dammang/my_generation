@@ -24,6 +24,11 @@ final administeredScopesProvider = FutureProvider<List<AdministeredScope>>(
   (ref) => ref.watch(clanRepositoryProvider).administeredScopes(),
 );
 
+/// One clan, for the page that administers it.
+final clanProvider = FutureProvider.family<ClanDetail, String>(
+  (ref, ulid) => ref.watch(clanRepositoryProvider).clan(ulid),
+);
+
 final committeeProvider = FutureProvider.family<List<Appointment>, ScopeRef>(
   (ref, scope) => ref
       .watch(clanRepositoryProvider)

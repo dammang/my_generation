@@ -426,11 +426,11 @@ class _RunningAFamily extends ConsumerWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.shield_outlined),
-                title: const Text('Committee'),
+                title: const Text('Families you run'),
                 subtitle: Text(
                   committees.length == 1
-                      ? 'Appoint people to ${committees.first.name}'
-                      : 'Appoint people in ${committees.length} places',
+                      ? '${committees.first.name} — its tree, and its committee'
+                      : '${committees.length} of them',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(Routes.committees),

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\V1;
 
 use App\Models\Clan;
+use App\Models\Person;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -37,12 +38,22 @@ class UpdateClanRequest extends FormRequest
             'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'history' => ['sometimes', 'nullable', 'string'],
             'level_label' => ['sometimes', 'nullable', 'string', 'max:60'],
+
+            // Where the clan's tree begins. Settable after the fact because a
+            // clan is almost always registered before anybody has entered a
+            // single person — the founder records it once they have.
+            'ancestor_person_ulid' => [
+                'sometimes', 'nullable', 'string',
+                Rule::exists('people', 'ulid')->whereNull('deleted_at'),
+            ],
         ];
     }
 
     public function withValidator($validator): void
     {
         $validator->after(function ($validator): void {
+            $this->validateAncestor($validator);
+
             if (! $this->has('parent_clan_ulid')) {
                 return;
             }
@@ -76,5 +87,30 @@ class UpdateClanRequest extends FormRequest
                 );
             }
         });
+    }
+
+    /**
+     * The founding ancestor has to be in the clan they found.
+     *
+     * Otherwise a clan's tree begins with somebody in another family, and
+     * every generation counted from them is counted from the wrong root.
+     */
+    private function validateAncestor($validator): void
+    {
+        $ulid = $this->input('ancestor_person_ulid');
+
+        if (! $this->has('ancestor_person_ulid') || $ulid === null) {
+            return;
+        }
+
+        $person = Person::where('ulid', $ulid)->first();
+        $clan = $this->route('clan');
+
+        if ($person !== null && $person->clan_id !== $clan->getKey()) {
+            $validator->errors()->add(
+                'ancestor_person_ulid',
+                'That person is not in this clan. Add them to it first, or start the tree with somebody who is.',
+            );
+        }
     }
 }
