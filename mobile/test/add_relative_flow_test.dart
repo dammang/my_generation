@@ -20,7 +20,15 @@ Map<String, dynamic> _createdPerson(String name) => {
       'is_living': false,
       'redacted': false,
     },
-    'created': true,
+    // The shape the API actually sends. It was 'created': true here, which
+    // is the one thing the server never sends — so every test passed while
+    // production threw a TypeError and froze the form.
+    'created': {
+      'people': 1,
+      'relationships': 1,
+      'unions': 0,
+      'union_children': 0,
+    },
     'change_request': null,
   },
   'meta': const <String, dynamic>{},
@@ -199,16 +207,17 @@ void main() {
     expect(result.warnings.single.code, 'CHILD_BORN_AFTER_PARENT_DEATH');
   });
 
-  test('reports a person the server matched rather than created', () async {
-    // `created: false` means the server recognised an existing record. Telling
-    // the contributor they added somebody who was already there would be wrong.
+  test('reads the counts the server actually sends', () async {
+    // people: 0 is the server saying it linked to a record that already
+    // existed rather than making one. Telling the contributor they added
+    // somebody who was already there would be wrong.
     final adapter = FakeAdapter({
       _addRelative: [
         FakeReply(200, {
           ..._createdPerson('Bawi Thawng'),
           'data': {
             ..._createdPerson('Bawi Thawng')['data'] as Map<String, dynamic>,
-            'created': false,
+            'created': {'people': 0, 'relationships': 1},
           },
         }),
       ],
@@ -221,5 +230,24 @@ void main() {
     );
 
     expect(result.created, isFalse);
+  });
+
+  test('an object for created does not throw', () async {
+    // The regression itself. `data['created'] as bool?` on a Map throws a
+    // TypeError, which is not an ApiException, so it escaped the screen's
+    // catch and left the form disabled behind a spinner forever — while the
+    // person had in fact been created.
+    final adapter = FakeAdapter({
+      _addRelative: [FakeReply(201, _createdPerson('Bawi Thawng'))],
+    });
+
+    final result = await PersonRepository(fakeApiClient(adapter)).addRelative(
+      anchorUlid: _anchor,
+      relation: 'parent',
+      person: const {'first_name': 'Bawi'},
+    );
+
+    expect(result.created, isTrue);
+    expect(result.person?.displayName, 'Bawi Thawng');
   });
 }

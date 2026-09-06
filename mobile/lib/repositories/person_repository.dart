@@ -227,8 +227,27 @@ class PersonRepository {
       person: PersonSummary.fromJson(
         (data['person'] as Map).cast<String, dynamic>(),
       ),
-      created: data['created'] as bool? ?? true,
+      created: _createdAPerson(data['created']),
       warnings: envelope.warnings,
     );
   }
+
+  /// Did the server actually make a new person?
+  ///
+  /// It answers with counts, not a flag:
+  /// `{"people": 1, "relationships": 1, "unions": 0, "union_children": 0}`.
+  /// This was read as `data['created'] as bool?`, which throws a TypeError on
+  /// a Map — and a TypeError is not an ApiException, so it went straight past
+  /// the screen's catch and left the form frozen on a spinner while the person
+  /// it had just created sat happily on the server. Every unit test passed,
+  /// because the fake sent the bool the client expected rather than the object
+  /// the API sends.
+  ///
+  /// A bare bool is still accepted: the offline queue replays payloads
+  /// recorded before any of this was understood.
+  static bool _createdAPerson(Object? raw) => switch (raw) {
+    bool value => value,
+    Map map => ((map['people'] as num?) ?? 0) > 0,
+    _ => true,
+  };
 }
