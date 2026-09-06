@@ -684,11 +684,21 @@ because the worker holds the previous release until told.
 ```sh
 curl -s -o /dev/null -w '%{http_code}\n' https://khanggui.com/api/v1/health   # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://khanggui.com/reset-password  # 200
-curl -s https://khanggui.com/.env                                             # must NOT be 200
+curl -s https://khanggui.com/.env | grep -c APP_KEY                           # must be 0
 ```
 
-The last one is the document root: a 200 there means the vHost is still serving
-the repository rather than `public/`.
+The last one is the document root: reaching the env file means the vHost is
+still serving the repository rather than `public/`.
+
+Grepping the body, not the status. Since the web client went up, the SPA
+fallback answers **every** unmatched path with 200 and the app shell — so
+`/.env` returns 200 whether or not the file is exposed, and a status check
+there now passes unconditionally. Compare against a path that certainly does
+not exist:
+
+```sh
+curl -s https://khanggui.com/nonexistent-probe | wc -c   # same size = the shell, not a file
+```
 
 ### Before real users
 
