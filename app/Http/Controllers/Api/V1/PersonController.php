@@ -140,7 +140,18 @@ class PersonController extends Controller
 
         // Verified genealogy is never silently overwritten. Without verify
         // permission in this person's scope, the edit becomes a proposal.
-        if (! $this->gate->isDirect($request->user(), $person, 'people', $this->scopePathFor($person))) {
+        //
+        // Moving somebody between families is always a proposal, whatever the
+        // editor's standing and whether or not the record has been checked.
+        // Every other field describes one person; this one says they are kin
+        // to everybody in a family — it changes who may see them, whose tree
+        // they appear in, and what the archive asserts about people who never
+        // agreed to it. That is not a claim to accept on one contributor's say
+        // so, and an unchecked record is not a reason to accept it faster.
+        $isKinshipClaim = array_intersect(['family_branch_id', 'clan_id'], array_keys($attributes)) !== [];
+
+        if ($isKinshipClaim
+            || ! $this->gate->isDirect($request->user(), $person, 'people', $this->scopePathFor($person))) {
             $changeRequest = $propose->handle(
                 requester: $request->user(),
                 operation: ChangeRequestOperation::Update,

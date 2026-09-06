@@ -90,7 +90,7 @@ class _LinkFamilySheetState extends ConsumerState<LinkFamilySheet> {
     });
 
     try {
-      final outcome = await ref
+      await ref
           .read(reviewRepositoryProvider)
           .editPerson(
             ulid: widget.personUlid,
@@ -102,16 +102,16 @@ class _LinkFamilySheetState extends ConsumerState<LinkFamilySheet> {
 
       Navigator.of(context).pop();
 
+      // Always a proposal, never an immediate write: the server enforces that
+      // for family links whoever is asking, so there is no "saved" case to
+      // report. "Sent" rather than "saved" is the difference between somebody
+      // waiting for an answer and somebody finding out in a week that nothing
+      // ever happened.
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            outcome.applied
-                // Said plainly either way: "saved" for something still waiting
-                // on somebody else is how a contributor discovers a week later
-                // that it never happened.
-                ? '${widget.personName} is now linked to the ${branch.name} family.'
-                : 'Sent for review: linking ${widget.personName} to the '
-                      '${branch.name} family.',
+            'Sent for review: linking ${widget.personName} to the '
+            '${branch.name} family.',
           ),
         ),
       );

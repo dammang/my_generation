@@ -132,6 +132,44 @@ class ChangeReviewTest extends TestCase
         $this->assertSame('Thawng', $person->fresh()->first_name);
     }
 
+    public function test_moving_somebody_between_families_is_always_a_proposal(): void
+    {
+        // Unverified, and edited by somebody who may write directly: every
+        // other field on this record would be saved outright.
+        $person = Person::factory()->create([
+            'tribe_id' => $this->tribe->id,
+            'clan_id' => $this->clan->id,
+            'family_branch_id' => $this->branch->id,
+            'privacy_level' => PrivacyLevel::Public,
+            'is_living' => false,
+            'verification_status' => VerificationStatus::Unverified,
+        ]);
+
+        $other = FamilyBranch::factory()->create(['tribe_id' => $this->tribe->id]);
+        $reviewer = $this->memberWithRole('tribe-admin');
+
+        // A name change goes straight in, which is the point of the contrast.
+        $this->actingAs($reviewer)
+            ->patchJson(route('api.v1.people.update', $person), ['first_name' => 'Bawi'])
+            ->assertOk();
+
+        // The family link does not. Every other field describes one person;
+        // this one says they are kin to everybody in a family, and an
+        // unchecked record is not a reason to accept that faster.
+        $response = $this->actingAs($reviewer)
+            ->patchJson(route('api.v1.people.update', $person), [
+                'family_branch_ulid' => $other->ulid,
+            ])
+            ->assertStatus(202);
+
+        $this->assertNotNull($response->json('data.change_request.ulid'));
+        $this->assertSame(
+            $this->branch->id,
+            $person->refresh()->family_branch_id,
+            'the family was changed without anybody approving it',
+        );
+    }
+
     public function test_a_contributor_can_see_their_own_proposal(): void
     {
         $person = $this->verifiedPerson();
