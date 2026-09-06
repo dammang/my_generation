@@ -79,12 +79,18 @@ class TreePersonCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  person.displayName,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(height: 1.15),
+                // Flexible, so a long name gives up its second line before the
+                // card gives up its lifespan. The box cannot grow — it is a
+                // laid-out rect on a canvas — so something has to yield, and
+                // losing a surname reads better than losing the dates.
+                Flexible(
+                  child: Text(
+                    person.displayName,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(height: 1.15),
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(

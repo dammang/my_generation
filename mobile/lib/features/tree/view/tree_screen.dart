@@ -13,6 +13,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/tree_provider.dart';
 import '../layout/tree_layout.dart';
 import '../layout/tree_layout_engine.dart';
+import '../layout/tree_metrics.dart';
 import 'tree_canvas.dart';
 
 /// The family tree.
@@ -31,7 +32,12 @@ class TreeScreen extends ConsumerStatefulWidget {
 
 class _TreeScreenState extends ConsumerState<TreeScreen> {
   final _controller = TransformationController();
-  final _engine = const TreeLayoutEngine();
+  /// Rebuilt per frame from the device's text scale: the card is a fixed box
+  /// and the engine has to be told how tall the text inside it will actually
+  /// be, or the two disagree and the difference is clipped.
+  TreeLayoutEngine _engineFor(BuildContext context) => TreeLayoutEngine(
+    metrics: TreeMetrics.forTextScale(MediaQuery.textScalerOf(context)),
+  );
 
   String? _centredOn;
 
@@ -163,7 +169,7 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                 if (query == null) return const _NoStartingPoint();
                 if (graph.isEmpty) return const _Empty();
 
-                final layout = _engine.layout(graph);
+                final layout = _engineFor(context).layout(graph);
 
                 return LayoutBuilder(
                   builder: (context, constraints) {
