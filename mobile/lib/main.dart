@@ -24,7 +24,12 @@ Future<void> main() async {
 
   await _startFirebase(container);
 
-  runApp(UncontrolledProviderScope(container: container, child: const MyGenerationApp()));
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: const MyGenerationApp(),
+    ),
+  );
 }
 
 /// Brings Firebase up, and never lets its absence stop the app.
@@ -35,7 +40,9 @@ Future<void> main() async {
 /// sign-in screen can say what is wrong far better than a blank screen can.
 Future<void> _startFirebase(ProviderContainer container) async {
   try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } catch (error, stack) {
     debugPrint('Firebase did not start: $error');
     debugPrintStack(stackTrace: stack);
@@ -43,27 +50,34 @@ Future<void> _startFirebase(ProviderContainer container) async {
     return;
   }
 
-  // Crashes in release only. In debug the console is more useful than a report,
-  // and filling Crashlytics with a developer's own broken builds hides the
-  // reports that came from somebody's actual phone.
-  final crashlytics = FirebaseCrashlytics.instance;
+  // Crashlytics has no web implementation at all: touching the instance
+  // throws, and this sits outside the try above, so on the web build it took
+  // the whole app down before the first frame — a blank page and one
+  // uncaught error in the console.
+  if (!kIsWeb) {
+    // Crashes in release only. In debug the console is more useful than a
+    // report, and filling Crashlytics with a developer's own broken builds
+    // hides the reports that came from somebody's actual phone.
+    final crashlytics = FirebaseCrashlytics.instance;
 
-  await crashlytics.setCrashlyticsCollectionEnabled(!kDebugMode);
+    await crashlytics.setCrashlyticsCollectionEnabled(!kDebugMode);
 
-  // Framework errors would otherwise only be printed. This is what turns "it
-  // crashed on my mother's phone and I don't know why" into a stack trace.
-  FlutterError.onError = (details) {
-    FlutterError.presentError(details);
-    crashlytics.recordFlutterFatalError(details);
-  };
+    // Framework errors would otherwise only be printed. This is what turns
+    // "it crashed on my mother's phone and I don't know why" into a stack
+    // trace.
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      crashlytics.recordFlutterFatalError(details);
+    };
 
-  // Errors that escape the framework entirely — an unawaited future, a platform
-  // channel failing — reach here and nowhere else.
-  PlatformDispatcher.instance.onError = (error, stack) {
-    crashlytics.recordError(error, stack, fatal: true);
+    // Errors that escape the framework entirely — an unawaited future, a
+    // platform channel failing — reach here and nowhere else.
+    PlatformDispatcher.instance.onError = (error, stack) {
+      crashlytics.recordError(error, stack, fatal: true);
 
-    return true;
-  };
+      return true;
+    };
+  }
 
   // Started here, once, rather than after sign-in: the message that cold-
   // started the app is available exactly once, at the very first read of
@@ -74,5 +88,11 @@ Future<void> _startFirebase(ProviderContainer container) async {
   // AnalyticsService.start() is the only thing that turns collection on for a
   // release build — never called before, so nothing was ever reaching
   // Firebase regardless of what fired a screen view or an event.
-  await container.read(analyticsProvider).start();
+  // Guarded for the same reason: a web build with no service worker must not
+  // be a blank page because a telemetry call refused.
+  try {
+    await container.read(analyticsProvider).start();
+  } catch (error) {
+    debugPrint('Analytics did not start: $error');
+  }
 }

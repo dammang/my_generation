@@ -96,23 +96,39 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
-        onUpgrade: (m, from, to) async {
-          if (from < 2) {
-            // The queue stores intent for the typed batch endpoint, not a
-            // serialised HTTP call, and needs to be describable to a person.
-            await m.addColumn(syncQueue, syncQueue.kind);
-            await m.addColumn(syncQueue, syncQueue.subjectUlid);
-            await m.addColumn(syncQueue, syncQueue.subjectLabel);
-          }
-        },
-      );
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // The queue stores intent for the typed batch endpoint, not a
+        // serialised HTTP call, and needs to be describable to a person.
+        await m.addColumn(syncQueue, syncQueue.kind);
+        await m.addColumn(syncQueue, syncQueue.subjectUlid);
+        await m.addColumn(syncQueue, syncQueue.subjectLabel);
+      }
+    },
+  );
 
-  static QueryExecutor _open() => driftDatabase(name: 'my_generation');
+  static QueryExecutor _open() => driftDatabase(
+    name: 'my_generation',
+    // Required on web, and its absence is not a warning: driftDatabase throws
+    // "the `web` parameter needs to be set" the first time anything touches
+    // the database, which on the web build was before the first frame. The app
+    // showed its splash screen and stayed there.
+    //
+    // Both files are served next to the app — the base href is /app/, so these
+    // relative URIs resolve to /app/sqlite3.wasm and /app/drift_worker.js. They
+    // are downloaded from the drift and sqlite3 releases matching the pinned
+    // versions and copied into the build; see the README.
+    web: DriftWebOptions(
+      sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+      driftWorker: Uri.parse('drift_worker.js'),
+    ),
+  );
 
   /// Everything cached before a given moment, for eviction.
-  Future<int> evictOlderThan(DateTime cutoff) =>
-      (delete(cachedPeople)..where((p) => p.cachedAt.isSmallerThanValue(cutoff))).go();
+  Future<int> evictOlderThan(DateTime cutoff) => (delete(
+    cachedPeople,
+  )..where((p) => p.cachedAt.isSmallerThanValue(cutoff))).go();
 
   /// Signing out must leave nothing behind: the cache holds records the next
   /// account may have no right to see.

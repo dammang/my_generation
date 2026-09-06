@@ -75,6 +75,54 @@ with the app: the signed-in session, the offline archive, and anything still
 waiting in the Outbox all go. Warn whoever holds the phone that they will be
 signing in again and re-granting notification permission.
 
+## The web client
+
+Served from `https://khanggui.com/app/`, on the same host as the API on
+purpose. A browser build talking to an API on another origin needs CORS
+configured, every request preflighted, and an allowed-origin list kept in step
+with wherever it is hosted; same-origin means there is nothing to configure.
+`CORS_ALLOWED_ORIGINS` stays empty.
+
+```bash
+API_BASE_URL=https://khanggui.com tool/deploy_web.sh
+```
+
+Use the script rather than `flutter build web`. Three things it does that the
+build does not, each of which fails silently:
+
+**It copies `sqlite3.wasm` and `drift_worker.js` into the output.** Flutter 3.44
+no longer copies arbitrary files out of `web/`, and these are downloaded assets
+rather than generated ones. Without them `driftDatabase` throws before the first
+frame and the app sits on its splash screen forever. They come from the releases
+matching the pinned versions in `pubspec.lock`:
+
+| File | Source |
+|---|---|
+| `sqlite3.wasm` | `simolus3/sqlite3.dart` release `sqlite3-<version>` |
+| `drift_worker.js` | `simolus3/drift` release `drift-<version>` |
+
+Re-download both when either package is upgraded; a worker built against a
+different sqlite3 is not a combination anybody has tested.
+
+**It stamps the bundle URLs with the commit.** Neither `main.dart.js` nor
+`flutter_bootstrap.js` is content-hashed, so a new build reuses the same names
+and a browser keeps running the old app. OpenLiteSpeed honours only rewrite
+directives in `.htaccess` — not `Header` — so the cache cannot be told to
+revalidate and the filename has to change instead. The stamp is the commit, so
+rebuilding the same code does not force a 3.7MB re-download.
+
+**It uploads.** The build is 42MB of generated output and is never committed.
+
+### What differs from the phone
+
+Crashlytics has no web implementation at all, so it is skipped there — touching
+the instance throws, and it used to take the whole app down before the first
+frame. Push notifications need a service worker and a VAPID key and are not set
+up. Sign in with Apple is iOS-only and the button does not appear.
+
+Google sign-in needs `khanggui.com` under **Firebase → Authentication →
+Settings → Authorised domains**. Email and password work without it.
+
 ## Tests
 
 ```bash

@@ -18,19 +18,30 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Your family archive: the people, the dates and the stories, kept together.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="my_generation">
+  <meta name="apple-mobile-web-app-title" content="My Generation">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>my_generation</title>
+  <title>My Generation</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Dart reports an uncaught startup error as an opaque wrapper object, so
+    // the console shows "{dartException: Al}" and nothing else. This prints
+    // what it actually says, which is the difference between debugging and
+    // guessing.
+    window.addEventListener('error', function (e) {
+      var d = e.error && (e.error.dartException || e.error);
+      try { console.error('[startup]', String(d), d && d.message, d && d.stack); }
+      catch (_) { console.error('[startup] unprintable error'); }
+    });
+  </script>
 </head>
 <body>
   <!--

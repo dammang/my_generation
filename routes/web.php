@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Web\ResetPasswordController;
 use App\Http\Controllers\Web\VerifyEmailController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -53,10 +54,16 @@ Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
  * file behind them. Without it, opening one of those directly, or reloading
  * the page you are on, is a 404 from Laravel.
  */
-Route::get('/app/{path?}', function (): Response {
+Route::get('/app/{path?}', function (Request $request): Response {
     $index = public_path('app/index.html');
 
     abort_unless(is_file($index), 404, 'The web client has not been deployed.');
+
+    // Only for a browser asking for a page. Answering every unmatched path
+    // with the index means a missing asset — a wasm file the database needs,
+    // say — comes back as 200 HTML instead of 404, and the failure that
+    // follows names something else entirely. That cost an hour once already.
+    abort_unless($request->accepts(['text/html']), 404);
 
     return response()->file($index);
 })->where('path', '.*')->name('web-client');

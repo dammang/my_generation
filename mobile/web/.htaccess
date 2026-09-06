@@ -1,0 +1,22 @@
+# main.dart.js and flutter_bootstrap.js are not content-hashed: a new build
+# reuses the same filenames, so a browser that cached them keeps running the
+# old app until it decides to revalidate. That cost an afternoon once — the
+# fix was deployed, the server was serving it, and the page kept throwing the
+# error it had already been fixed for.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|json)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "^(main\.dart\.js|flutter_bootstrap\.js|flutter\.js|drift_worker\.js)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # These two are versioned by their contents in practice — they only change
+  # when the pinned drift and sqlite3 versions do — and they are a megabyte.
+  <FilesMatch "\.(wasm|otf|ttf|png)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+</IfModule>
+
+# Browsers refuse to instantiate WebAssembly served as anything else.
+AddType application/wasm .wasm
