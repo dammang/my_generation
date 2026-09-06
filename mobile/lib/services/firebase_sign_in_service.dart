@@ -13,9 +13,7 @@ class SignInFailure implements Exception {
 
   /// They closed the sheet. Not an error, and showing one as though it were
   /// makes the app look broken when nothing went wrong.
-  const SignInFailure.cancelled()
-      : message = '',
-        cancelled = true;
+  const SignInFailure.cancelled() : message = '', cancelled = true;
 
   final String message;
   final bool cancelled;
@@ -28,7 +26,8 @@ class SignInFailure implements Exception {
 /// suspended them — is the server's business, and asking Firebase about it
 /// would be asking the wrong system.
 class FirebaseSignInService {
-  FirebaseSignInService({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
+  FirebaseSignInService({FirebaseAuth? auth})
+    : _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseAuth _auth;
 
@@ -39,6 +38,19 @@ class FirebaseSignInService {
 
   /// Google, through the platform's own account picker.
   Future<String> withGoogle() async {
+    // The web does not have a platform account picker, and google_sign_in's
+    // v7 API cannot do this at all there: authenticate() is unsupported on
+    // web, and initialize() wants a client id that only the web build has.
+    // Between them the button did nothing whatsoever — no error, no popup,
+    // no sign of having been pressed.
+    //
+    // Firebase's own popup handles the entire OAuth exchange through the
+    // project's authDomain, which is why it needs no client id here and why
+    // khanggui.com had to be added to the authorised domains.
+    if (kIsWeb) {
+      return _withGooglePopup();
+    }
+
     try {
       // serverClientId is not optional on Android: without it the returned
       // idToken is null and sign-in fails at the very last step, after the
@@ -71,6 +83,44 @@ class FirebaseSignInService {
     }
   }
 
+  /// The web's Google flow: a Firebase popup rather than an account picker.
+  Future<String> _withGooglePopup() async {
+    try {
+      final provider = GoogleAuthProvider()
+        // Ask every time rather than silently reusing whichever Google account
+        // the browser happens to be signed into. A shared computer is the
+        // normal case for a family archive.
+        ..setCustomParameters({'prompt': 'select_account'});
+
+      return _idTokenFrom(await _auth.signInWithPopup(provider));
+    } on FirebaseAuthException catch (error) {
+      // Closing the popup is a decision, not a failure to report.
+      if (error.code == 'popup-closed-by-user' ||
+          error.code == 'cancelled-popup-request' ||
+          error.code == 'user-cancelled') {
+        throw const SignInFailure.cancelled();
+      }
+
+      // Worth naming, because the fix is in the Firebase console and the
+      // generic message sends people looking through their own code.
+      if (error.code == 'unauthorized-domain') {
+        throw const SignInFailure(
+          'This site is not authorised for Google sign-in yet. Add it under '
+          'Firebase Authentication, Settings, Authorised domains.',
+        );
+      }
+
+      if (error.code == 'popup-blocked') {
+        throw const SignInFailure(
+          'Your browser blocked the Google sign-in window. Allow pop-ups for '
+          'this site and try again.',
+        );
+      }
+
+      throw SignInFailure(_firebaseMessage(error));
+    }
+  }
+
   /// Apple. Mandatory on iOS wherever Google is offered, by Apple's own rules.
   Future<String> withApple() async {
     try {
@@ -94,8 +144,11 @@ class FirebaseSignInService {
       final given = apple.givenName;
       final family = apple.familyName;
 
-      if ((given ?? family) != null && (result.user?.displayName ?? '').isEmpty) {
-        await result.user?.updateDisplayName([given, family].nonNulls.join(' '));
+      if ((given ?? family) != null &&
+          (result.user?.displayName ?? '').isEmpty) {
+        await result.user?.updateDisplayName(
+          [given, family].nonNulls.join(' '),
+        );
         await result.user?.reload();
       }
 
@@ -111,10 +164,16 @@ class FirebaseSignInService {
     }
   }
 
-  Future<String> withPassword({required String email, required String password}) async {
+  Future<String> withPassword({
+    required String email,
+    required String password,
+  }) async {
     try {
       return _idTokenFrom(
-        await _auth.signInWithEmailAndPassword(email: email, password: password),
+        await _auth.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        ),
       );
     } on FirebaseAuthException catch (error) {
       throw SignInFailure(_firebaseMessage(error));
@@ -161,7 +220,10 @@ class FirebaseSignInService {
     }
   }
 
-  Future<String> _idTokenFrom(UserCredential result, {bool refresh = false}) async {
+  Future<String> _idTokenFrom(
+    UserCredential result, {
+    bool refresh = false,
+  }) async {
     // Forced refresh after a profile change, so the token carries the name the
     // server is about to store rather than the one from a moment ago.
     final token = await result.user?.getIdToken(refresh);
@@ -174,23 +236,22 @@ class FirebaseSignInService {
   }
 
   String _firebaseMessage(FirebaseAuthException error) => switch (error.code) {
-        'invalid-credential' ||
-        'wrong-password' ||
-        'user-not-found' =>
-          'These details do not match an account.',
-        'email-already-in-use' =>
-          'That email address already has an account. Try signing in instead.',
-        'weak-password' => 'Please choose a longer password.',
-        'invalid-email' => 'That does not look like an email address.',
-        'user-disabled' => 'This account has been disabled.',
-        'too-many-requests' => 'Too many attempts. Please wait a moment.',
-        'network-request-failed' =>
-          'Cannot reach the sign-in service. Check your connection.',
-        'account-exists-with-different-credential' =>
-          'This email is already registered another way. Sign in the way you '
-              'did before.',
-        _ => 'Sign-in failed. Please try again.',
-      };
+    'invalid-credential' ||
+    'wrong-password' ||
+    'user-not-found' => 'These details do not match an account.',
+    'email-already-in-use' =>
+      'That email address already has an account. Try signing in instead.',
+    'weak-password' => 'Please choose a longer password.',
+    'invalid-email' => 'That does not look like an email address.',
+    'user-disabled' => 'This account has been disabled.',
+    'too-many-requests' => 'Too many attempts. Please wait a moment.',
+    'network-request-failed' =>
+      'Cannot reach the sign-in service. Check your connection.',
+    'account-exists-with-different-credential' =>
+      'This email is already registered another way. Sign in the way you '
+          'did before.',
+    _ => 'Sign-in failed. Please try again.',
+  };
 
   /// Google's own failures, which arrive as codes rather than sentences.
   String _readable(String code, String? description) {
