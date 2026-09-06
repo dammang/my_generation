@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources\V1;
 
 use App\Models\User;
-use App\Services\Privacy\ViewerScope;
+use App\Services\Privacy\ViewerScopeResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -21,7 +21,18 @@ class UserResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
-        $scope = app(ViewerScope::class);
+        // Resolved for the account being serialised, not for whoever the
+        // request happens to be authenticated as.
+        //
+        // The container binds ViewerScope from $request->user(), and during
+        // sign-in there is no such user yet: credentials are still being
+        // checked, so the request is a guest. Reading the bound scope there
+        // returned an empty one, and every successful login handed the app an
+        // account with no tribes and no permissions — which the app then
+        // believed until something happened to call /auth/me. This resource is
+        // only ever serialised for its own owner, so asking about that owner
+        // is both correct and the same answer everywhere else.
+        $scope = app(ViewerScopeResolver::class)->resolve($this->resource);
 
         return [
             'ulid' => $this->ulid,

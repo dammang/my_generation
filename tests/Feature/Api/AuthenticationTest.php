@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api;
 
+use App\Enums\MembershipStatus;
 use App\Enums\UserStatus;
 use App\Models\AuditLog;
+use App\Models\Membership;
 use App\Models\Person;
+use App\Models\Scope;
+use App\Models\Tribe;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -105,6 +109,51 @@ class AuthenticationTest extends TestCase
             'email' => 'dam@example.com',
             'password' => 'correct-horse-9',
         ])->assertOk()->assertJsonStructure(['data' => ['token', 'user']]);
+    }
+
+    public function test_login_returns_the_scopes_and_permissions_the_account_actually_has(): void
+    {
+        $tribe = Tribe::factory()->create();
+        $scope = Scope::where('scopeable_type', 'tribe')->where('scopeable_id', $tribe->id)->firstOrFail();
+
+        $user = User::factory()->create(['email' => 'dam@example.com', 'password' => 'correct-horse-9']);
+        $user->assignRole('contributor');
+
+        Membership::create([
+            'user_id' => $user->id,
+            'scope_id' => $scope->id,
+            'status' => MembershipStatus::Active,
+        ]);
+
+        // ViewerScope is built from $request->user(), and during sign-in there
+        // is no such user: credentials are still being checked, so the request
+        // is a guest. The resource read that empty scope and every successful
+        // login handed back an account with no tribes and no permissions —
+        // which the app believed until something called /auth/me.
+        $login = $this->postJson(route('api.v1.auth.login'), [
+            'email' => 'dam@example.com',
+            'password' => 'correct-horse-9',
+        ])->assertOk();
+
+        $this->assertSame(
+            [$tribe->id],
+            $login->json('data.user.scopes.tribe_ids'),
+            'sign-in reported no tribes for an account that belongs to one',
+        );
+        $this->assertNotEmpty(
+            $login->json('data.user.permissions'),
+            'sign-in reported no permissions for a contributor',
+        );
+
+        // And the same answer either way, which is the actual guarantee: the
+        // account must not appear to gain access simply by being re-read.
+        $me = $this->withToken($login->json('data.token'))
+            ->getJson(route('api.v1.auth.me'))
+            ->assertOk();
+
+        // /auth/me returns the account at data, login nests it under user.
+        $this->assertSame($me->json('data.scopes'), $login->json('data.user.scopes'));
+        $this->assertSame($me->json('data.permissions'), $login->json('data.user.permissions'));
     }
 
     public function test_login_returns_422_for_a_wrong_password(): void
