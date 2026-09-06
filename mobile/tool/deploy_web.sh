@@ -41,7 +41,14 @@ for f in sqlite3.wasm drift_worker.js; do
   printf '    %s\n' "$f"
 done
 
-STAMP="$(git rev-parse --short HEAD 2>/dev/null || date +%s)"
+# The bundle's own contents, not the commit. A commit hash cannot see the
+# working tree, so deploying an uncommitted change reused the previous stamp
+# and every browser kept the bundle it already had — which is the exact failure
+# the stamp exists to prevent, and it happened.
+#
+# A content hash changes when, and only when, the bundle does: rebuilding
+# unchanged code does not force anybody to re-download 3.7MB.
+STAMP="$(shasum -a 256 build/web/main.dart.js | cut -c1-12)"
 echo "==> stamping the bundle as $STAMP"
 sed -i '' "s|flutter_bootstrap.js|flutter_bootstrap.js?v=$STAMP|g" build/web/index.html
 sed -i '' "s|\"main.dart.js\"|\"main.dart.js?v=$STAMP\"|g" build/web/flutter_bootstrap.js

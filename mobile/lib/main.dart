@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/url/url_strategy.dart';
 import 'firebase_options.dart';
 import 'providers/app_providers.dart';
 import 'routing/app_router.dart';
@@ -14,6 +15,9 @@ import 'services/push_navigation_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Before anything renders, or the first route is recorded with a fragment.
+  useCleanUrls();
 
   // Built explicitly, rather than letting ProviderScope create one implicitly,
   // because PushNavigationService needs the same GoRouter instance the app
