@@ -49,6 +49,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Kreait\Firebase\Contract\Auth;
 use Kreait\Firebase\Exception\Auth\UserNotFound;
+use RuntimeException;
 use Spatie\Permission\Models\Role;
 
 /**
@@ -288,11 +289,21 @@ class DemoPresentationSeeder extends Seeder
         $this->activeMember($admin, $scope);
         $this->activeMember($viewer, $scope);
 
+        // Loudly, because this is the whole point of the account. Skipping it
+        // quietly leaves a user called "Demo Admin" holding nothing but
+        // contributor — able to sign in, unable to approve the membership or
+        // review the change request this seeder creates for it to act on —
+        // and the failure only surfaces mid-presentation.
         $tribeAdminRole = Role::where('name', 'tribe-admin')->where('guard_name', 'web')->first();
 
-        if ($tribeAdminRole !== null) {
-            app(AssignScopedRole::class)->handle($this->presenter(), $admin, $tribeAdminRole, $scope);
+        if ($tribeAdminRole === null) {
+            throw new RuntimeException(
+                'The tribe-admin role does not exist, so Demo Admin would be an '
+                .'admin in name only. Run RolePermissionSeeder first.'
+            );
         }
+
+        app(AssignScopedRole::class)->handle($this->presenter(), $admin, $tribeAdminRole, $scope);
 
         // A pending membership — real Action, real notification, so opening
         // Filament during the demo shows something that just happened rather
