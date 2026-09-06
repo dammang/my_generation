@@ -11,6 +11,7 @@ use App\Http\Requests\V1\StoreMediaRequest;
 use App\Http\Resources\V1\MediaResource;
 use App\Models\Media;
 use App\Models\Person;
+use App\Services\Media\LocationMetadataStripper;
 use App\Services\Privacy\PersonVisibilityResolver;
 use App\Services\Privacy\ViewerScope;
 use App\Support\ApiResponse;
@@ -29,6 +30,7 @@ class MediaController extends Controller
     public function __construct(
         private readonly ViewerScope $viewer,
         private readonly PersonVisibilityResolver $visibility,
+        private readonly LocationMetadataStripper $stripper,
     ) {}
 
     /** Photographs attached to one person. */
@@ -68,6 +70,12 @@ class MediaController extends Controller
 
         $file = $request->file('file');
         $disk = config('filesystems.disks.r2') !== null ? 'r2' : 'local';
+
+        // Before the checksum, not after: the path is the hash of the bytes,
+        // so stripping afterwards would store an object whose name no longer
+        // describes its contents — and the original, coordinates and all,
+        // would be what got uploaded.
+        $this->stripper->strip($file->getRealPath());
 
         // Content-addressed by checksum: the same photograph uploaded twice by
         // two relatives is one object, and the path carries nothing about who

@@ -228,6 +228,78 @@ class MediaTest extends TestCase
         );
     }
 
+    public function test_an_upload_does_not_keep_where_it_was_taken(): void
+    {
+        Storage::fake('r2');
+        $person = $this->person();
+
+        $source = $this->photographWithGps();
+
+        $this->actingAs($this->member())
+            ->postJson(route('api.v1.media.store'), [
+                'file' => new UploadedFile($source, 'holiday.jpg', 'image/jpeg', null, true),
+                'person_ulid' => $person->ulid,
+            ])
+            ->assertCreated();
+
+        $media = Media::firstOrFail();
+        $stored = Storage::disk('r2')->get($media->path);
+
+        // The latitude rationals, which sit outside the EXIF entry because
+        // eight bytes will not fit in four. A phone writes these into every
+        // photograph it takes, and a picture of somebody's house would
+        // otherwise carry its address to everyone entitled to view it.
+        $this->assertStringNotContainsString(
+            pack('V', 51).pack('V', 1).pack('V', 30).pack('V', 1),
+            $stored,
+            'the uploaded object still carries its coordinates',
+        );
+
+        // Stripped before hashing, or the object's name would no longer
+        // describe its contents.
+        $this->assertSame(hash('sha256', $stored), $media->checksum_sha256);
+
+        @unlink($source);
+    }
+
+    /** A real JPEG carrying real coordinates, built rather than committed. */
+    private function photographWithGps(): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'gps').'.jpg';
+
+        $image = imagecreatetruecolor(8, 6);
+        ob_start();
+        imagejpeg($image, null, 90);
+        $jpeg = (string) ob_get_clean();
+
+        $date = "2026:08:30 10:29:08\x00";
+        $entry = static fn (int $tag, int $type, int $count, string $value): string => pack('v', $tag)
+            .pack('v', $type)
+            .pack('V', $count)
+            .str_pad($value, 4, "\x00");
+
+        $ifd0Size = 2 + (2 * 12) + 4;
+        $gpsOffset = 8 + $ifd0Size;
+        $dateOffset = $gpsOffset + 2 + 12 + 4;
+        $latOffset = $dateOffset + strlen($date);
+
+        $ifd0 = pack('v', 2)
+            .$entry(0x0132, 2, strlen($date), pack('V', $dateOffset))
+            .$entry(0x8825, 4, 1, pack('V', $gpsOffset))
+            .pack('V', 0);
+
+        $gps = pack('v', 1).$entry(0x0002, 5, 3, pack('V', $latOffset)).pack('V', 0);
+
+        $latitude = pack('V', 51).pack('V', 1).pack('V', 30).pack('V', 1).pack('V', 0).pack('V', 1);
+
+        $exif = "Exif\x00\x00".'II'.pack('v', 42).pack('V', 8).$ifd0.$gps.$date.$latitude;
+        $segment = "\xFF\xE1".pack('n', strlen($exif) + 2).$exif;
+
+        file_put_contents($path, "\xFF\xD8".$segment.substr($jpeg, 2));
+
+        return $path;
+    }
+
     public function test_a_file_that_is_not_an_image_is_refused(): void
     {
         Storage::fake('r2');
