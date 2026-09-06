@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../routing/app_router.dart';
-import '../../person/view/person_screen.dart';
 import '../../sync/widgets/sync_banner.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 
@@ -64,11 +63,13 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     final scale = _controller.value.getMaxScaleOnAxis();
 
     _controller.value = Matrix4.identity()
-      ..translateByVector3(Vector3(
-        viewSize.width / 2 - rect.center.dx * scale,
-        viewSize.height / 2 - rect.center.dy * scale,
-        0,
-      ))
+      ..translateByVector3(
+        Vector3(
+          viewSize.width / 2 - rect.center.dx * scale,
+          viewSize.height / 2 - rect.center.dy * scale,
+          0,
+        ),
+      )
       ..scaleByDouble(scale, scale, scale, 1);
   }
 
@@ -78,7 +79,9 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     if (ulid == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Your account is not linked to anyone yet. Find yourself in the archive first.'),
+          content: Text(
+            'Your account is not linked to anyone yet. Find yourself in the archive first.',
+          ),
         ),
       );
       return;
@@ -97,10 +100,13 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
 
   /// Opens the full record. Reached by long-press on a card and by tapping
   /// the legend, so it is discoverable without making every tap navigate.
+  ///
+  /// Through the router, not a bare MaterialPageRoute: that pushed onto the
+  /// branch navigator, so the same destination behaved one way from the tree
+  /// and another from search, and the analytics observer saw a route with no
+  /// name. It also meant a person opened here could not be linked to.
   void _openProfile(String ulid) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => PersonScreen(ulid: ulid)),
-    );
+    context.push(Routes.personPath(ulid));
   }
 
   void _onExpand(String ulid, bool ancestors) {
@@ -130,6 +136,11 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
         title: const Text('Family tree'),
         actions: [
           IconButton(
+            tooltip: 'Find someone',
+            onPressed: () => context.push(Routes.personSearch),
+            icon: const Icon(Icons.search),
+          ),
+          IconButton(
             tooltip: 'Go to me',
             onPressed: _goToMe,
             icon: const Icon(Icons.my_location),
@@ -139,50 +150,56 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
       body: Column(
         children: [
           SyncBanner(onTap: () => context.go(Routes.pendingChanges)),
-          Expanded(child: tree.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _Error(
-          message: error is ApiException ? error.message : 'Could not load the tree.',
-          onRetry: () => ref.invalidate(treeProvider),
-        ),
-        data: (graph) {
-          if (query == null) return const _NoStartingPoint();
-          if (graph.isEmpty) return const _Empty();
+          Expanded(
+            child: tree.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => _Error(
+                message: error is ApiException
+                    ? error.message
+                    : 'Could not load the tree.',
+                onRetry: () => ref.invalidate(treeProvider),
+              ),
+              data: (graph) {
+                if (query == null) return const _NoStartingPoint();
+                if (graph.isEmpty) return const _Empty();
 
-          final layout = _engine.layout(graph);
+                final layout = _engine.layout(graph);
 
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              // Centre on the focus once per new graph, never on every rebuild:
-              // yanking the view back while somebody is panning is maddening.
-              if (_centredOn != graph.focusUlid) {
-                _centredOn = graph.focusUlid;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _centre(layout.focusRect, constraints.biggest);
-                });
-              }
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Centre on the focus once per new graph, never on every rebuild:
+                    // yanking the view back while somebody is panning is maddening.
+                    if (_centredOn != graph.focusUlid) {
+                      _centredOn = graph.focusUlid;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          _centre(layout.focusRect, constraints.biggest);
+                        }
+                      });
+                    }
 
-              return Stack(
-                children: [
-                  TreeCanvas(
-                    graph: graph,
-                    layout: layout,
-                    controller: _controller,
-                    onPersonTap: _onPersonTap,
-                    onPersonLongPress: _openProfile,
-                    onExpand: _onExpand,
-                  ),
-                  _Legend(
-                    graph: graph,
-                    layout: layout,
-                    onOpenProfile: _openProfile,
-                  ),
-                ],
-              );
-            },
-          );
-        },
-          )),
+                    return Stack(
+                      children: [
+                        TreeCanvas(
+                          graph: graph,
+                          layout: layout,
+                          controller: _controller,
+                          onPersonTap: _onPersonTap,
+                          onPersonLongPress: _openProfile,
+                          onExpand: _onExpand,
+                        ),
+                        _Legend(
+                          graph: graph,
+                          layout: layout,
+                          onOpenProfile: _openProfile,
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
@@ -218,46 +235,46 @@ class _Legend extends StatelessWidget {
           onTap: focus == null ? null : () => onOpenProfile(focus.ulid),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      focus?.displayName ?? 'Family tree',
-                      style: theme.textTheme.titleMedium,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      '${graph.nodeCount} people · '
-                      '${graph.ancestorsDepth} up, ${graph.descendantsDepth} down'
-                      '${graph.truncated ? ' · showing the nearest' : ''}'
-                      // A tree rebuilt from the device is necessarily partial.
-                      // Presenting a fragment as the whole family is the
-                      // offline failure that actually misleads people.
-                      '${graph.fromCache ? ' · saved on this device' : ''}',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        focus?.displayName ?? 'Family tree',
+                        style: theme.textTheme.titleMedium,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                      Text(
+                        '${graph.nodeCount} people · '
+                        '${graph.ancestorsDepth} up, ${graph.descendantsDepth} down'
+                        '${graph.truncated ? ' · showing the nearest' : ''}'
+                        // A tree rebuilt from the device is necessarily partial.
+                        // Presenting a fragment as the whole family is the
+                        // offline failure that actually misleads people.
+                        '${graph.fromCache ? ' · saved on this device' : ''}',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (focus?.generationLabel != null)
-                Chip(
-                  label: Text(focus!.generationLabel!),
-                  visualDensity: VisualDensity.compact,
-                ),
-              if (focus != null)
-                Icon(
-                  Icons.chevron_right,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-            ],
-          ),
+                if (focus?.generationLabel != null)
+                  Chip(
+                    label: Text(focus!.generationLabel!),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                if (focus != null)
+                  Icon(
+                    Icons.chevron_right,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -278,17 +295,31 @@ class _NoStartingPoint extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.account_tree_outlined, size: 44, color: theme.colorScheme.onSurfaceVariant),
+            Icon(
+              Icons.account_tree_outlined,
+              size: 44,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 16),
             Text('No starting point yet', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
-              'Find yourself in the archive, or open somebody from search, and '
-              'the tree will start there.',
+              'Open somebody and the tree will start there.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
+            ),
+            const SizedBox(height: 20),
+            // This used to be prose telling somebody to use a search that had
+            // never been built. An account with no claimed profile arrived
+            // here, found nothing to press, and could reach no person — and so
+            // could contribute nothing at all, because every screen that
+            // writes hangs off a person's page.
+            FilledButton.icon(
+              onPressed: () => context.push(Routes.personSearch),
+              icon: const Icon(Icons.search),
+              label: const Text('Find someone'),
             ),
           ],
         ),
@@ -302,11 +333,11 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text('Nobody to show here yet.', textAlign: TextAlign.center),
-        ),
-      );
+    child: Padding(
+      padding: EdgeInsets.all(32),
+      child: Text('Nobody to show here yet.', textAlign: TextAlign.center),
+    ),
+  );
 }
 
 class _Error extends StatelessWidget {
@@ -317,18 +348,18 @@ class _Error extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.cloud_off_outlined, size: 40),
-              const SizedBox(height: 14),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              FilledButton(onPressed: onRetry, child: const Text('Try again')),
-            ],
-          ),
-        ),
-      );
+    child: Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off_outlined, size: 40),
+          const SizedBox(height: 14),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          FilledButton(onPressed: onRetry, child: const Text('Try again')),
+        ],
+      ),
+    ),
+  );
 }

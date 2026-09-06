@@ -26,10 +26,10 @@ class AddRelativeResult {
   /// saying "added" for something the server has never seen is how somebody
   /// discovers a week later that it never arrived.
   const AddRelativeResult.queued()
-      : person = null,
-        created = true,
-        warnings = const [],
-        queued = true;
+    : person = null,
+      created = true,
+      warnings = const [],
+      queued = true;
 
   final PersonSummary? person;
 
@@ -43,6 +43,32 @@ class PersonRepository {
   PersonRepository(this._api);
 
   final ApiClient _api;
+
+  /// People whose name begins with [query].
+  ///
+  /// The server matches a PREFIX, not a substring — display_name for a given
+  /// name, sort_name ("surname firstname", folded to ASCII) for a family name.
+  /// So "cole" finds James Cole and "james" finds him too, but "ole" finds
+  /// nobody. That is the index doing its job rather than a bug, and the screen
+  /// says so rather than leaving somebody to conclude the person is missing.
+  ///
+  /// Results are already masked and scoped by the server: this cannot be used
+  /// to discover who exists in a family the searcher has no part in.
+  Future<List<PersonSummary>> search(String query, {int perPage = 25}) async {
+    final trimmed = query.trim();
+
+    if (trimmed.length < 2) return const [];
+
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.people,
+      query: {'q': trimmed, 'per_page': perPage},
+      parse: (data) => data as List<dynamic>,
+    );
+
+    return (envelope.data ?? const [])
+        .map((p) => PersonSummary.fromJson((p as Map).cast<String, dynamic>()))
+        .toList(growable: false);
+  }
 
   Future<PersonDetail> person(String ulid) async {
     final envelope = await _api.get<Map<String, dynamic>>(
@@ -113,7 +139,8 @@ class PersonRepository {
     final form = FormData.fromMap({
       'person_ulid': personUlid,
       'file': await MultipartFile.fromFile(filePath),
-      if (caption != null && caption.trim().isNotEmpty) 'caption': caption.trim(),
+      if (caption != null && caption.trim().isNotEmpty)
+        'caption': caption.trim(),
       // Sent as 0/1: a Dart bool becomes the string "true", which PHP's
       // boolean validation rejects.
       'is_private': isPrivate ? 1 : 0,

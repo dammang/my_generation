@@ -16,6 +16,7 @@ import '../features/onboarding/join_tribe_screen.dart';
 import '../features/person/view/person_screen.dart';
 import '../features/profile/view/profile_screen.dart';
 import '../features/review/view/review_queue_screen.dart';
+import '../features/search/view/person_search_screen.dart';
 import '../features/shell/view/app_shell.dart';
 import '../features/sync/view/pending_changes_screen.dart';
 import '../features/tree/view/tree_screen.dart';
@@ -42,6 +43,10 @@ class Routes {
   /// A person is addressable so a link to one survives being shared — the
   /// ulid is the public identifier precisely so it can appear in a URL.
   static const String person = '/person';
+
+  /// A child of the tree branch, so finding somebody keeps the bottom bar
+  /// and returns to the tree rather than to wherever you came from.
+  static const String personSearch = '/tree/search';
 
   static String personPath(String ulid) => '$person/$ulid';
 }
@@ -159,6 +164,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (_, state) => TreeScreen(
                   initialUlid: state.uri.queryParameters['person'],
                 ),
+                routes: [
+                  GoRoute(
+                    path: 'search',
+                    builder: (_, _) => const PersonSearchScreen(),
+                  ),
+                ],
               ),
             ],
           ),
