@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/api_paths.dart';
+import '../../../models/api_user.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/onboarding_provider.dart';
 import '../../../routing/app_router.dart';
 
 /// The account, as distinct from the person.
@@ -132,11 +134,17 @@ class ProfileScreen extends ConsumerWidget {
                           ? 'No memberships yet'
                           : '${user.tribeIds.length}',
                       icon: Icons.groups_outlined,
+                      onTap: user.tribeIds.isEmpty
+                          ? null
+                          : () => _showMemberships(context, ref, 'tribe'),
                     ),
                     _Fact(
                       label: 'Clans',
                       value: '${user.clanIds.length}',
                       icon: Icons.account_tree_outlined,
+                      onTap: user.clanIds.isEmpty
+                          ? null
+                          : () => _showMemberships(context, ref, 'clan'),
                     ),
                     _Fact(
                       label: 'Permissions',
@@ -144,6 +152,10 @@ class ProfileScreen extends ConsumerWidget {
                           ? 'Full administrator'
                           : '${user.permissions.length}',
                       icon: Icons.key_outlined,
+                      // "Why can't I approve this?" is answered by the list and
+                      // not by the number, and it is the question an admin
+                      // actually arrives with.
+                      onTap: () => _showPermissions(context, user),
                     ),
                   ],
                 ),
@@ -186,6 +198,138 @@ class ProfileScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// Which tribes or clans, rather than how many.
+  ///
+  /// Read from the memberships endpoint because /auth/me carries scope ids and
+  /// no names — the count came from a list the screen could not show.
+  void _showMemberships(BuildContext context, WidgetRef ref, String type) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final memberships = ref.watch(myMembershipsProvider);
+          final theme = Theme.of(context);
+          final heading = type == 'tribe' ? 'Tribes' : 'Clans';
+
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: memberships.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (_, _) => Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'Could not read your memberships.',
+                    style: theme.textTheme.bodyLarge,
+                  ),
+                ),
+                data: (all) {
+                  final rows = all.where((m) => m.scopeType == type).toList();
+
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(heading, style: theme.textTheme.titleLarge),
+                      const SizedBox(height: 12),
+                      if (rows.isEmpty)
+                        Text(
+                          'Nothing here yet.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                      else
+                        for (final m in rows)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              type == 'tribe'
+                                  ? Icons.groups_outlined
+                                  : Icons.account_tree_outlined,
+                            ),
+                            title: Text(m.scopeName ?? 'Unnamed'),
+                            // Pending grants nothing, and a list that showed
+                            // both the same way would be quietly wrong.
+                            subtitle: Text(
+                              m.isActive ? 'Member' : 'Waiting for approval',
+                            ),
+                            trailing: m.isActive
+                                ? const Icon(
+                                    Icons.check_circle_outline,
+                                    size: 20,
+                                  )
+                                : Icon(
+                                    Icons.schedule,
+                                    size: 20,
+                                    color: theme.colorScheme.tertiary,
+                                  ),
+                          ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Exactly what this account may do, named.
+  void _showPermissions(BuildContext context, ApiUser user) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        final theme = Theme.of(context);
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Permissions', style: theme.textTheme.titleLarge),
+                const SizedBox(height: 4),
+                Text(
+                  user.isSuperAdmin
+                      ? 'A full administrator bypasses every check below.'
+                      : 'Some of these apply only inside a tribe or clan you '
+                            'belong to.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (user.permissions.isEmpty)
+                  Text('None granted.', style: theme.textTheme.bodyLarge)
+                else
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final p in ([...user.permissions]..sort()))
+                            Chip(label: Text(p)),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -245,17 +389,26 @@ class ProfileScreen extends ConsumerWidget {
 /// number — and "Not yet linked to a person" always is. Giving both halves a
 /// flex lets the long ones wrap instead of running off the card.
 class _Fact extends StatelessWidget {
-  const _Fact({required this.label, required this.value, required this.icon});
+  const _Fact({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.onTap,
+  });
 
   final String label;
   final String value;
   final IconData icon;
 
+  /// A count answers "how many" and hides "which". Where the answer is worth
+  /// having, the row opens it rather than leaving somebody to guess.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,8 +427,22 @@ class _Fact extends StatelessWidget {
               textAlign: TextAlign.end,
             ),
           ),
+          if (onTap != null)
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
         ],
       ),
+    );
+
+    if (onTap == null) return row;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: row,
     );
   }
 }

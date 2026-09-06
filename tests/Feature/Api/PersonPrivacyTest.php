@@ -237,6 +237,33 @@ class PersonPrivacyTest extends TestCase
         $this->assertSame([$visible->ulid], $ulids->all());
     }
 
+    public function test_living_true_from_a_query_string_is_accepted(): void
+    {
+        // A URL carries no types, so every client sends the four characters
+        // "true". Laravel's boolean rule does not accept that string, so the
+        // app's own "find myself in the archive" search was refused with a 422
+        // every time it ran — claiming a profile had never worked for anybody.
+        $this->personIn(PrivacyLevel::Public);
+
+        $this->actingAs(User::factory()->create())
+            ->getJson(route('api.v1.people.index').'?q=a&living=true&per_page=20')
+            ->assertOk();
+
+        $this->actingAs(User::factory()->create())
+            ->getJson(route('api.v1.people.index').'?living=false')
+            ->assertOk();
+    }
+
+    public function test_living_still_refuses_something_that_is_not_a_boolean(): void
+    {
+        // Normalised, not merely loosened: "banana" must still be a 422 rather
+        // than being quietly read as false and silently changing the results.
+        $this->actingAs(User::factory()->create())
+            ->getJson(route('api.v1.people.index').'?living=banana')
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'VALIDATION_FAILED');
+    }
+
     public function test_the_index_filters_in_sql_rather_than_after_pagination(): void
     {
         // Post-filtering produces short pages and leaks total counts. With 20

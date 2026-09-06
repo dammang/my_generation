@@ -59,7 +59,9 @@ class _ClaimProfileScreenState extends ConsumerState<ClaimProfileScreen> {
     });
 
     try {
-      final people = await ref.read(onboardingRepositoryProvider).searchPeople(query);
+      final people = await ref
+          .read(onboardingRepositoryProvider)
+          .searchPeople(query);
       if (mounted) setState(() => _results = people);
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -78,7 +80,9 @@ class _ClaimProfileScreenState extends ConsumerState<ClaimProfileScreen> {
     });
 
     try {
-      await ref.read(onboardingRepositoryProvider).claimProfile(
+      await ref
+          .read(onboardingRepositoryProvider)
+          .claimProfile(
             personUlid: person.ulid,
             statement: _statement.text.trim(),
           );
@@ -140,8 +144,11 @@ class _ClaimProfileScreenState extends ConsumerState<ClaimProfileScreen> {
                                 ? const Padding(
                                     padding: EdgeInsets.all(14),
                                     child: SizedBox(
-                                      height: 18, width: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.2,
+                                      ),
                                     ),
                                   )
                                 : null,
@@ -149,7 +156,10 @@ class _ClaimProfileScreenState extends ConsumerState<ClaimProfileScreen> {
                         ),
                         if (_error != null) ...[
                           const SizedBox(height: 14),
-                          FormBanner(message: _error!, tone: theme.colorScheme.error),
+                          FormBanner(
+                            message: _error!,
+                            tone: theme.colorScheme.error,
+                          ),
                         ],
                       ],
                     ),
@@ -163,68 +173,82 @@ class _ClaimProfileScreenState extends ConsumerState<ClaimProfileScreen> {
   }
 
   Widget _hint(ThemeData theme) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(
-            _search.text.trim().length < 2
-                ? 'Start typing your name.'
-                : 'Nobody matching that name is visible to you yet.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
+    child: Padding(
+      padding: const EdgeInsets.all(32),
+      child: Text(
+        _search.text.trim().length < 2
+            ? 'Start typing your name.'
+            // Two things are invisible here and neither is obvious: this
+            // searches living people only, because you are claiming
+            // yourself, and it matches from the start of a name rather
+            // than anywhere inside it. Without saying so, somebody who
+            // types a grandfather's name or the middle of their own
+            // concludes the archive does not have them.
+            : 'Nobody matching that name is visible to you yet.\n\n'
+                  'Names are matched from the beginning, and only living '
+                  'people appear here.',
+        textAlign: TextAlign.center,
+        style: theme.textTheme.bodyLarge?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
         ),
-      );
+      ),
+    ),
+  );
 
   Widget _list() => ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-        itemCount: _results.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          final person = _results[index];
+    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+    itemCount: _results.length,
+    separatorBuilder: (_, _) => const SizedBox(height: 8),
+    itemBuilder: (context, index) {
+      final person = _results[index];
 
-          return PersonTile(
-            person: person,
-            selected: _selected?.ulid == person.ulid,
-            onTap: () => setState(
-              () => _selected = _selected?.ulid == person.ulid ? null : person,
-            ),
-          );
-        },
-      );
-
-  Widget _confirmBar(ThemeData theme) => SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _statement,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'How can your family confirm this?',
-                  hintText: 'e.g. My father is Hau Neng of Tedim',
-                ),
-              ),
-              const SizedBox(height: 14),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                child: _submitting
-                    ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.4))
-                    : Text('I am ${_selected!.displayName}'),
-              ),
-            ],
-          ),
+      return PersonTile(
+        person: person,
+        selected: _selected?.ulid == person.ulid,
+        onTap: () => setState(
+          () => _selected = _selected?.ulid == person.ulid ? null : person,
         ),
       );
+    },
+  );
+
+  Widget _confirmBar(ThemeData theme) => SafeArea(
+    top: false,
+    child: Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _statement,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: 'How can your family confirm this?',
+              hintText: 'e.g. My father is Hau Neng of Tedim',
+            ),
+          ),
+          const SizedBox(height: 14),
+          FilledButton(
+            onPressed: _submitting ? null : _submit,
+            child: _submitting
+                ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.4),
+                  )
+                : Text('I am ${_selected!.displayName}'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _AlreadyLinked extends StatelessWidget {
@@ -242,14 +266,24 @@ class _AlreadyLinked extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.verified_user_outlined, size: 44, color: theme.colorScheme.primary),
+            Icon(
+              Icons.verified_user_outlined,
+              size: 44,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(height: 16),
-            Text('You are recognised as $name.', textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
+            Text(
+              'You are recognised as $name.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Text(
               'One account, one person. To change this, ask an administrator.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
