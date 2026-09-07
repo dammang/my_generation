@@ -13,6 +13,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/tree_provider.dart';
 import '../layout/tree_layout.dart';
 import '../layout/tree_layout_engine.dart';
+import '../export/tree_exporter.dart';
 import '../layout/tree_metrics.dart';
 import 'tree_canvas.dart';
 
@@ -120,6 +121,55 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
   /// name. It also meant a person opened here could not be linked to.
   void _openProfile(String ulid) {
     context.push(Routes.personPath(ulid));
+  }
+
+  bool _exporting = false;
+
+  /// Saves the whole chart as a picture and offers it to whatever the phone
+  /// can send a file to.
+  ///
+  /// The whole chart, not what is on screen: what is on screen is a culled,
+  /// panned, zoomed window onto it, and exporting that would export somebody's
+  /// scroll position.
+  Future<void> _export(TreeGraph graph, TreeLayout layout) async {
+    if (_exporting) return;
+
+    setState(() => _exporting = true);
+
+    final messenger = ScaffoldMessenger.of(context);
+    final title = graph.person(graph.focusUlid)?.displayName ?? 'Family tree';
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Drawing ${graph.people.length} people…'),
+        duration: const Duration(seconds: 30),
+      ),
+    );
+
+    try {
+      const exporter = TreeExporter();
+
+      final exported = await exporter.export(
+        context: context,
+        graph: graph,
+        layout: layout,
+        title: title,
+      );
+
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Saved · ${exported.describe}')),
+      );
+
+      await exporter.share(exported, title);
+    } catch (error) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not export the chart. $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
   }
 
   void _onExpand(String ulid, bool ancestors) {
@@ -232,6 +282,29 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                   AppBar(
                     title: const Text('Family tree'),
                     actions: [
+                      // Only where there is a chart to export. On the empty
+                      // and error states the button would do nothing, and a
+                      // button that does nothing is read as a broken one.
+                      if (tree.value case final graph?
+                          when graph.isEmpty == false)
+                        IconButton(
+                          tooltip: 'Export as a picture',
+                          onPressed: _exporting
+                              ? null
+                              : () => _export(
+                                  graph,
+                                  _engineFor(context).layout(graph),
+                                ),
+                          icon: _exporting
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.ios_share),
+                        ),
                       IconButton(
                         tooltip: 'Find someone',
                         onPressed: () => context.push(Routes.personSearch),

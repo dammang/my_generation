@@ -64,6 +64,14 @@ dependencies:
   # Description and NSCameraUsageDescription in ios/Runner/Info.plist — iOS
   # does not refuse a picker without them, it terminates the app.
   image_picker: ^1.2.0
+  # Exporting the chart. dart:ui encodes PNG and nothing else, so a JPEG at
+  # 6K needs an encoder — this one is pure Dart, which keeps the export
+  # working on web as well as on a phone.
+  image: ^4.9.2
+
+  # The system share sheet, so an exported chart can go to Photos, a message
+  # or Files without the app inventing its own file browser.
+  share_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:
