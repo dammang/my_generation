@@ -29,10 +29,19 @@ class AppShell extends ConsumerWidget {
     // Only while the chart is actually being moved, and only on the tab the
     // chart is on. A bar that came and went on every screen would be a bar
     // nobody could rely on finding.
-    final movingTheTree =
-        ref.watch(treeIsMovingProvider) && shell.currentIndex == 1;
+    const treeTab = 1;
+    final onTheTree = shell.currentIndex == treeTab;
+    final movingTheTree = ref.watch(treeIsMovingProvider) && onTheTree;
 
     return Scaffold(
+      // The chart paints the whole height, including the strip the bar sits
+      // on. Sliding the bar away only helps if there is something behind it:
+      // without this the Scaffold still holds that band open and the tree
+      // stops short of it, so hiding the bar revealed an empty grey strip.
+      //
+      // Only on the chart's own tab. Every other section is a list that would
+      // then scroll its last row underneath the bar.
+      extendBody: onTheTree,
       body: shell,
       // Slid down rather than removed: taking it out of the tree changes the
       // body's height mid-gesture, and the chart jumps under the finger

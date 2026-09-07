@@ -167,6 +167,30 @@ void main() {
     expect(offset(), Offset.zero, reason: 'it has to come back on its own');
   });
 
+  testWidgets('the chart paints the strip the bar sits on', (tester) async {
+    await pumpApp(tester);
+
+    bool extendsBody() =>
+        tester.widgetList<Scaffold>(find.byType(Scaffold)).first.extendBody;
+
+    // Sliding the bar away only helps if there is something behind it. Without
+    // this the Scaffold holds that band open, the tree stops short of it, and
+    // hiding the bar reveals an empty grey strip instead of more family.
+    expect(extendsBody(), isFalse, reason: 'home is a list, not a canvas');
+
+    await tester.tap(find.text('Tree'));
+    await tester.pumpAndSettle();
+
+    expect(extendsBody(), isTrue);
+
+    // Back off the chart it stops again, or every other section would scroll
+    // its last row underneath the bar.
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+
+    expect(extendsBody(), isFalse);
+  });
+
   group('the outbox badge', () {
     testWidgets('is absent when nothing is queued', (tester) async {
       await pumpApp(tester, sync: const SyncState());

@@ -212,6 +212,10 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                           layout: layout,
                           onOpenProfile: _openProfile,
                           hidden: ref.watch(treeIsMovingProvider),
+                          // The chart now runs under the bottom bar, so the
+                          // summary steps over it rather than hiding behind
+                          // it. The bar's own height arrives as padding.
+                          clearance: MediaQuery.paddingOf(context).bottom,
                         ),
                       ],
                     );
@@ -236,6 +240,7 @@ class _Legend extends StatelessWidget {
     required this.layout,
     required this.onOpenProfile,
     this.hidden = false,
+    this.clearance = 0,
   });
 
   final TreeGraph graph;
@@ -247,6 +252,9 @@ class _Legend extends StatelessWidget {
   /// pan — so it is both useless and in the way at the same moment.
   final bool hidden;
 
+  /// How much of the bottom of the chart something else is sitting on.
+  final double clearance;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -255,7 +263,7 @@ class _Legend extends StatelessWidget {
     return Positioned(
       left: 12,
       right: 12,
-      bottom: 12,
+      bottom: 12 + clearance,
       child: AnimatedSlide(
         offset: hidden ? const Offset(0, 1.4) : Offset.zero,
         duration: const Duration(milliseconds: 180),
