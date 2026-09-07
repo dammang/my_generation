@@ -90,15 +90,17 @@ class TreeSummary {
   /// their cousin gets.
   final int hidden;
 
-  /// "7 sons, 2 daughters · 31 grandchildren · 83 descendants"
+  /// "7 sons, 2 daughters · 31 grandchildren · 43 great-grandchildren ·
+  /// 83 descendants"
   ///
-  /// Two removes and the total. A card that listed every generation would push
-  /// the chart off the screen, which is the thing the card is describing.
+  /// Three removes and the total. Great-grandchildren are as far as a living
+  /// person usually counts, and past that the card would grow without limit
+  /// while describing a chart it was pushing off the screen.
   String? get shortly {
     if (generations.isEmpty) return null;
 
     final parts = [
-      for (final generation in generations.take(2)) generation.shortly,
+      for (final generation in generations.take(3)) generation.shortly,
       if (total > 0) '$total descendants',
     ];
 

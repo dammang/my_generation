@@ -198,12 +198,26 @@ void main() {
         {'depth': 3, 'male': 20, 'female': 23, 'unknown': 0, 'total': 43},
       ]);
 
-      // Two removes and the total. A card that listed every generation would
-      // push the chart off the screen, which is what the card describes.
+      // Three removes and the total: great-grandchildren are as far as a
+      // living person usually counts, and past that the card would grow
+      // without limit while describing a chart it was pushing off the screen.
       expect(
         summary.shortly,
-        '7 sons, 2 daughters · 31 grandchildren · 83 descendants',
+        '7 sons, 2 daughters · 31 grandchildren · '
+        '43 great-grandchildren · 83 descendants',
       );
+    });
+
+    test('stops after the great-grandchildren', () {
+      final summary = of([
+        {'depth': 1, 'male': 2, 'female': 0, 'unknown': 0, 'total': 2},
+        {'depth': 2, 'male': 4, 'female': 0, 'unknown': 0, 'total': 4},
+        {'depth': 3, 'male': 8, 'female': 0, 'unknown': 0, 'total': 8},
+        {'depth': 4, 'male': 16, 'female': 0, 'unknown': 0, 'total': 16},
+      ]);
+
+      expect(summary.shortly, isNot(contains('great-great')));
+      expect(summary.shortly, endsWith('30 descendants'));
     });
 
     test('says nothing where nobody descends from them', () {
