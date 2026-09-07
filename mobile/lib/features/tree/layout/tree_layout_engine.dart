@@ -83,7 +83,7 @@ class TreeLayoutEngine {
         if (graph.people.containsKey(partner)) place(partner);
       }
 
-      for (final child in relations.childrenOf(ulid)) {
+      for (final child in relations.childrenInBirthOrder(ulid)) {
         if (graph.people.containsKey(child)) place(child);
       }
 
@@ -158,7 +158,19 @@ class TreeLayoutEngine {
 
         row.sort((a, b) {
           final byKey = keys[a]!.compareTo(keys[b]!);
-          return byKey != 0 ? byKey : a.compareTo(b);
+
+          if (byKey != 0) return byKey;
+
+          // Everybody with one set of parents has the same median, so this
+          // decides every sibling group in the chart. It used to be the ulid —
+          // the order the records were typed in — which put the seventh son
+          // second because somebody entered him early.
+          final ra = relations.birthRankOf(a);
+          final rb = relations.birthRankOf(b);
+
+          if (ra != null && rb != null && ra != rb) return ra.compareTo(rb);
+
+          return a.compareTo(b);
         });
       }
     }
@@ -398,11 +410,18 @@ class TreeLayoutEngine {
 
 /// Adjacency, built once per layout instead of scanned per lookup.
 class _Relations {
-  _Relations(this._parents, this._children, this._partners);
+  _Relations(this._parents, this._children, this._partners, this._birthRank);
 
   final Map<String, List<String>> _parents;
   final Map<String, List<String>> _children;
   final Map<String, List<String>> _partners;
+
+  /// Where each child comes among their siblings.
+  ///
+  /// Taken from the order the server lists a union's children in, which is
+  /// birth order — the one thing about a row of siblings that everybody in the
+  /// family already knows, and the first thing they notice when it is wrong.
+  final Map<String, int> _birthRank;
 
   List<String> parentsOf(String ulid) => _parents[ulid] ?? const [];
 
@@ -410,10 +429,29 @@ class _Relations {
 
   List<String> partnersOf(String ulid) => _partners[ulid] ?? const [];
 
+  int? birthRankOf(String ulid) => _birthRank[ulid];
+
+  /// Children eldest first, so a walk that places them lays them out that way.
+  List<String> childrenInBirthOrder(String ulid) {
+    final children = [...childrenOf(ulid)];
+
+    children.sort((a, b) {
+      final ra = _birthRank[a];
+      final rb = _birthRank[b];
+
+      if (ra == null || rb == null) return a.compareTo(b);
+
+      return ra == rb ? a.compareTo(b) : ra.compareTo(rb);
+    });
+
+    return children;
+  }
+
   factory _Relations.from(TreeGraph graph) {
     final parents = <String, List<String>>{};
     final children = <String, List<String>>{};
     final partners = <String, List<String>>{};
+    final birthRank = <String, int>{};
 
     for (final edge in graph.edges) {
       parents.putIfAbsent(edge.childUlid, () => []).add(edge.parentUlid);
@@ -426,8 +464,14 @@ class _Relations {
           if (a != b) partners.putIfAbsent(a, () => []).add(b);
         }
       }
+
+      // First union wins for a child recorded under two, which is rare and
+      // means the archive disagrees with itself about who raised them.
+      for (var i = 0; i < union.childUlids.length; i++) {
+        birthRank.putIfAbsent(union.childUlids[i], () => i);
+      }
     }
 
-    return _Relations(parents, children, partners);
+    return _Relations(parents, children, partners, birthRank);
   }
 }
