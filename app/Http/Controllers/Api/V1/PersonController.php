@@ -116,6 +116,7 @@ class PersonController extends Controller
             'familyBranch:id,ulid,name,ancestor_person_id,generation_offset',
             'familyBranch.ancestor:id,display_name',
             'lineageDepths:person_id,root_person_id,depth',
+            'parents:id',
             'unionsAsPartner1.partner2.lineageDepths:person_id,root_person_id,depth',
             'unionsAsPartner2.partner1.lineageDepths:person_id,root_person_id,depth',
             'generation',
@@ -341,6 +342,65 @@ class PersonController extends Controller
      * ancestor, so adding them is a first-class action rather than an edit to
      * a hidden field.
      */
+    /**
+     * "This spouse is already in the archive, as somebody's daughter."
+     *
+     * A woman who married in is usually recorded twice: once beside her
+     * husband, once among her own parents and siblings. Saying so is the only
+     * way she gets a generation of her own — this application will not borrow
+     * her husband's — and the only way her family becomes reachable from his.
+     *
+     * Always a proposal, never a direct write. Merging two records is the
+     * hardest thing in the archive to undo in a family's understanding of
+     * itself, and it is a claim about who somebody is.
+     */
+    public function claimIdentity(
+        Request $request,
+        Person $person,
+        SubmitChangeRequest $propose,
+    ): JsonResponse {
+        $this->authorize('update', $person);
+
+        $data = $request->validate([
+            'person_ulid' => ['required', 'string', 'size:26', Rule::exists('people', 'ulid')],
+            'reason' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $other = Person::where('ulid', $data['person_ulid'])
+            ->visibleTo($this->viewer)
+            ->firstOrFail();
+
+        if ($other->is($person)) {
+            return ApiResponse::error(
+                'That is the same record.',
+                422,
+                [],
+                'MERGE_SELF',
+            );
+        }
+
+        $changeRequest = $propose->handle(
+            requester: $request->user(),
+            operation: ChangeRequestOperation::Merge,
+            target: $person,
+            payload: ['merge_with_ulid' => $other->ulid],
+            // Filed against the record being claimed, so the family she is
+            // said to belong to is the one asked to confirm it.
+            scope: $this->scopeFor($other),
+            reason: $data['reason'] ?? null,
+        );
+
+        app(NotifyReviewers::class)->handle($changeRequest);
+
+        return ApiResponse::accepted([
+            'change_request' => [
+                'ulid' => $changeRequest->ulid,
+                'status' => $changeRequest->status->value,
+            ],
+            'person' => PersonResource::make($other),
+        ]);
+    }
+
     public function storeName(Request $request, Person $person): JsonResponse
     {
         $this->authorize('update', $person);

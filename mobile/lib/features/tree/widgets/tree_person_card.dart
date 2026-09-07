@@ -17,6 +17,7 @@ class TreePersonCard extends StatelessWidget {
     required this.person,
     required this.isFocus,
     required this.expandable,
+    this.linkedElsewhere = false,
     this.onTap,
     this.onLongPress,
     this.onExpand,
@@ -25,6 +26,12 @@ class TreePersonCard extends StatelessWidget {
   final PersonSummary person;
   final bool isFocus;
   final Expandable expandable;
+
+  /// Their own family is recorded and is not on this chart — a wife linked to
+  /// the family she was born into. Marked, because the card leads somewhere
+  /// the lines do not.
+  final bool linkedElsewhere;
+
   final VoidCallback? onTap;
 
   /// Opens the profile. Long-press rather than tap because on a chart a tap
@@ -46,7 +53,11 @@ class TreePersonCard extends StatelessWidget {
       button: true,
       label: _semanticsLabel,
       child: Material(
-        color: isFocus ? scheme.primaryContainer : scheme.surface,
+        color: isFocus
+            ? scheme.primaryContainer
+            : linkedElsewhere
+            ? scheme.secondaryContainer.withValues(alpha: 0.45)
+            : scheme.surface,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -83,6 +94,14 @@ class TreePersonCard extends StatelessWidget {
                         Icons.help_outline,
                         size: 14,
                         color: AppTheme.disputed,
+                      ),
+                    ],
+                    if (linkedElsewhere) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.account_tree_outlined,
+                        size: 14,
+                        color: scheme.secondary,
                       ),
                     ],
                   ],
@@ -160,6 +179,9 @@ class TreePersonCard extends StatelessWidget {
     if (person.isVerified) parts.add('verified');
     if (person.hasOpenDispute) parts.add('has a disputed fact');
     if (person.redacted) parts.add('some details are withheld');
+    if (linkedElsewhere) {
+      parts.add('has a family of their own on another chart');
+    }
     if (isFocus) parts.add('currently centred');
     if (expandable.parents > 0) {
       parts.add('${expandable.parents} more parents not shown');

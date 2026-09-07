@@ -174,6 +174,7 @@ class _TreeCanvasState extends State<TreeCanvas> {
           person: person,
           isFocus: node.ulid == widget.graph.focusUlid,
           expandable: expandable,
+          linkedElsewhere: widget.graph.linkedElsewhere(node.ulid),
           onTap: () => widget.onPersonTap(node.ulid),
           onLongPress: () => widget.onPersonLongPress(node.ulid),
         ),

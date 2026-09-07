@@ -16,6 +16,7 @@ import '../layout/tree_layout.dart';
 import '../layout/tree_layout_engine.dart';
 import '../export/tree_exporter.dart';
 import '../layout/tree_metrics.dart';
+import 'other_family_sheet.dart';
 import 'tree_canvas.dart';
 
 /// The family tree.
@@ -111,6 +112,28 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     // what a tap means, and the profile is one more tap away from there.
     setState(() => _centredOn = null);
     ref.read(treeQueryProvider.notifier).recentre(ulid);
+  }
+
+  /// Somebody whose own family is recorded and is not on this chart.
+  ///
+  /// A wife linked to the family she was born into: her parents and her
+  /// brothers and sisters exist, and none of them belong on her husband's
+  /// chart. Tapping her shows them, and offers the one thing worth offering —
+  /// a way into that family.
+  void _openOtherFamily(TreeGraph graph, String ulid) {
+    final person = graph.person(ulid);
+
+    if (person == null) return;
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => OtherFamilySheet(
+        person: person,
+        onOpenTheirFamily: () => _onPersonTap(ulid),
+      ),
+    );
   }
 
   /// Opens the full record. Reached by long-press on a card and by tapping
@@ -257,7 +280,9 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                           graph: graph,
                           layout: layout,
                           controller: _controller,
-                          onPersonTap: _onPersonTap,
+                          onPersonTap: (ulid) => graph.linkedElsewhere(ulid)
+                              ? _openOtherFamily(graph, ulid)
+                              : _onPersonTap(ulid),
                           onPersonLongPress: _openProfile,
                           onExpand: _onExpand,
                           onScaleSettled: (scale) => ref

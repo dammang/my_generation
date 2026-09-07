@@ -39,6 +39,9 @@ class ApiPaths {
   static String personDisputes(String ulid) => '$prefix/people/$ulid/disputes';
   static String personVerify(String ulid) => '$prefix/people/$ulid/verify';
 
+  /// "This person is already in the archive under another record."
+  static String personIdentity(String ulid) => '$prefix/people/$ulid/identity';
+
   /// Named family lines, for linking somebody who married in to the family
   /// they came from.
   static const String familyBranches = '$prefix/family-branches';

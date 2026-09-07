@@ -195,6 +195,9 @@ class TreeTraversalService
                 // The displayed generation is derived from these; the branch
                 // carries which ancestor the depth is measured from.
                 'lineageDepths:person_id,root_person_id,depth',
+                // Whether a family of their own is recorded, which for
+                // somebody who married in is the whole difference.
+                'parents:id',
                 'familyBranch:id,ulid,name,ancestor_person_id,generation_offset',
                 'familyBranch.ancestor:id,display_name',
                 // For somebody who married in: they have no descent from the

@@ -103,7 +103,11 @@ class ReviewRepository {
     return Dispute.fromJson(envelope.data!);
   }
 
-  Future<PersonDetail> verify(String personUlid, {bool verified = true, String? note}) async {
+  Future<PersonDetail> verify(
+    String personUlid, {
+    bool verified = true,
+    String? note,
+  }) async {
     final envelope = await _api.post<Map<String, dynamic>>(
       ApiPaths.personVerify(personUlid),
       body: {'verified': verified, 'note': ?note},
@@ -119,6 +123,21 @@ class ReviewRepository {
   /// this account may do in that scope. The caller must not guess: showing
   /// "saved" for something awaiting review is the worst thing this screen can
   /// do, because the contributor stops watching for it.
+  /// "This spouse is already in the archive, as somebody's daughter."
+  ///
+  /// Always a proposal. Merging two records is the hardest thing in an archive
+  /// to undo in a family's understanding of itself, and it is a claim about
+  /// who somebody is — so the family she is said to belong to confirms it.
+  Future<void> claimIdentity({
+    required String personUlid,
+    required String otherUlid,
+    String? reason,
+  }) => _api.post<Map<String, dynamic>>(
+    ApiPaths.personIdentity(personUlid),
+    body: {'person_ulid': otherUlid, 'reason': ?reason},
+    parse: (data) => (data as Map).cast<String, dynamic>(),
+  );
+
   Future<EditOutcome> editPerson({
     required String ulid,
     required Map<String, dynamic> changes,
@@ -153,15 +172,17 @@ class ReviewRepository {
   static List<Map<String, dynamic>> _diffEntries(Object? raw) {
     if (raw is! Map) return const [];
 
-    return raw.entries.map((entry) {
-      final pair = entry.value;
+    return raw.entries
+        .map((entry) {
+          final pair = entry.value;
 
-      return <String, dynamic>{
-        'field': entry.key.toString(),
-        'label': entry.key.toString().replaceAll('_', ' '),
-        'before': pair is List && pair.isNotEmpty ? pair.first : null,
-        'after': pair is List && pair.length > 1 ? pair[1] : null,
-      };
-    }).toList(growable: false);
+          return <String, dynamic>{
+            'field': entry.key.toString(),
+            'label': entry.key.toString().replaceAll('_', ' '),
+            'before': pair is List && pair.isNotEmpty ? pair.first : null,
+            'after': pair is List && pair.length > 1 ? pair[1] : null,
+          };
+        })
+        .toList(growable: false);
   }
 }

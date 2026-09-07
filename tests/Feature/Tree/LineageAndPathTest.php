@@ -175,7 +175,7 @@ class LineageAndPathTest extends TestCase
         $this->assertSame('2nd Generation', $labels[$founder->ulid], 'the old founder should have moved down one');
     }
 
-    public function test_somebody_who_married_in_stands_at_their_partners_generation(): void
+    public function test_somebody_who_married_in_is_not_given_their_partners_generation(): void
     {
         $founder = $this->person(1900);
         $branch = FamilyBranch::factory()->create([
@@ -202,14 +202,14 @@ class LineageAndPathTest extends TestCase
 
         $this->assertSame('2nd Generation', $labels[$child->ulid]);
 
-        // Where a family tree on paper has always put them: beside their
-        // husband or wife, not at the "1st Generation" the hand-assigned
-        // column used to claim for a woman standing next to a man four
-        // generations further down.
-        $this->assertSame(
-            '2nd Generation',
+        // A wife belongs to the generation of the family she was born into,
+        // which this archive may not hold. Borrowing her husband's number
+        // reads on the chart as a recorded fact and is only ever an
+        // assumption — she gets one when she is linked to her own family, or
+        // when somebody assigns it by hand.
+        $this->assertNull(
             $labels[$spouse->ulid],
-            'somebody who married in should stand where their partner stands',
+            'a spouse must not inherit a generation she was never counted into',
         );
     }
 

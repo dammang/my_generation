@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Verification;
 
+use App\Actions\Merge\MergePeople;
 use App\Enums\ChangeRequestOperation;
 use App\Enums\ChangeRequestStatus;
 use App\Enums\ReviewDecision;
@@ -12,6 +13,7 @@ use App\Exceptions\ChangeRequestSupersededException;
 use App\Exceptions\GenealogyRuleException;
 use App\Models\ChangeRequest;
 use App\Models\Citation;
+use App\Models\Person;
 use App\Models\User;
 use App\Services\Permissions\PermissionResolver;
 use App\Services\Statistics\ContributionCounter;
@@ -39,6 +41,7 @@ class ApplyChangeRequest
     public function __construct(
         private readonly PermissionResolver $permissions,
         private readonly ContributionCounter $contributions,
+        private readonly MergePeople $merge,
     ) {}
 
     public function handle(ChangeRequest $request, User $reviewer, ?string $comment = null): Model
@@ -54,6 +57,10 @@ class ApplyChangeRequest
 
         $this->assertMayReview($request, $reviewer);
         $this->assertNotSuperseded($request, $target);
+
+        if ($request->operation === ChangeRequestOperation::Merge) {
+            return $this->applyMerge($request, $reviewer, $target, $comment);
+        }
 
         return DB::transaction(function () use ($request, $reviewer, $target, $comment): Model {
             $payload = $request->payload ?? [];
@@ -117,6 +124,61 @@ class ApplyChangeRequest
         });
     }
 
+    /**
+     * "This spouse and that daughter are the same woman."
+     *
+     * A merge is not a field to set, so it cannot go down the ordinary path:
+     * two records become one and everything pointing at either has to be
+     * repointed. MergePeople does that reversibly and is the only thing
+     * allowed to; this decides that it may happen and records who said so.
+     */
+    private function applyMerge(
+        ChangeRequest $request,
+        User $reviewer,
+        Model $target,
+        ?string $comment,
+    ): Model {
+        $otherUlid = $request->payload['merge_with_ulid'] ?? null;
+        $other = $otherUlid === null ? null : Person::where('ulid', $otherUlid)->first();
+
+        if (! $target instanceof Person || $other === null) {
+            throw new GenealogyRuleException(
+                'The record this was to be merged with is no longer here.',
+                'MERGE_TARGET_MISSING',
+            );
+        }
+
+        return DB::transaction(function () use ($request, $reviewer, $target, $other, $comment): Model {
+            // The record with a family of its own wins: it carries the parents
+            // and siblings, which is the whole reason for the link. The other
+            // survives soft-deleted with a pointer, so an old link to it still
+            // resolves rather than 404ing.
+            $this->merge->handle($reviewer, $other, $target);
+
+            $request->forceFill([
+                'status' => ChangeRequestStatus::Approved,
+                'decided_by' => $reviewer->getKey(),
+                'decided_at' => now(),
+                'applied_at' => now(),
+            ])->save();
+
+            $request->reviews()->create([
+                'reviewer_id' => $reviewer->getKey(),
+                'decision' => ReviewDecision::Approve,
+                'comment' => $comment,
+            ]);
+
+            if ($request->requested_by !== null) {
+                $this->contributions->increment(
+                    User::findOrFail($request->requested_by),
+                    'changes_approved',
+                );
+            }
+
+            return $other->refresh();
+        });
+    }
+
     public function reject(ChangeRequest $request, User $reviewer, ?string $comment = null): ChangeRequest
     {
         $this->assertMayReview($request, $reviewer);
@@ -147,9 +209,14 @@ class ApplyChangeRequest
 
     private function resolveTarget(ChangeRequest $request): Model
     {
-        if ($request->operation !== ChangeRequestOperation::Update || $request->target_id === null) {
+        $applicable = [
+            ChangeRequestOperation::Update,
+            ChangeRequestOperation::Merge,
+        ];
+
+        if (! in_array($request->operation, $applicable, true) || $request->target_id === null) {
             throw new GenealogyRuleException(
-                'Only update proposals can be applied automatically yet.',
+                'Only update and merge proposals can be applied automatically yet.',
                 'CHANGE_REQUEST_UNSUPPORTED',
             );
         }

@@ -24,6 +24,7 @@ class PersonSummary {
     this.generation,
     this.depth,
     this.deceasedDeclared = false,
+    this.hasParents = false,
     this.birthOrder,
     this.relationshipType,
   });
@@ -57,6 +58,11 @@ class PersonSummary {
   /// Their death is recorded as a bare fact, with no date behind it — the
   /// commonest case in an oral archive.
   final bool deceasedDeclared;
+
+  /// Whether a family of their own is recorded. For somebody who married in,
+  /// this is the difference between a name beside a husband and a person with
+  /// parents.
+  final bool hasParents;
 
   /// Where they come among their siblings, and how they joined the family.
   /// Present only where a child was read through the marriage they belong to.
@@ -110,6 +116,7 @@ class PersonSummary {
       hasOpenDispute: json['has_open_dispute'] as bool? ?? false,
       generationLabel: json['generation_label'] as String?,
       deceasedDeclared: json['deceased_declared'] as bool? ?? false,
+      hasParents: json['has_parents'] as bool? ?? false,
       birthOrder: json['birth_order'] as int?,
       relationshipType: json['relationship_type'] as String?,
       generation: json['generation'] == null

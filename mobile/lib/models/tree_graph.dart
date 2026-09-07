@@ -153,6 +153,19 @@ class TreeGraph {
   static Map<String, dynamic> _object(dynamic raw) =>
       raw is Map ? raw.cast<String, dynamic>() : const {};
 
+  /// Somebody whose own family is recorded but is not on this chart.
+  ///
+  /// A wife with parents nobody can see from here: she was linked to the
+  /// family she was born into, and that family is a chart of its own. The one
+  /// case where a card leads somewhere the lines do not.
+  bool linkedElsewhere(String ulid) {
+    final person = people[ulid];
+
+    if (person == null || !person.hasParents) return false;
+
+    return !edges.any((edge) => edge.childUlid == ulid);
+  }
+
   factory TreeGraph.fromResponse(
     Map<String, dynamic> data,
     Map<String, dynamic> meta,
