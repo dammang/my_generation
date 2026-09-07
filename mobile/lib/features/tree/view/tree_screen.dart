@@ -37,7 +37,13 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
   /// and the engine has to be told how tall the text inside it will actually
   /// be, or the two disagree and the difference is clipped.
   TreeLayoutEngine _engineFor(BuildContext context) => TreeLayoutEngine(
-    metrics: TreeMetrics.forTextScale(MediaQuery.textScalerOf(context)),
+    metrics: TreeMetrics.forText(
+      scaler: MediaQuery.textScalerOf(context),
+      // The styles the card itself uses. Anything else here is a guess about
+      // the thing being measured.
+      name: Theme.of(context).textTheme.labelLarge,
+      dates: Theme.of(context).textTheme.labelMedium,
+    ),
   );
 
   String? _centredOn;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/person_summary.dart';
 import '../../../models/tree_graph.dart';
+import '../layout/tree_metrics.dart';
 
 /// One person on the chart.
 ///
@@ -97,7 +98,9 @@ class TreePersonCard extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelLarge?.copyWith(height: 1.15),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      height: TreeMetrics.nameLineHeight,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -107,6 +110,7 @@ class TreePersonCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelMedium?.copyWith(
+                    height: TreeMetrics.dateLineHeight,
                     color: person.redacted
                         ? AppTheme.redacted
                         : scheme.onSurfaceVariant,

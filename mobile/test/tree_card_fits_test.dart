@@ -31,7 +31,11 @@ Future<void> pumpCard(
   PersonSummary person, {
   double textScale = 1.0,
 }) async {
-  final metrics = TreeMetrics.forTextScale(TextScaler.linear(textScale));
+  final metrics = TreeMetrics.forText(
+    scaler: TextScaler.linear(textScale),
+    name: _style.labelLarge,
+    dates: _style.labelMedium,
+  );
 
   await tester.pumpWidget(
     MediaQuery(
@@ -76,6 +80,10 @@ void expectDatesInsideCard(WidgetTester tester, String dates) {
   expect(tester.takeException(), isNull);
 }
 
+/// The card renders with the app's own text theme, so the measurement has
+/// to be made with the same styles.
+final _style = AppTheme.light().textTheme;
+
 void main() {
   testWidgets('the dates sit inside the card', (tester) async {
     await pumpCard(tester, _person());
@@ -113,9 +121,79 @@ void main() {
     }
   });
 
+  group('the reservation matches what the card needs', () {
+    // Asserting the dates land inside the box is not enough: the name is
+    // Flexible, so a box that is a few points short reports nothing wrong and
+    // silently gives up the bottom of the second line instead. Every card on
+    // the chart was drawing surnames cut through their descenders, and the
+    // suite was green.
+    for (final scale in [1.0, 1.15, 1.3, 1.5]) {
+      for (final name in [
+        'Daniel Whitfield',
+        'Margaret Elizabeth Whitfield',
+        'PAU KHUA NEM (KHUPMU)',
+        'Sophie',
+      ]) {
+        testWidgets('$name at ${scale}x', (tester) async {
+          final metrics = TreeMetrics.forText(
+            scaler: TextScaler.linear(scale),
+            name: _style.labelLarge,
+            dates: _style.labelMedium,
+          );
+
+          await tester.pumpWidget(
+            MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: MaterialApp(
+                theme: AppTheme.light(),
+                home: Scaffold(
+                  body: Align(
+                    alignment: Alignment.topLeft,
+                    // Unconstrained vertically, so the card reports the height
+                    // it actually wants rather than the one it was given.
+                    child: SizedBox(
+                      width: metrics.cardWidth,
+                      child: IntrinsicHeight(
+                        child: TreePersonCard(
+                          person: _person(
+                            name: name,
+                            birth: '1972',
+                            death: null,
+                          ),
+                          isFocus: false,
+                          expandable: const Expandable(parents: 0, children: 0),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          expect(
+            tester.getRect(find.byType(TreePersonCard)).height,
+            lessThanOrEqualTo(metrics.cardHeight),
+            reason:
+                'the engine reserves a fixed rect, so anything the card needs '
+                'beyond it is squeezed out of the name without a word',
+          );
+        });
+      }
+    }
+  });
+
   test('the reserved height grows with the type size', () {
-    final normal = TreeMetrics.forTextScale(const TextScaler.linear(1));
-    final large = TreeMetrics.forTextScale(const TextScaler.linear(1.5));
+    final normal = TreeMetrics.forText(
+      scaler: const TextScaler.linear(1),
+      name: _style.labelLarge,
+      dates: _style.labelMedium,
+    );
+    final large = TreeMetrics.forText(
+      scaler: const TextScaler.linear(1.5),
+      name: _style.labelLarge,
+      dates: _style.labelMedium,
+    );
 
     expect(large.cardHeight, greaterThan(normal.cardHeight));
 
