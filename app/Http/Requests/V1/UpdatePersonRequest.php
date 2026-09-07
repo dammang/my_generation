@@ -35,6 +35,11 @@ class UpdatePersonRequest extends FormRequest
             'birth_place_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('places', 'ulid')],
             'death_place_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('places', 'ulid')],
             'biography' => ['sometimes', 'nullable', 'string', 'max:20000'],
+
+            // "They have died, nobody knows when." Kept apart from the date
+            // fields because it is a different claim, and because a family
+            // that cannot give a year must still be able to say this much.
+            'deceased_declared' => ['sometimes', 'boolean'],
             'tribe_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('tribes', 'ulid')],
             'clan_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('clans', 'ulid')],
             'family_branch_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('family_branches', 'ulid')],

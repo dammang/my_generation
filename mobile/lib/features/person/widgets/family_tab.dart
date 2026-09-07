@@ -17,11 +17,19 @@ class FamilyTab extends StatelessWidget {
     required this.onOpenPerson,
     required this.onAddRelative,
     required this.onLinkFamily,
+    required this.onReorderChildren,
+    required this.onDeletePerson,
   });
 
   final FamilyBundle bundle;
   final void Function(PersonSummary person) onOpenPerson;
   final void Function(String relation) onAddRelative;
+
+  /// The whole sequence for one marriage, in its new order.
+  final void Function(String unionUlid, List<String> personUlids)
+  onReorderChildren;
+
+  final void Function(PersonSummary person) onDeletePerson;
 
   /// Somebody who married in belongs to a family of their own, and the archive
   /// has no way to work out which. Asked for rather than guessed at.
@@ -40,7 +48,9 @@ class FamilyTab extends StatelessWidget {
             onPressed: onLinkFamily,
             icon: const Icon(Icons.link),
             label: const Text('Link to another family'),
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(44),
+            ),
           ),
         ),
         if (bundle.fromCache)
@@ -50,8 +60,8 @@ class FamilyTab extends StatelessWidget {
               'Saved on this device. Marriages are not grouped offline, so '
               'children are listed together.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         _Section(
@@ -84,6 +94,8 @@ class FamilyTab extends StatelessWidget {
             personUlid: bundle.person.ulid,
             onOpenPerson: onOpenPerson,
             onAddChild: () => onAddRelative('child'),
+            onReorderChildren: onReorderChildren,
+            onDeletePerson: onDeletePerson,
           ),
         if (bundle.unions.isEmpty)
           _Section(
@@ -128,12 +140,17 @@ class _UnionSection extends StatelessWidget {
     required this.personUlid,
     required this.onOpenPerson,
     required this.onAddChild,
+    required this.onReorderChildren,
+    required this.onDeletePerson,
   });
 
   final FamilyUnion union;
   final String personUlid;
   final void Function(PersonSummary person) onOpenPerson;
   final VoidCallback onAddChild;
+  final void Function(String unionUlid, List<String> personUlids)
+  onReorderChildren;
+  final void Function(PersonSummary person) onDeletePerson;
 
   @override
   Widget build(BuildContext context) {
@@ -153,8 +170,24 @@ class _UnionSection extends StatelessWidget {
         ),
         if (spouse != null)
           PersonTile(person: spouse, onTap: () => onOpenPerson(spouse)),
-        for (final child in union.children)
-          PersonTile(person: child, onTap: () => onOpenPerson(child)),
+        for (final (index, child) in union.children.indexed)
+          PersonTile(
+            person: child,
+            onTap: () => onOpenPerson(child),
+            // Position in the list, not the stored birth order: only some
+            // children have one, and a list that showed "1st, 3rd, 3rd" would
+            // be reporting a gap in the data as a fact about the family.
+            label: childLabel(index, child),
+            trailing: _ChildMenu(
+              canMoveUp: index > 0,
+              canMoveDown: index < union.children.length - 1,
+              onMove: (by) => onReorderChildren(
+                union.ulid,
+                _moved(union.children, index, by),
+              ),
+              onDelete: () => onDeletePerson(child),
+            ),
+          ),
         if (hidden > 0)
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 2, 14, 6),
@@ -184,6 +217,115 @@ class _UnionSection extends StatelessWidget {
       ],
     );
   }
+}
+
+/// "1st son", "2nd daughter", "3rd child".
+///
+/// Birth order is how most families here actually name their children, so it
+/// belongs on the row rather than being left for somebody to count.
+String childLabel(int index, PersonSummary child) {
+  final place = _ordinal(index + 1);
+
+  final word = switch (child.gender) {
+    'male' => 'son',
+    'female' => 'daughter',
+    _ => 'child',
+  };
+
+  // How they joined the family is a fact about their place in it, and a family
+  // that records an adoption means it to be visible.
+  final kind = switch (child.relationshipType) {
+    'adopted' => ' · adopted',
+    'step' => ' · step',
+    'foster' => ' · foster',
+    _ => '',
+  };
+
+  return '$place $word$kind';
+}
+
+String _ordinal(int n) => switch (n % 100) {
+  11 || 12 || 13 => '${n}th',
+  _ => switch (n % 10) {
+    1 => '${n}st',
+    2 => '${n}nd',
+    3 => '${n}rd',
+    _ => '${n}th',
+  },
+};
+
+/// The sequence after moving one child by [by] places.
+List<String> _moved(List<PersonSummary> children, int index, int by) {
+  final ulids = children.map((c) => c.ulid).toList();
+  final target = (index + by).clamp(0, ulids.length - 1);
+
+  ulids.insert(target, ulids.removeAt(index));
+
+  return ulids;
+}
+
+/// What can be done to one child's place in the family.
+class _ChildMenu extends StatelessWidget {
+  const _ChildMenu({
+    required this.canMoveUp,
+    required this.canMoveDown,
+    required this.onMove,
+    required this.onDelete,
+  });
+
+  final bool canMoveUp;
+  final bool canMoveDown;
+  final void Function(int by) onMove;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<String>(
+    tooltip: 'Change this child',
+    icon: const Icon(Icons.more_vert),
+    onSelected: (choice) => switch (choice) {
+      'up' => onMove(-1),
+      'down' => onMove(1),
+      _ => onDelete(),
+    },
+    itemBuilder: (context) => [
+      PopupMenuItem(
+        value: 'up',
+        enabled: canMoveUp,
+        child: const ListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          leading: Icon(Icons.arrow_upward),
+          title: Text('Move up'),
+        ),
+      ),
+      PopupMenuItem(
+        value: 'down',
+        enabled: canMoveDown,
+        child: const ListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          leading: Icon(Icons.arrow_downward),
+          title: Text('Move down'),
+        ),
+      ),
+      const PopupMenuDivider(),
+      PopupMenuItem(
+        value: 'delete',
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          leading: Icon(
+            Icons.delete_outline,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          title: Text(
+            'Remove from the archive',
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 class _Section extends StatelessWidget {

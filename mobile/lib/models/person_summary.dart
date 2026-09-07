@@ -23,6 +23,9 @@ class PersonSummary {
     this.generationLabel,
     this.generation,
     this.depth,
+    this.deceasedDeclared = false,
+    this.birthOrder,
+    this.relationshipType,
   });
 
   final String ulid;
@@ -51,7 +54,31 @@ class PersonSummary {
   /// Layer relative to the focus of a tree: negative up, positive down.
   final int? depth;
 
+  /// Their death is recorded as a bare fact, with no date behind it — the
+  /// commonest case in an oral archive.
+  final bool deceasedDeclared;
+
+  /// Where they come among their siblings, and how they joined the family.
+  /// Present only where a child was read through the marriage they belong to.
+  final int? birthOrder;
+  final String? relationshipType;
+
   bool get isVerified => verificationStatus == 'verified';
+
+  /// What to say where the dates would go.
+  ///
+  /// "Died, year unknown" rather than "No dates recorded": a family that knows
+  /// somebody has died and cannot give a year has recorded a real fact, and
+  /// reporting it as an absence loses it.
+  String get dateLine {
+    final dates = lifespan;
+
+    if (dates != null) return dates;
+    if (redacted) return 'Dates not shown';
+    if (!isLiving) return 'Died · year unknown';
+
+    return 'No dates recorded';
+  }
 
   /// "1920–1998", "b. 1975", or nothing when no date is known or permitted.
   String? get lifespan {
@@ -82,6 +109,9 @@ class PersonSummary {
       verificationStatus: json['verification_status'] as String?,
       hasOpenDispute: json['has_open_dispute'] as bool? ?? false,
       generationLabel: json['generation_label'] as String?,
+      deceasedDeclared: json['deceased_declared'] as bool? ?? false,
+      birthOrder: json['birth_order'] as int?,
+      relationshipType: json['relationship_type'] as String?,
       generation: json['generation'] == null
           ? null
           : GenerationStanding.fromJson(

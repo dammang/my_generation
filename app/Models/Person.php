@@ -101,6 +101,7 @@ class Person extends Model
         'death_place_id',
         'burial_place_id',
         'is_living',
+        'deceased_declared',
         'biography',
         'tribe_id',
         'clan_id',
@@ -135,6 +136,7 @@ class Person extends Model
         'death_place_id',
         'burial_place_id',
         'is_living',
+        'deceased_declared',
         'living_reviewed_at',
         'biography',
         'profile_media_id',
@@ -168,6 +170,7 @@ class Person extends Model
             'birth_year' => 'integer',
             'death_year' => 'integer',
             'is_living' => 'boolean',
+            'deceased_declared' => 'boolean',
             'has_open_dispute' => 'boolean',
             'privacy_level' => PrivacyLevel::class,
             'verification_status' => VerificationStatus::class,
@@ -182,6 +185,14 @@ class Person extends Model
      */
     public function isDeceased(): bool
     {
+        // Said by the family, with no date behind it. The commonest fact in an
+        // oral archive: everybody knows the person has died and nobody knows
+        // the year, and without this they would be counted among the living
+        // and masked as one.
+        if ($this->deceased_declared) {
+            return true;
+        }
+
         if ($this->death_date !== null || $this->death_year !== null) {
             return true;
         }

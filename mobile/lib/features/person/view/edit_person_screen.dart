@@ -55,6 +55,13 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
 
   static const String _noGeneration = 'none';
 
+  /// "They have died, nobody knows when."
+  ///
+  /// Started from the record's own answer so turning it off is possible, and
+  /// only sent when it actually changed — otherwise every save would restate
+  /// a claim nobody touched.
+  late bool _deceased = widget.detail.summary.deceasedDeclared;
+
   @override
   void dispose() {
     _firstName.dispose();
@@ -92,6 +99,8 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
                 'native_name': _nativeName.text.trim(),
               if (_birth.text.trim().isNotEmpty) 'birth': _birth.text.trim(),
               if (_death.text.trim().isNotEmpty) 'death': _death.text.trim(),
+              if (_deceased != widget.detail.summary.deceasedDeclared)
+                'deceased_declared': _deceased,
               if (_generationTouched)
                 'generation_ulid': _generationUlid == _noGeneration
                     ? null
@@ -174,6 +183,22 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
               controller: _death,
               decoration: const InputDecoration(labelText: 'Died'),
             ),
+            // Only where no date is recorded. A person with a death year is
+            // already known to have died, and a switch that could not change
+            // anything is a switch that teaches people it does nothing.
+            if (widget.detail.summary.deathDisplay == null) ...[
+              const SizedBox(height: 6),
+              SwitchListTile(
+                value: _deceased,
+                onChanged: (value) => setState(() => _deceased = value),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('This person has died'),
+                subtitle: const Text(
+                  'For when the family knows, and nobody remembers the year. '
+                  'Their record stops being treated as a living person\'s.',
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             _GenerationField(
               tribeUlid: widget.detail.tribeUlid,

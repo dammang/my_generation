@@ -93,6 +93,26 @@ class PersonRepository {
         .toList(growable: false);
   }
 
+  /// The order children are listed in, sent whole.
+  ///
+  /// The entire sequence rather than one move: swapping two children is two
+  /// writes, and a client that sent them separately could leave two siblings
+  /// sharing a place if the second call failed.
+  Future<void> orderChildren({
+    required String unionUlid,
+    required List<String> personUlids,
+  }) => _api.patch<Map<String, dynamic>>(
+    ApiPaths.unionChildOrder(unionUlid),
+    body: {'person_ulids': personUlids},
+    parse: (data) => (data as Map).cast<String, dynamic>(),
+  );
+
+  /// Removes a record from the archive.
+  ///
+  /// A soft delete on the server: the person leaves the graph, the history of
+  /// what was recorded about them does not.
+  Future<void> deletePerson(String ulid) => _api.delete(ApiPaths.person(ulid));
+
   Future<PersonDetail> person(String ulid) async {
     final envelope = await _api.get<Map<String, dynamic>>(
       ApiPaths.person(ulid),

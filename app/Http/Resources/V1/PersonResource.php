@@ -79,6 +79,8 @@ class PersonResource extends JsonResource
             'death' => $this->dateFacts('death', $mask),
 
             'is_living' => $this->is_living,
+            // Whether the death is recorded as a bare fact rather than a date.
+            'deceased_declared' => $this->deceased_declared,
             'verification_status' => $this->verification_status->value,
             'has_open_dispute' => (bool) $this->has_open_dispute,
             'privacy_level' => $this->privacy_level->value,

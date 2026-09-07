@@ -14,11 +14,21 @@ class PersonTile extends StatelessWidget {
     required this.person,
     this.selected = false,
     this.onTap,
+    this.label,
+    this.trailing,
   });
 
   final PersonSummary person;
   final bool selected;
   final VoidCallback? onTap;
+
+  /// What this person is to the family being read — "1st son", "2nd daughter".
+  /// A name alone does not say where somebody stands among their siblings, and
+  /// in most families that is the first thing anybody wants to know.
+  final String? label;
+
+  /// Actions belonging to this row rather than to the person.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -57,11 +67,19 @@ class PersonTile extends StatelessWidget {
                         ),
                         if (person.isVerified) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.verified, size: 17, color: AppTheme.verified),
+                          const Icon(
+                            Icons.verified,
+                            size: 17,
+                            color: AppTheme.verified,
+                          ),
                         ],
                         if (person.hasOpenDispute) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.help_outline, size: 17, color: AppTheme.disputed),
+                          const Icon(
+                            Icons.help_outline,
+                            size: 17,
+                            color: AppTheme.disputed,
+                          ),
                         ],
                       ],
                     ),
@@ -72,10 +90,17 @@ class PersonTile extends StatelessWidget {
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
+                    if (label != null)
+                      Text(
+                        label!,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     const SizedBox(height: 2),
                     Text(
-                      person.lifespan ??
-                          (person.redacted ? 'Dates not shown' : 'No dates recorded'),
+                      person.dateLine,
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: person.redacted
                             ? AppTheme.redacted
@@ -86,7 +111,9 @@ class PersonTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (selected) Icon(Icons.check_circle, color: theme.colorScheme.primary),
+              if (selected)
+                Icon(Icons.check_circle, color: theme.colorScheme.primary),
+              ?trailing,
             ],
           ),
         ),
@@ -95,10 +122,16 @@ class PersonTile extends StatelessWidget {
   }
 
   static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
 
     if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first.characters.take(1).toString().toUpperCase();
+    if (parts.length == 1) {
+      return parts.first.characters.take(1).toString().toUpperCase();
+    }
 
     return (parts.first.characters.take(1).toString() +
             parts.last.characters.take(1).toString())

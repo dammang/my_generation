@@ -38,7 +38,16 @@ class UnionResource extends JsonResource
                     $this->partner2 === null ? null : PersonResource::make($this->partner2)->resolve(),
                 ])),
             ),
-            'children' => PersonResource::collection($this->whenLoaded('children')),
+            // Each child with their pivot: birth order is what a family
+            // actually names them by — "the second son" — and adoption is a
+            // fact about the child's place here, not about the child.
+            'children' => $this->whenLoaded('children', fn () => $this->children
+                ->map(fn ($child) => [
+                    ...PersonResource::make($child)->resolve(),
+                    'birth_order' => $child->pivot?->birth_order,
+                    'relationship_type' => $child->pivot?->relationship_type,
+                ])
+                ->all()),
         ];
     }
 }

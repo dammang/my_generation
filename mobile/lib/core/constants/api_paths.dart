@@ -47,6 +47,10 @@ class ApiPaths {
   /// Generation labels, which a clan may name for itself.
   static const String generations = '$prefix/generations';
 
+  /// The order the children of one marriage are listed in.
+  static String unionChildOrder(String unionUlid) =>
+      '$prefix/unions/$unionUlid/children/order';
+
   // Sync
   static const String syncBatch = '$prefix/sync/batch';
 

@@ -140,6 +140,77 @@ class _LoadedState extends ConsumerState<_Loaded>
     showAddRelativeOutcome(context, result: result);
   }
 
+  /// Putting the children of one marriage in order.
+  ///
+  /// The list is sent whole, so two siblings can never end up sharing a place.
+  Future<void> _reorderChildren(String unionUlid, List<String> ulids) async {
+    try {
+      await ref
+          .read(personRepositoryProvider)
+          .orderChildren(unionUlid: unionUlid, personUlids: ulids);
+
+      if (mounted) ref.invalidate(familyProvider(detail.ulid));
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
+  /// Removing somebody from the archive.
+  ///
+  /// Confirmed by name, and the confirmation says what actually happens: the
+  /// record leaves the family, the history of what was recorded about them
+  /// stays. A dialog that only asked "are you sure?" would be asking about a
+  /// consequence it had not stated.
+  Future<void> _deletePerson(PersonSummary person) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Remove ${person.displayName}?'),
+        content: const Text(
+          'They are removed from the family tree, along with the connections '
+          'to their parents and children. What was recorded about them is '
+          'kept in the history and an administrator can restore them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (!(confirmed ?? false)) return;
+
+    try {
+      await ref.read(personRepositoryProvider).deletePerson(person.ulid);
+
+      if (mounted) {
+        invalidatePerson(ref, detail.ulid, alsoUlid: person.ulid);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${person.displayName} was removed.')),
+        );
+      }
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
   Future<void> _edit() async {
     final outcome = await Navigator.of(context).push<EditOutcome>(
       MaterialPageRoute(builder: (_) => EditPersonScreen(detail: detail)),
@@ -320,6 +391,8 @@ class _LoadedState extends ConsumerState<_Loaded>
                 onOpenPerson: _openPerson,
                 onAddRelative: _addRelative,
                 onLinkFamily: () => _linkFamily(detail),
+                onReorderChildren: _reorderChildren,
+                onDeletePerson: _deletePerson,
               ),
             ),
             timeline.when(

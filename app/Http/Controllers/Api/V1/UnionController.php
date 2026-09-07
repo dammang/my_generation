@@ -178,6 +178,56 @@ class UnionController extends Controller
         return ApiResponse::noContent();
     }
 
+    /**
+     * The order the children are listed in, which in most families is the
+     * order they were born and the order they are named.
+     *
+     * The whole sequence at once rather than one child at a time: moving a
+     * child up is two writes, and a client that had to send both could leave
+     * two siblings sharing a place if the second failed.
+     *
+     * Children the caller may not see are absent from what they send back, so
+     * their places are held: the sequence is applied to the rows named, in the
+     * gaps those rows already occupy.
+     */
+    public function orderChildren(Request $request, Union $union): JsonResponse
+    {
+        $this->authorize('update', $union);
+
+        $data = $request->validate([
+            'person_ulids' => ['required', 'array', 'min:1', 'max:50'],
+            'person_ulids.*' => ['string', 'size:26'],
+        ]);
+
+        $ids = Person::whereIn('ulid', $data['person_ulids'])
+            ->pluck('id', 'ulid')
+            ->all();
+
+        $rows = UnionChild::where('union_id', $union->getKey())
+            ->whereIn('person_id', array_values($ids))
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return ApiResponse::error('None of those children belong to this union.', 422);
+        }
+
+        DB::transaction(function () use ($data, $ids, $rows): void {
+            $place = 1;
+
+            foreach ($data['person_ulids'] as $ulid) {
+                $row = $rows->firstWhere('person_id', $ids[$ulid] ?? null);
+
+                if ($row !== null) {
+                    $row->forceFill(['birth_order' => $place++])->save();
+                }
+            }
+        });
+
+        return ApiResponse::success(
+            UnionResource::make($union->fresh(['partner1', 'partner2', 'children'])),
+        );
+    }
+
     private function visiblePerson(string $ulid): Person
     {
         return Person::where('ulid', $ulid)

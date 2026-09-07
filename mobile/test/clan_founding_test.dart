@@ -128,12 +128,6 @@ FakeAdapter _adapter({
       }),
     ),
   ],
-  'PATCH /api/v1/clans/$_clanUlid': [
-    FakeReply(
-      200,
-      _ok(_clan(ancestor: {'ulid': _personUlid, 'display_name': 'Thawng Dam'})),
-    ),
-  ],
 });
 
 /// Through a real router, because starting the tree ends by opening the person
