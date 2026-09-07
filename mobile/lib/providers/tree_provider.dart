@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/errors/api_exception.dart';
 import '../models/tree_graph.dart';
+import '../models/tree_summary.dart';
 import '../repositories/tree_repository.dart';
 import 'app_providers.dart';
 
@@ -152,6 +153,14 @@ final treeProvider = FutureProvider<TreeGraph>((ref) async {
 /// Hiding only for the duration of a gesture, as this did first, gives the
 /// space back at the moment it stops being useful: you get room while your
 /// thumb is moving and lose it the instant you stop to read.
+/// What the summary card and the exported picture both say about somebody.
+///
+/// Counted from the graph rather than from what was fetched, and keyed by the
+/// person, so moving around a family and coming back does not ask again.
+final treeSummaryProvider = FutureProvider.family<TreeSummary, String>(
+  (ref, ulid) => ref.watch(treeRepositoryProvider).summary(ulid),
+);
+
 class TreeChromeNotifier extends Notifier<bool> {
   @override
   bool build() => false;

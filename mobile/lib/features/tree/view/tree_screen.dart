@@ -375,9 +375,13 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
 
 /// What is on screen, and what is not.
 ///
-/// The truncation notice matters: a tree that quietly stops is indistinguishable
-/// from a family that ends there.
-class _Legend extends StatelessWidget {
+/// The same things the exported picture says, in the space a phone has: where
+/// this person stands on both of the clan's scales, and how large the family
+/// below them actually is.
+///
+/// The truncation notice matters: a tree that quietly stops is
+/// indistinguishable from a family that ends there.
+class _Legend extends ConsumerWidget {
   const _Legend({
     required this.graph,
     required this.layout,
@@ -399,9 +403,18 @@ class _Legend extends StatelessWidget {
   final double clearance;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final focus = graph.person(graph.focusUlid);
+
+    // Counted from the graph, not from what was fetched: a chart drawn three
+    // generations deep would otherwise describe a family three generations
+    // large. Keyed by the person, so moving away and back does not ask again.
+    final summary = ref.watch(treeSummaryProvider(graph.focusUlid)).value;
+
+    final quiet = theme.textTheme.labelMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
 
     return Positioned(
       left: 12,
@@ -423,58 +436,60 @@ class _Legend extends StatelessWidget {
                   horizontal: 14,
                   vertical: 10,
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
+                    // The generation sits beside the name rather than beneath
+                    // it: on a phone that chip took a quarter of the card's
+                    // width and left the lines under it wrapping.
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
                             focus?.displayName ?? 'Family tree',
                             style: theme.textTheme.titleMedium,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          Text(
-                            // The family, not the window onto it. A count of
-                            // what happened to be fetched reads as a count of
-                            // how many relatives somebody has.
-                            '${graph.clanPeople} people · '
-                            '${graph.clanAbove} up, ${graph.clanBelow} down'
-                            '${graph.truncated ? ' · showing the nearest' : ''}'
-                            // A tree rebuilt from the device is necessarily partial.
-                            // Presenting a fragment as the whole family is the
-                            // offline failure that actually misleads people.
-                            '${graph.fromCache ? ' · saved on this device' : ''}',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                        ),
+                        if (focus?.generationLabel != null) ...[
+                          const SizedBox(width: 8),
+                          Chip(
+                            label: Text(focus!.generationLabel!),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            padding: EdgeInsets.zero,
                           ),
-                          // Both scales, on their own line: "11th generation from
-                          // Pu Zo · 1st generation of Jasuan". A clan that counts
-                          // from somebody recent still descends from somebody far
-                          // older, and a summary that gave only one number would
-                          // be answering a question nobody asked.
-                          if (focus?.generation?.summary != null)
-                            Text(
-                              focus!.generation!.summary!,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
                         ],
-                      ),
+                        if (focus != null)
+                          Icon(
+                            Icons.chevron_right,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                      ],
                     ),
-                    if (focus?.generationLabel != null)
-                      Chip(
-                        label: Text(focus!.generationLabel!),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    if (focus != null)
-                      Icon(
-                        Icons.chevron_right,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+
+                    // Both of the clan's scales, where it keeps two.
+                    if (focus?.generation?.summary case final standing?)
+                      Text(standing, style: quiet),
+
+                    // Then the family below them, counted from the graph.
+                    if (summary?.shortly case final family?)
+                      Text(family, style: quiet),
+
+                    Text(
+                      // The family, not the window onto it. A count of what
+                      // happened to be fetched reads as a count of how many
+                      // relatives somebody has.
+                      '${graph.clanPeople} in this clan'
+                      '${graph.truncated ? ' · showing the nearest' : ''}'
+                      // A tree rebuilt from the device is necessarily partial.
+                      // Presenting a fragment as the whole family is the
+                      // offline failure that actually misleads people.
+                      '${graph.fromCache ? ' · saved on this device' : ''}',
+                      style: quiet,
+                    ),
                   ],
                 ),
               ),

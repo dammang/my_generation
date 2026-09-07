@@ -173,6 +173,44 @@ void main() {
     });
   });
 
+  group('the short form the card uses', () {
+    TreeSummary of(List<Map<String, dynamic>> generations) =>
+        TreeSummary.fromJson({
+          'person': {
+            'ulid': 'p',
+            'display_name': 'p',
+            'gender': 'male',
+            'is_living': false,
+            'redacted': false,
+          },
+          'generations': generations,
+          'total': generations.fold<int>(
+            0,
+            (sum, g) => sum + (g['total'] as int),
+          ),
+          'hidden': 0,
+        });
+
+    test('names the children and counts the rest', () {
+      final summary = of([
+        {'depth': 1, 'male': 7, 'female': 2, 'unknown': 0, 'total': 9},
+        {'depth': 2, 'male': 18, 'female': 13, 'unknown': 0, 'total': 31},
+        {'depth': 3, 'male': 20, 'female': 23, 'unknown': 0, 'total': 43},
+      ]);
+
+      // Two removes and the total. A card that listed every generation would
+      // push the chart off the screen, which is what the card describes.
+      expect(
+        summary.shortly,
+        '7 sons, 2 daughters · 31 grandchildren · 83 descendants',
+      );
+    });
+
+    test('says nothing where nobody descends from them', () {
+      expect(of([]).shortly, isNull);
+    });
+  });
+
   testWidgets('the export draws everybody, not what fits a screen', (
     tester,
   ) async {
