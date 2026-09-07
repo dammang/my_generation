@@ -78,6 +78,10 @@ class ApiPaths {
   // Tree
   static String tree(String ulid) => '$prefix/tree/$ulid';
   static String lineage(String ulid) => '$prefix/tree/$ulid/lineage';
+
+  /// What a chart's caption says about somebody: both generation scales, and
+  /// how many descend from them at each remove.
+  static String treeSummary(String ulid) => '$prefix/tree/$ulid/summary';
   static String pathTo(String from, String to) =>
       '$prefix/tree/$from/path-to/$to';
 

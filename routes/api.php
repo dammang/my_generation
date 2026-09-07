@@ -154,6 +154,10 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::get('tree/{person}/ancestors', [TreeController::class, 'ancestors'])->name('tree.ancestors');
             Route::get('tree/{person}/descendants', [TreeController::class, 'descendants'])->name('tree.descendants');
             Route::get('tree/{person}/lineage', [TreeController::class, 'lineage'])->name('tree.lineage');
+
+            // What a chart's caption says about somebody: both generation
+            // scales, and how many descend from them at each remove.
+            Route::get('tree/{person}/summary', [TreeController::class, 'summary'])->name('tree.summary');
             Route::get('tree/{person}/path-to/{other}', [TreeController::class, 'pathTo'])->name('tree.path');
         });
 

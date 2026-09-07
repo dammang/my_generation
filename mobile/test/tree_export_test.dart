@@ -9,6 +9,7 @@ import 'package:my_generation/features/tree/export/tree_export_view.dart';
 import 'package:my_generation/features/tree/layout/tree_layout_engine.dart';
 import 'package:my_generation/models/person_summary.dart';
 import 'package:my_generation/models/tree_graph.dart';
+import 'package:my_generation/models/tree_summary.dart';
 
 PersonSummary _person(String ulid, int depth) => PersonSummary(
   ulid: ulid,
@@ -74,6 +75,101 @@ void main() {
       final scale = ExportScale.forCanvas(const Size(3072, 500));
 
       expect(scale.pixels.width, ExportScale.maxEdge);
+    });
+  });
+
+  group('the caption', () {
+    TreeSummary summary(List<Map<String, dynamic>> generations) =>
+        TreeSummary.fromJson({
+          'person': {
+            'ulid': 'father',
+            'display_name': 'Thawng Dam',
+            'gender': 'male',
+            'is_living': false,
+            'redacted': false,
+            'generation': {
+              'number': 1,
+              'origin': 'Jasuan',
+              'outer_number': 11,
+              'outer_origin': 'Pu Zo',
+            },
+          },
+          'generations': generations,
+          'total': generations.fold<int>(
+            0,
+            (sum, g) => sum + (g['total'] as int),
+          ),
+          'hidden': 0,
+        });
+
+    Future<void> pumpCaption(WidgetTester tester, TreeSummary? given) async {
+      final graph = _graph(3);
+      final view = TreeExportView(
+        graph: graph,
+        layout: const TreeLayoutEngine().layout(graph),
+        title: 'Thawng Dam',
+        summary: given,
+      );
+
+      await tester.binding.setSurfaceSize(view.size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(MaterialApp(home: view));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('says where they stand on both of the clan\'s scales', (
+      tester,
+    ) async {
+      await pumpCaption(tester, summary([]));
+
+      expect(find.text('11th generation from Pu Zo'), findsOneWidget);
+      expect(find.text('1st generation of Jasuan'), findsOneWidget);
+    });
+
+    testWidgets('counts each remove the way a family says it', (tester) async {
+      await pumpCaption(
+        tester,
+        summary([
+          {'depth': 1, 'male': 7, 'female': 2, 'unknown': 0, 'total': 9},
+          {'depth': 2, 'male': 18, 'female': 13, 'unknown': 0, 'total': 31},
+          {'depth': 3, 'male': 20, 'female': 22, 'unknown': 1, 'total': 43},
+        ]),
+      );
+
+      expect(find.text('Had 7 sons, 2 daughters'), findsOneWidget);
+      expect(find.text('Had 18 grandsons, 13 granddaughters'), findsOneWidget);
+      expect(
+        find.text('Had 20 great-grandsons, 22 great-granddaughters, 1 more'),
+        findsOneWidget,
+      );
+      expect(find.text('83 descendants in all'), findsOneWidget);
+    });
+
+    testWidgets('falls back to a plain count where sex was never recorded', (
+      tester,
+    ) async {
+      await pumpCaption(
+        tester,
+        summary([
+          {'depth': 1, 'male': 0, 'female': 0, 'unknown': 5, 'total': 5},
+        ]),
+      );
+
+      // Most of an oral archive records a name and a relationship and nothing
+      // else. "5 sons" would be an invention.
+      expect(find.text('Had 5 people'), findsOneWidget);
+    });
+
+    testWidgets('a chart still exports when the count cannot be had', (
+      tester,
+    ) async {
+      await pumpCaption(tester, null);
+
+      // The count is one request that can fail; the picture is the thing
+      // somebody asked for.
+      expect(find.text('Thawng Dam'), findsOneWidget);
+      expect(find.textContaining('descendants in all'), findsNothing);
     });
   });
 

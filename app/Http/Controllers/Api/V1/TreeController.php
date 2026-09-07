@@ -10,6 +10,7 @@ use App\Http\Resources\V1\PersonResource;
 use App\Http\Resources\V1\TreeResource;
 use App\Models\Person;
 use App\Services\Privacy\ViewerScope;
+use App\Services\Tree\DescendantCensus;
 use App\Services\Tree\LineageDepthService;
 use App\Services\Tree\RelationshipPathFinder;
 use App\Services\Tree\TreeCache;
@@ -130,6 +131,33 @@ class TreeController extends Controller
                         : 'Generation '.$depth['depth']),
             ],
         );
+    }
+
+    /**
+     * Everything a chart's caption needs about one person.
+     *
+     * Counted from the graph, not from whatever the client fetched: a tree
+     * drawn three generations deep would otherwise caption itself as a family
+     * three generations large.
+     */
+    public function summary(Person $person, DescendantCensus $census): JsonResponse
+    {
+        $this->authorize('view', $person);
+
+        $person->load([
+            'clan:id,ulid,name,ancestor_person_id,counting_origin_person_id,generation_offset',
+            'clan.ancestor:id,display_name',
+            'clan.countingOrigin:id,display_name',
+            'familyBranch:id,ulid,name,ancestor_person_id,generation_offset',
+            'familyBranch.ancestor:id,display_name',
+            'lineageDepths:person_id,root_person_id,depth',
+            'generation',
+        ]);
+
+        return ApiResponse::success([
+            'person' => PersonResource::make($person),
+            ...$census->forPerson($person, $this->viewer),
+        ]);
     }
 
     /** "How am I related to this person?" */

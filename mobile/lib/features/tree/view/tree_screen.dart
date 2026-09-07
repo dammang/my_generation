@@ -9,6 +9,7 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import '../../../core/errors/api_exception.dart';
 import '../../../models/tree_graph.dart';
+import '../../../models/tree_summary.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/tree_provider.dart';
 import '../layout/tree_layout.dart';
@@ -149,11 +150,30 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     try {
       const exporter = TreeExporter();
 
+      // Counted from the graph, not from what was fetched. A chart drawn three
+      // generations deep would otherwise caption itself as a family three
+      // generations large — and a caption is the part somebody quotes years
+      // later, when nobody remembers how deep the chart was drawn.
+      TreeSummary? summary;
+
+      try {
+        summary = await ref
+            .read(treeRepositoryProvider)
+            .summary(graph.focusUlid)
+            .timeout(const Duration(seconds: 12));
+      } catch (_) {
+        // A caption with fewer lines is worth more than a failed export.
+        summary = null;
+      }
+
+      if (!mounted) return;
+
       final exported = await exporter.export(
         context: context,
         graph: graph,
         layout: layout,
         title: title,
+        summary: summary,
       );
 
       messenger.hideCurrentSnackBar();

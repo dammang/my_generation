@@ -3,6 +3,7 @@ import '../core/errors/api_exception.dart';
 import '../core/network/api_client.dart';
 import '../database/tree_cache_dao.dart';
 import '../models/tree_graph.dart';
+import '../models/tree_summary.dart';
 
 class TreeRepository {
   TreeRepository(this._api, this._cache);
@@ -15,6 +16,18 @@ class TreeRepository {
   /// Depth is always bounded — the server refuses anything past its cap rather
   /// than silently clamping — and expansion is asking for a deeper slice
   /// around a new focus, not fetching "the rest".
+  /// Counted from the graph rather than from what was fetched: a tree drawn
+  /// three generations deep would otherwise caption itself as a family three
+  /// generations large.
+  Future<TreeSummary> summary(String ulid) async {
+    final envelope = await _api.get<Map<String, dynamic>>(
+      ApiPaths.treeSummary(ulid),
+      parse: (data) => (data as Map).cast<String, dynamic>(),
+    );
+
+    return TreeSummary.fromJson(envelope.data!);
+  }
+
   Future<TreeGraph> tree(
     String ulid, {
     int ancestors = 3,
@@ -57,8 +70,9 @@ class TreeRepository {
 /// Thrown when there is neither a connection nor a cached copy.
 class NothingCachedException extends ApiException {
   const NothingCachedException()
-      : super(
-          message: 'You are offline and this part of the family is not saved '
-              'on this device yet.',
-        );
+    : super(
+        message:
+            'You are offline and this part of the family is not saved '
+            'on this device yet.',
+      );
 }

@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../models/tree_graph.dart';
+import '../../../models/tree_summary.dart';
 import '../layout/tree_layout.dart';
 import 'tree_export_image.dart';
 import 'tree_export_view.dart';
@@ -46,8 +47,14 @@ class TreeExporter {
     required TreeGraph graph,
     required TreeLayout layout,
     required String title,
+    TreeSummary? summary,
   }) async {
-    final view = TreeExportView(graph: graph, layout: layout, title: title);
+    final view = TreeExportView(
+      graph: graph,
+      layout: layout,
+      title: title,
+      summary: summary,
+    );
     final scale = ExportScale.forCanvas(view.size);
 
     // Photographs are drawn from the shared image cache, and an offscreen
