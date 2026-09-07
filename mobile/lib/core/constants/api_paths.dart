@@ -42,6 +42,10 @@ class ApiPaths {
   /// Named family lines, for linking somebody who married in to the family
   /// they came from.
   static const String familyBranches = '$prefix/family-branches';
+  static String familyBranch(String ulid) => '$familyBranches/$ulid';
+
+  /// Generation labels, which a clan may name for itself.
+  static const String generations = '$prefix/generations';
 
   // Sync
   static const String syncBatch = '$prefix/sync/batch';

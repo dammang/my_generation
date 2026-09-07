@@ -22,6 +22,7 @@ use App\Http\Resources\V1\PersonResource;
 use App\Http\Resources\V1\UnionResource;
 use App\Models\Clan;
 use App\Models\FamilyBranch;
+use App\Models\Generation;
 use App\Models\Person;
 use App\Models\PersonName;
 use App\Models\Place;
@@ -105,7 +106,15 @@ class PersonController extends Controller
         $person->load([
             'tribe:id,ulid,name',
             'clan:id,ulid,name',
-            'familyBranch:id,ulid,name',
+            // The same set the tree loads, and for the same reason: the
+            // generation label is derived from the distance to the branch's
+            // founder, so the branch has to carry who that is and the depths
+            // have to be present. Without them this page showed no generation
+            // at all while the tree showed one for the same person.
+            'familyBranch:id,ulid,name,ancestor_person_id',
+            'lineageDepths:person_id,root_person_id,depth',
+            'unionsAsPartner1.partner2.lineageDepths:person_id,root_person_id,depth',
+            'unionsAsPartner2.partner1.lineageDepths:person_id,root_person_id,depth',
             'generation',
             'birthPlace',
             'deathPlace',
@@ -425,6 +434,7 @@ class PersonController extends Controller
             'tribe_ulid' => ['tribe_id', Tribe::class],
             'clan_ulid' => ['clan_id', Clan::class],
             'family_branch_ulid' => ['family_branch_id', FamilyBranch::class],
+            'generation_ulid' => ['generation_id', Generation::class],
         ];
 
         foreach ($map as $input => [$column, $model]) {

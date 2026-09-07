@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/errors/api_exception.dart';
 import '../../../models/change_request.dart';
 import '../../../models/person_detail.dart';
+import '../../../providers/clan_provider.dart';
 import '../../../providers/person_provider.dart';
 import '../../../providers/review_provider.dart';
 import '../../../widgets/form_banner.dart';
@@ -26,15 +27,33 @@ class EditPersonScreen extends ConsumerStatefulWidget {
 
 class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final _firstName = TextEditingController(text: widget.detail.summary.displayName.split(' ').first);
+  late final _firstName = TextEditingController(
+    text: widget.detail.summary.displayName.split(' ').first,
+  );
   late final _lastName = TextEditingController();
-  late final _nativeName = TextEditingController(text: widget.detail.summary.nativeName ?? '');
-  late final _birth = TextEditingController(text: widget.detail.summary.birthDisplay ?? '');
-  late final _death = TextEditingController(text: widget.detail.summary.deathDisplay ?? '');
+  late final _nativeName = TextEditingController(
+    text: widget.detail.summary.nativeName ?? '',
+  );
+  late final _birth = TextEditingController(
+    text: widget.detail.summary.birthDisplay ?? '',
+  );
+  late final _death = TextEditingController(
+    text: widget.detail.summary.deathDisplay ?? '',
+  );
   final _reason = TextEditingController();
 
   bool _saving = false;
   String? _error;
+
+  /// Null means "leave it alone"; the sentinel below means "clear it".
+  ///
+  /// Two different intentions that both look like an empty dropdown, and
+  /// sending the wrong one either wipes a label nobody touched or quietly
+  /// keeps one somebody removed.
+  String? _generationUlid;
+  bool _generationTouched = false;
+
+  static const String _noGeneration = 'none';
 
   @override
   void dispose() {
@@ -60,15 +79,23 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
     });
 
     try {
-      final outcome = await ref.read(reviewRepositoryProvider).editPerson(
+      final outcome = await ref
+          .read(reviewRepositoryProvider)
+          .editPerson(
             ulid: widget.detail.ulid,
             reason: _reason.text.trim().isEmpty ? null : _reason.text.trim(),
             changes: {
               'first_name': _firstName.text.trim(),
-              if (_lastName.text.trim().isNotEmpty) 'last_name': _lastName.text.trim(),
-              if (_nativeName.text.trim().isNotEmpty) 'native_name': _nativeName.text.trim(),
+              if (_lastName.text.trim().isNotEmpty)
+                'last_name': _lastName.text.trim(),
+              if (_nativeName.text.trim().isNotEmpty)
+                'native_name': _nativeName.text.trim(),
               if (_birth.text.trim().isNotEmpty) 'birth': _birth.text.trim(),
               if (_death.text.trim().isNotEmpty) 'death': _death.text.trim(),
+              if (_generationTouched)
+                'generation_ulid': _generationUlid == _noGeneration
+                    ? null
+                    : _generationUlid,
             },
           );
 
@@ -106,7 +133,8 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
               ),
             if (_willBeReviewed)
               FormBanner(
-                message: 'This record has been checked, so your correction '
+                message:
+                    'This record has been checked, so your correction '
                     'will be sent for review rather than applied straight away.',
                 tone: theme.colorScheme.primary,
                 icon: Icons.how_to_reg,
@@ -116,8 +144,9 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
               controller: _firstName,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(labelText: 'First name'),
-              validator: (value) =>
-                  (value?.trim().isEmpty ?? true) ? 'A first name is needed' : null,
+              validator: (value) => (value?.trim().isEmpty ?? true)
+                  ? 'A first name is needed'
+                  : null,
             ),
             const SizedBox(height: 14),
             TextFormField(
@@ -128,7 +157,9 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
             const SizedBox(height: 14),
             TextFormField(
               controller: _nativeName,
-              decoration: const InputDecoration(labelText: 'Name in your own script'),
+              decoration: const InputDecoration(
+                labelText: 'Name in your own script',
+              ),
             ),
             const SizedBox(height: 14),
             TextFormField(
@@ -143,17 +174,31 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
               controller: _death,
               decoration: const InputDecoration(labelText: 'Died'),
             ),
+            const SizedBox(height: 14),
+            _GenerationField(
+              tribeUlid: widget.detail.tribeUlid,
+              currentLabel: widget.detail.summary.generationLabel,
+              value: _generationUlid,
+              onChanged: (ulid) => setState(() {
+                _generationUlid = ulid;
+                _generationTouched = true;
+              }),
+              noneValue: _noGeneration,
+            ),
             const SizedBox(height: 20),
             TextFormField(
               controller: _reason,
               maxLines: 3,
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
-                labelText: _willBeReviewed ? 'Why? (the reviewer will read this)' : 'Why?',
+                labelText: _willBeReviewed
+                    ? 'Why? (the reviewer will read this)'
+                    : 'Why?',
                 alignLabelWithHint: true,
                 // The reason is what makes history readable later. Without it a
                 // correction is just a value that changed for no stated cause.
-                helperText: 'Kept with the change, so the next person knows why',
+                helperText:
+                    'Kept with the change, so the next person knows why',
               ),
             ),
             const SizedBox(height: 28),
@@ -165,7 +210,11 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
                       width: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(_willBeReviewed ? 'Suggest this correction' : 'Save the correction'),
+                  : Text(
+                      _willBeReviewed
+                          ? 'Suggest this correction'
+                          : 'Save the correction',
+                    ),
             ),
           ],
         ),
@@ -186,4 +235,76 @@ void showEditOutcome(BuildContext context, EditOutcome outcome) {
       duration: const Duration(seconds: 4),
     ),
   );
+}
+
+/// Which generation this person is counted at.
+///
+/// Almost nobody needs it: the number is worked out from the family branch's
+/// founder. It is here for the person that cannot be worked out — somebody who
+/// married in stands at their partner's generation, not at their own distance
+/// from a founder this archive may not even hold.
+class _GenerationField extends ConsumerWidget {
+  const _GenerationField({
+    required this.tribeUlid,
+    required this.currentLabel,
+    required this.value,
+    required this.onChanged,
+    required this.noneValue,
+  });
+
+  final String? tribeUlid;
+  final String? currentLabel;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+  final String noneValue;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    // Nothing to choose from, and nothing to explain: a person outside any
+    // tribe has no set of labels to belong to.
+    if (tribeUlid == null) return const SizedBox.shrink();
+
+    final generations = ref.watch(generationsProvider(tribeUlid!));
+
+    return generations.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (all) {
+        if (all.isEmpty) {
+          return Text(
+            'No generation labels exist yet. Whoever runs the clan can add '
+            'them on its page.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          );
+        }
+
+        return DropdownButtonFormField<String>(
+          initialValue: value,
+          isExpanded: true,
+          decoration: InputDecoration(
+            labelText: 'Generation',
+            helperText: currentLabel == null
+                ? 'Normally counted automatically. Set it only to override.'
+                : 'Now showing as $currentLabel. Set it only to override.',
+          ),
+          items: [
+            DropdownMenuItem(
+              value: noneValue,
+              child: const Text('Counted automatically'),
+            ),
+            for (final generation in all)
+              DropdownMenuItem(
+                value: generation.ulid,
+                child: Text(generation.label),
+              ),
+          ],
+          onChanged: onChanged,
+        );
+      },
+    );
+  }
 }

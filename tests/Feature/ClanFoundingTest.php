@@ -15,6 +15,7 @@ use App\Models\Tribe;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -143,5 +144,106 @@ class ClanFoundingTest extends TestCase
         $this->actingAs($this->founder)
             ->postJson(route('api.v1.people.store'), ['display_name' => 'Unplaced Ancestor'])
             ->assertCreated();
+    }
+
+    #[Test]
+    public function a_family_branch_makes_generations_appear_at_once(): void
+    {
+        $ancestor = $this->founding('Pu Zo');
+
+        // A child, through the app's own path rather than hand-built rows, so
+        // what is counted is what the archive actually holds.
+        $this->actingAs($this->founder)
+            ->postJson(route('api.v1.people.relatives', $ancestor), [
+                'relation' => 'son',
+                'person' => ['display_name' => 'Thang Zo'],
+            ])
+            ->assertCreated();
+
+        // Before: 104 people and no numbers is what a clan with no branch
+        // looks like — nothing declares where counting begins.
+        $this->assertSame(0, DB::table('lineage_depths')->count());
+
+        $this->actingAs($this->founder)
+            ->postJson(route('api.v1.branches.store'), [
+                'tribe_ulid' => $this->tribe->ulid,
+                'clan_ulid' => $this->clan->ulid,
+                'name' => 'Zo line',
+                'ancestor_person_ulid' => $ancestor->ulid,
+            ])
+            ->assertCreated();
+
+        // At once, not on the next hourly run: somebody who has just said
+        // where their family begins and sees no change concludes it failed.
+        $son = Person::where('display_name', 'Thang Zo')->firstOrFail();
+
+        $this->assertSame(0, (int) DB::table('lineage_depths')
+            ->where('person_id', $ancestor->id)->value('depth'));
+        $this->assertSame(1, (int) DB::table('lineage_depths')
+            ->where('person_id', $son->id)->value('depth'));
+
+        $this->actingAs($this->founder)
+            ->getJson(route('api.v1.people.show', $son))
+            ->assertOk()
+            ->assertJsonPath('data.generation_label', '2nd Generation');
+    }
+
+    #[Test]
+    public function a_branch_cannot_be_put_in_a_family_the_founder_does_not_run(): void
+    {
+        $otherTribe = Tribe::factory()->create();
+
+        $this->actingAs($this->founder)
+            ->postJson(route('api.v1.branches.store'), [
+                'tribe_ulid' => $otherTribe->ulid,
+                'name' => 'Somebody else\'s line',
+            ])
+            ->assertForbidden();
+    }
+
+    #[Test]
+    public function a_generation_can_be_assigned_by_hand_and_wins(): void
+    {
+        $ancestor = $this->founding('Pu Zo');
+
+        // A clan numbering its own people. Tribe authority is not required for
+        // a label that only describes this clan.
+        $generation = $this->actingAs($this->founder)
+            ->postJson(route('api.v1.generations.store'), [
+                'tribe_ulid' => $this->tribe->ulid,
+                'clan_ulid' => $this->clan->ulid,
+                'generation_number' => 4,
+                'generation_name' => '4th Generation',
+            ])
+            ->assertCreated()
+            ->json('data.ulid');
+
+        $this->actingAs($this->founder)
+            ->patchJson(route('api.v1.people.update', $ancestor), [
+                'generation_ulid' => $generation,
+            ])
+            ->assertSuccessful();
+
+        // Somebody who married in is counted at their partner's generation,
+        // not at their own distance from a founder this archive may not hold,
+        // so a hand-assigned label outranks anything derived.
+        $this->actingAs($this->founder)
+            ->getJson(route('api.v1.people.show', $ancestor))
+            ->assertOk()
+            ->assertJsonPath('data.generation_label', '4th Generation');
+    }
+
+    /** The first person in the clan, created the way the app creates them. */
+    private function founding(string $name): Person
+    {
+        $ulid = $this->actingAs($this->founder)
+            ->postJson(route('api.v1.people.store'), [
+                'display_name' => $name,
+                'clan_ulid' => $this->clan->ulid,
+            ])
+            ->assertCreated()
+            ->json('data.ulid');
+
+        return Person::where('ulid', $ulid)->firstOrFail();
     }
 }

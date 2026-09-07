@@ -32,12 +32,17 @@ class ClanDetail {
   const ClanDetail({
     required this.ulid,
     required this.name,
+    this.tribeUlid,
     this.ancestorUlid,
     this.ancestorName,
   });
 
   final String ulid;
   final String name;
+
+  /// Creating a family branch needs it, and nothing else on the page knows it.
+  final String? tribeUlid;
+
   final String? ancestorUlid;
   final String? ancestorName;
 
@@ -49,6 +54,9 @@ class ClanDetail {
     return ClanDetail(
       ulid: json['ulid'] as String,
       name: json['name'] as String? ?? 'Unnamed',
+      tribeUlid:
+          ((json['tribe'] as Map?)?.cast<String, dynamic>())?['ulid']
+              as String?,
       ancestorUlid: ancestor?['ulid'] as String?,
       ancestorName: ancestor?['display_name'] as String?,
     );
@@ -105,6 +113,28 @@ class CommitteeCandidate {
       roles: _strings(json['roles']),
     );
   }
+}
+
+/// A generation label, which a tribe or one of its clans has named.
+///
+/// Assigning one by hand is deliberate and outranks the computed depth: a
+/// tribe that does not count women's generations the way it counts men's
+/// needs to be able to say so, and no amount of walking the graph works it out.
+class GenerationLabel {
+  const GenerationLabel({required this.ulid, required this.number, this.name});
+
+  final String ulid;
+  final int number;
+  final String? name;
+
+  String get label => name ?? '$number';
+
+  factory GenerationLabel.fromJson(Map<String, dynamic> json) =>
+      GenerationLabel(
+        ulid: json['ulid'] as String,
+        number: json['generation_number'] as int? ?? 0,
+        name: json['generation_name'] as String?,
+      );
 }
 
 /// Role names as the server knows them, said the way a family would.

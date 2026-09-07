@@ -184,7 +184,10 @@ class TreeTraversalService
                 'profileMedia:id,path,conversions',
                 'tribe:id,ulid,name',
                 'clan:id,ulid,name',
-                'generation:id,generation_name',
+                // generation_number too: the label falls back to an ordinal
+                // built from it when a generation carries no name, and a
+                // column that was not selected reads as zero.
+                'generation:id,generation_name,generation_number',
                 // The displayed generation is derived from these; the branch
                 // carries which ancestor the depth is measured from.
                 'lineageDepths:person_id,root_person_id,depth',

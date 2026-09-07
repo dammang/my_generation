@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/errors/api_exception.dart';
 import '../../../models/committee.dart';
+import '../../../models/family_branch_summary.dart';
+import '../../../models/person_summary.dart';
 import '../../../providers/clan_provider.dart';
 import '../../../routing/app_router.dart';
 
@@ -81,6 +83,10 @@ class AdministerScreen extends ConsumerWidget {
               // A tribe already has its families; only a clan begins empty.
               if (scopeType == 'clan') ...[
                 _BeginsWith(clanUlid: scopeUlid),
+                const SizedBox(height: 16),
+                _FamilyBranches(clanUlid: scopeUlid),
+                const SizedBox(height: 16),
+                _Generations(clanUlid: scopeUlid),
                 const SizedBox(height: 20),
                 Text('Committee', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 6),
@@ -488,6 +494,534 @@ class _AncestorSheetState extends State<_AncestorSheet> {
     );
   }
 }
+
+/// The named lines inside a clan, and what each one counts from.
+///
+/// This is what actually produces generation numbers. A clan ancestor says
+/// where the family begins; a branch's ancestor is what the counter walks down
+/// from, and people who belong to no branch carry no generation at all however
+/// much has been computed about them.
+class _FamilyBranches extends ConsumerWidget {
+  const _FamilyBranches({required this.clanUlid});
+
+  final String clanUlid;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final branches = ref.watch(clanBranchesProvider(clanUlid));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Family branches', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Generations are counted from where each line starts.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            branches.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (error, _) => Text(
+                error is ApiException
+                    ? error.message
+                    : 'Could not read the family branches.',
+                style: theme.textTheme.bodyMedium,
+              ),
+              data: (all) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final branch in all)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.share_outlined),
+                      title: Text(branch.name),
+                      // A line with no starting point counts nobody, and
+                      // saying so is the difference between a screen that
+                      // looks finished and one that asks for the missing half.
+                      subtitle: Text(
+                        branch.ancestorName == null
+                            ? 'No starting point — nobody is counted yet'
+                            : 'Counted from ${branch.ancestorName}',
+                        style: branch.ancestorName == null
+                            ? TextStyle(color: theme.colorScheme.error)
+                            : null,
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _setAncestor(context, ref, branch),
+                    ),
+                  const SizedBox(height: 4),
+                  OutlinedButton.icon(
+                    onPressed: () => _addBranch(context, ref),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add a family branch'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(46),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addBranch(BuildContext context, WidgetRef ref) async {
+    final clan = ref.read(clanProvider(clanUlid)).value;
+    final tribeUlid = clan?.tribeUlid;
+
+    if (tribeUlid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Still reading the clan. Try again.')),
+      );
+      return;
+    }
+
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => const _BranchNameDialog(),
+    );
+
+    if (name == null || !context.mounted) return;
+
+    final ancestor = await _pickPerson(context, 'Who does $name start from?');
+
+    if (!context.mounted) return;
+
+    await _run(
+      context,
+      () => ref
+          .read(clanRepositoryProvider)
+          .createBranch(
+            tribeUlid: tribeUlid,
+            clanUlid: clanUlid,
+            name: name,
+            ancestorUlid: ancestor?.ulid,
+          ),
+      ref,
+    );
+  }
+
+  Future<void> _setAncestor(
+    BuildContext context,
+    WidgetRef ref,
+    FamilyBranchSummary branch,
+  ) async {
+    final person = await _pickPerson(
+      context,
+      'Who does ${branch.name} start from?',
+    );
+
+    if (person == null || !context.mounted) return;
+
+    await _run(
+      context,
+      () => ref
+          .read(clanRepositoryProvider)
+          .setBranchAncestor(
+            branchUlid: branch.ulid,
+            ancestorUlid: person.ulid,
+          ),
+      ref,
+    );
+  }
+
+  Future<PersonSummary?> _pickPerson(BuildContext context, String title) =>
+      showModalBottomSheet<PersonSummary>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => _ClanPersonSheet(clanUlid: clanUlid, title: title),
+      );
+
+  /// Reports what happened to the archive, not that a row was written.
+  Future<void> _run(
+    BuildContext context,
+    Future<int> Function() work,
+    WidgetRef ref,
+  ) async {
+    try {
+      final placed = await work();
+
+      ref.invalidate(clanBranchesProvider(clanUlid));
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              placed == 0
+                  ? 'Saved. Nobody new was counted from there.'
+                  : placed == 1
+                  ? '1 person is now counted from there.'
+                  : '$placed people are now counted from there.',
+            ),
+          ),
+        );
+      }
+    } on ApiException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+}
+
+/// Naming a line. One field, so a dialog rather than a screen.
+class _BranchNameDialog extends StatefulWidget {
+  const _BranchNameDialog();
+
+  @override
+  State<_BranchNameDialog> createState() => _BranchNameDialogState();
+}
+
+class _BranchNameDialogState extends State<_BranchNameDialog> {
+  final _name = TextEditingController();
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('New family branch'),
+    content: TextField(
+      controller: _name,
+      autofocus: true,
+      textCapitalization: TextCapitalization.words,
+      decoration: const InputDecoration(
+        labelText: 'Name of the line',
+        helperText: 'Often the founder\'s name, or where they settled.',
+      ),
+      onSubmitted: (value) => Navigator.pop(context, value.trim()),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () {
+          final name = _name.text.trim();
+          if (name.isNotEmpty) Navigator.pop(context, name);
+        },
+        child: const Text('Next'),
+      ),
+    ],
+  );
+}
+
+/// Somebody already in this clan.
+///
+/// Restricted to the clan on purpose: a line inside the Guite cannot begin
+/// with somebody who is not one, and the server refuses it anyway.
+class _ClanPersonSheet extends ConsumerStatefulWidget {
+  const _ClanPersonSheet({required this.clanUlid, required this.title});
+
+  final String clanUlid;
+  final String title;
+
+  @override
+  ConsumerState<_ClanPersonSheet> createState() => _ClanPersonSheetState();
+}
+
+class _ClanPersonSheetState extends ConsumerState<_ClanPersonSheet> {
+  final _search = TextEditingController();
+
+  Timer? _debounce;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 350),
+      () => setState(() => _query = value.trim()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final people = ref.watch(
+      clanPeopleProvider((clan: widget.clanUlid, query: _query)),
+    );
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+      ),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.7,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.title, style: theme.textTheme.titleLarge),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _search,
+              onChanged: _onChanged,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Search by name',
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: people.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(
+                  child: Text(
+                    error is ApiException
+                        ? error.message
+                        : 'Could not read this clan\'s people.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                data: (all) => all.isEmpty
+                    ? Center(
+                        child: Text(
+                          _query.isEmpty
+                              ? 'Nobody in this clan yet.'
+                              : 'Nobody found. Names match from the beginning.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: all.length,
+                        itemBuilder: (context, i) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(all[i].displayName),
+                          subtitle: all[i].birthDisplay == null
+                              ? null
+                              : Text(all[i].birthDisplay!),
+                          onTap: () => Navigator.pop(context, all[i]),
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Generation labels this clan has named.
+///
+/// Numbers are normally counted, not typed — this exists for the cases
+/// counting cannot reach: somebody who married in, or a family whose own
+/// numbering starts somewhere the graph does not know about. A label has to
+/// exist before anybody can be assigned to it, which is why it is made here
+/// rather than buried in one person's edit form.
+class _Generations extends ConsumerWidget {
+  const _Generations({required this.clanUlid});
+
+  final String clanUlid;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final clan = ref.watch(clanProvider(clanUlid)).value;
+    final tribeUlid = clan?.tribeUlid;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Generation labels', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Most people are numbered automatically. These are for the ones '
+              'who cannot be — somebody who married in, for instance.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (tribeUlid == null)
+              const LinearProgressIndicator()
+            else
+              Consumer(
+                builder: (context, ref, _) {
+                  final generations = ref.watch(generationsProvider(tribeUlid));
+
+                  return generations.when(
+                    loading: () => const LinearProgressIndicator(),
+                    error: (error, _) => Text(
+                      error is ApiException
+                          ? error.message
+                          : 'Could not read the generation labels.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    data: (all) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (all.isNotEmpty)
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              for (final generation in all)
+                                Chip(
+                                  label: Text(generation.label),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                            ],
+                          ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              _add(context, ref, tribeUlid, all.length + 1),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add a generation'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(46),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _add(
+    BuildContext context,
+    WidgetRef ref,
+    String tribeUlid,
+    int suggested,
+  ) async {
+    final made = await showDialog<({int number, String name})>(
+      context: context,
+      builder: (_) => _GenerationDialog(suggested: suggested),
+    );
+
+    if (made == null || !context.mounted) return;
+
+    try {
+      await ref
+          .read(clanRepositoryProvider)
+          .createGeneration(
+            tribeUlid: tribeUlid,
+            clanUlid: clanUlid,
+            number: made.number,
+            name: made.name.isEmpty ? null : made.name,
+          );
+
+      ref.invalidate(generationsProvider(tribeUlid));
+    } on ApiException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+}
+
+class _GenerationDialog extends StatefulWidget {
+  const _GenerationDialog({required this.suggested});
+
+  final int suggested;
+
+  @override
+  State<_GenerationDialog> createState() => _GenerationDialogState();
+}
+
+class _GenerationDialogState extends State<_GenerationDialog> {
+  late final _number = TextEditingController(text: '${widget.suggested}');
+  late final _name = TextEditingController(
+    text: '${_ordinal(widget.suggested)} Generation',
+  );
+
+  @override
+  void dispose() {
+    _number.dispose();
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('New generation label'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _number,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Number'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _name,
+          decoration: const InputDecoration(
+            labelText: 'Name',
+            // Every tribe has its own word for a generation, and forcing an
+            // English ordinal on one that does not use them is the archive
+            // overwriting the thing it exists to record.
+            helperText: 'Your own word for it, if you have one.',
+          ),
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () {
+          final number = int.tryParse(_number.text.trim());
+
+          if (number != null) {
+            Navigator.pop(context, (number: number, name: _name.text.trim()));
+          }
+        },
+        child: const Text('Add'),
+      ),
+    ],
+  );
+}
+
+String _ordinal(int n) => switch (n % 100) {
+  11 || 12 || 13 => '${n}th',
+  _ => switch (n % 10) {
+    1 => '${n}st',
+    2 => '${n}nd',
+    3 => '${n}rd',
+    _ => '${n}th',
+  },
+};
 
 /// Who could be appointed.
 ///

@@ -40,8 +40,18 @@ Map<String, List<FakeReply>> _replies({
   ],
   // The clan the page also renders a "where this family begins" card for.
   'GET /api/v1/clans/$_clanUlid': [
-    FakeReply(200, _ok({'ulid': _clanUlid, 'name': 'Guite', 'ancestor': null})),
+    FakeReply(
+      200,
+      _ok({
+        'ulid': _clanUlid,
+        'name': 'Guite',
+        'tribe': {'ulid': '01TRIBETRIBETRIBETRIBETRIB', 'name': 'Zomi'},
+        'ancestor': null,
+      }),
+    ),
   ],
+  'GET /api/v1/family-branches': [FakeReply(200, _ok(<dynamic>[]))],
+  'GET /api/v1/generations': [FakeReply(200, _ok(<dynamic>[]))],
   'GET /api/v1/scope-roles': [FakeReply(200, _ok(appointments))],
   'GET /api/v1/scope-roles/candidates': [
     FakeReply(
@@ -92,6 +102,14 @@ Future<FakeAdapter> pumpCommittee(
   return adapter;
 }
 
+/// The committee sits below where a clan begins and its branches, so on a
+/// phone-sized surface it starts off screen — and a widget that was never
+/// built is not one `find` can see.
+Future<void> scrollToCommittee(WidgetTester tester, Finder target) async {
+  await tester.scrollUntilVisible(target, 200);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('an appointment says who made it', (tester) async {
     await pumpCommittee(
@@ -107,6 +125,9 @@ void main() {
     );
 
     expect(find.text('Guite'), findsOneWidget);
+
+    await scrollToCommittee(tester, find.text('Dam Mang'));
+
     expect(find.text('Dam Mang'), findsOneWidget);
     // Named, not slugged: "clan-admin" is a database value, and who appointed
     // somebody is the first thing anybody asks about an appointment.
@@ -118,6 +139,11 @@ void main() {
 
   testWidgets('appointing sends what the server asked for', (tester) async {
     final adapter = await pumpCommittee(tester);
+
+    await scrollToCommittee(
+      tester,
+      find.text('Nobody has been appointed here yet.'),
+    );
 
     expect(find.text('Nobody has been appointed here yet.'), findsOneWidget);
 

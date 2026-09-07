@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\V1;
 
+use App\Models\Clan;
 use App\Models\Tribe;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,11 +15,32 @@ use Illuminate\Validation\Rule;
  */
 class StoreGenerationRequest extends FormRequest
 {
+    /**
+     * A generation belonging to one clan is that clan's to name.
+     *
+     * Authorised against the clan when one is given, and against the tribe
+     * otherwise: a tribe-wide label affects every family in it, but "the
+     * fourth generation of the Guite" is a statement about the Guite, and
+     * requiring tribe authority for it would leave a clan unable to number
+     * its own people.
+     */
     public function authorize(): bool
     {
+        $user = $this->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        if ($this->filled('clan_ulid')) {
+            $clan = Clan::where('ulid', $this->string('clan_ulid'))->first();
+
+            return $clan !== null && $user->can('update', $clan);
+        }
+
         $tribe = Tribe::where('ulid', $this->string('tribe_ulid'))->first();
 
-        return $tribe !== null && ($this->user()?->can('update', $tribe) ?? false);
+        return $tribe !== null && $user->can('update', $tribe);
     }
 
     /** @return array<string, mixed> */

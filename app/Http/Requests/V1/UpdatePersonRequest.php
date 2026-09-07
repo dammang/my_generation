@@ -38,6 +38,11 @@ class UpdatePersonRequest extends FormRequest
             'tribe_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('tribes', 'ulid')],
             'clan_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('clans', 'ulid')],
             'family_branch_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('family_branches', 'ulid')],
+            // Assigned by hand, and deliberately allowed to disagree with the
+            // computed depth: somebody who married in is counted at their
+            // partner's generation, not at their own distance from a founder
+            // this archive may not even hold.
+            'generation_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('generations', 'ulid')],
             'privacy_level' => ['sometimes', Rule::enum(PrivacyLevel::class)],
             'verification_status' => ['sometimes', Rule::enum(VerificationStatus::class)],
             'reason' => ['sometimes', 'nullable', 'string', 'max:500'],

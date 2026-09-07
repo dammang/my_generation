@@ -27,9 +27,21 @@ class FamilyBranchPolicy
         return true;
     }
 
+    /**
+     * Whether this account may create a branch anywhere at all.
+     *
+     * A scoped holder counts: `can()` with no path answers only for a global
+     * permission, so asking it alone told every clan admin no — and a clan
+     * admin who cannot create a family branch cannot record where their
+     * generations are counted from, which is most of running a clan.
+     *
+     * Where they may create one is checked separately, against the tribe or
+     * clan the branch is being placed in.
+     */
     public function create(User $user): bool
     {
-        return $this->permissions->can($user, 'families.manage');
+        return $this->permissions->can($user, 'families.manage')
+            || $this->permissions->scopePathsFor($user, 'families.manage') !== [];
     }
 
     public function update(User $user, FamilyBranch $branch): bool

@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/clan_registration.dart';
 import '../models/committee.dart';
+import '../models/family_branch_summary.dart';
+import '../models/person_summary.dart';
 import '../repositories/clan_repository.dart';
 import 'app_providers.dart';
 
@@ -28,6 +30,27 @@ final administeredScopesProvider = FutureProvider<List<AdministeredScope>>(
 final clanProvider = FutureProvider.family<ClanDetail, String>(
   (ref, ulid) => ref.watch(clanRepositoryProvider).clan(ulid),
 );
+
+/// The named lines inside one clan.
+final clanBranchesProvider =
+    FutureProvider.family<List<FamilyBranchSummary>, String>(
+      (ref, clanUlid) => ref.watch(clanRepositoryProvider).branches(clanUlid),
+    );
+
+/// People already in the clan, narrowed by what has been typed.
+final clanPeopleProvider =
+    FutureProvider.family<List<PersonSummary>, ({String clan, String query})>(
+      (ref, args) => ref
+          .watch(clanRepositoryProvider)
+          .peopleIn(args.clan, search: args.query),
+    );
+
+/// Generation labels usable in one tribe.
+final generationsProvider =
+    FutureProvider.family<List<GenerationLabel>, String>(
+      (ref, tribeUlid) =>
+          ref.watch(clanRepositoryProvider).generations(tribeUlid),
+    );
 
 final committeeProvider = FutureProvider.family<List<Appointment>, ScopeRef>(
   (ref, scope) => ref

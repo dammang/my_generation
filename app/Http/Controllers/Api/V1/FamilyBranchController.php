@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Genealogy\PlaceDescendantsInBranch;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\StoreFamilyBranchRequest;
 use App\Http\Requests\V1\UpdateFamilyBranchRequest;
@@ -13,8 +14,13 @@ use App\Models\FamilyBranch;
 use App\Models\Person;
 use App\Models\Place;
 use App\Models\Tribe;
+use App\Models\User;
+use App\Policies\ResolvesScopePath;
+use App\Services\Permissions\PermissionResolver;
 use App\Services\Privacy\ViewerScope;
+use App\Services\Tree\LineageDepthService;
 use App\Support\ApiResponse;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +28,14 @@ use Illuminate\Http\Request;
 
 class FamilyBranchController extends Controller
 {
-    public function __construct(private readonly ViewerScope $viewer) {}
+    use ResolvesScopePath;
+
+    public function __construct(
+        private readonly ViewerScope $viewer,
+        private readonly PermissionResolver $permissions,
+        private readonly LineageDepthService $depths,
+        private readonly PlaceDescendantsInBranch $placeDescendants,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -52,18 +65,30 @@ class FamilyBranchController extends Controller
     {
         $data = $request->validated();
 
+        $placement = [
+            'tribe_id' => Tribe::where('ulid', $data['tribe_ulid'])->value('id'),
+            'clan_id' => $this->idFor(Clan::class, $data['clan_ulid'] ?? null),
+        ];
+
+        $this->assertMayManageIn($request->user(), $placement);
+
         $branch = FamilyBranch::create([
             ...collect($data)->except([
                 'tribe_ulid', 'clan_ulid', 'ancestor_person_ulid', 'origin_place_ulid',
             ])->all(),
-            'tribe_id' => Tribe::where('ulid', $data['tribe_ulid'])->value('id'),
-            'clan_id' => $this->idFor(Clan::class, $data['clan_ulid'] ?? null),
+            ...$placement,
             'ancestor_person_id' => $this->idFor(Person::class, $data['ancestor_person_ulid'] ?? null),
             'origin_place_id' => $this->idFor(Place::class, $data['origin_place_ulid'] ?? null),
         ]);
 
+        $placed = $this->recomputeDepths($branch);
+
         return ApiResponse::created(
-            FamilyBranchResource::make($branch->load(['tribe:id,ulid,name', 'clan:id,ulid,name']))
+            FamilyBranchResource::make($branch->load(['tribe:id,ulid,name', 'clan:id,ulid,name', 'ancestor'])),
+            // What actually happened to the archive, so a client can say
+            // "104 people are now counted from here" rather than reporting
+            // that a row was written.
+            meta: ['people_placed' => $placed],
         );
     }
 
@@ -90,9 +115,11 @@ class FamilyBranchController extends Controller
         }
 
         $familyBranch->update($data);
+        $placed = $this->recomputeDepths($familyBranch);
 
         return ApiResponse::success(
-            FamilyBranchResource::make($familyBranch->fresh(['tribe:id,ulid,name', 'clan:id,ulid,name', 'ancestor']))
+            FamilyBranchResource::make($familyBranch->fresh(['tribe:id,ulid,name', 'clan:id,ulid,name', 'ancestor'])),
+            meta: ['people_placed' => $placed],
         );
     }
 
@@ -112,6 +139,45 @@ class FamilyBranchController extends Controller
         $familyBranch->delete();
 
         return ApiResponse::noContent();
+    }
+
+    /**
+     * Generations are counted from here, so counting has to start now.
+     *
+     * Otherwise nothing in the archive has a generation until the hourly
+     * command next runs, and somebody who has just told the app where their
+     * family begins sees no change and concludes it did not work.
+     *
+     * @return int how many people the branch gained
+     */
+    private function recomputeDepths(FamilyBranch $branch): int
+    {
+        $ancestor = $branch->ancestor_person_id === null
+            ? null
+            : Person::find($branch->ancestor_person_id);
+
+        if ($ancestor === null) {
+            return 0;
+        }
+
+        $this->depths->recomputeFor($ancestor);
+
+        return $this->placeDescendants->handle($branch);
+    }
+
+    /**
+     * Where a branch may be created is not the same question as whether this
+     * account may create branches at all.
+     *
+     * @param  array{tribe_id: int|null, clan_id: int|null}  $placement
+     */
+    private function assertMayManageIn(User $user, array $placement): void
+    {
+        $path = $this->scopePathFor((new FamilyBranch)->forceFill($placement));
+
+        if ($path !== null && ! $this->permissions->can($user, 'families.manage', $path)) {
+            throw new AuthorizationException('You may not add a family branch there.');
+        }
     }
 
     /** @param  class-string<Model>  $model */

@@ -2,6 +2,8 @@ import '../core/constants/api_paths.dart';
 import '../core/network/api_client.dart';
 import '../models/clan_registration.dart';
 import '../models/committee.dart';
+import '../models/family_branch_summary.dart';
+import '../models/person_summary.dart';
 
 /// Starting a clan, and running one once it exists.
 ///
@@ -113,6 +115,124 @@ class ClanRepository {
     );
 
     return personUlid;
+  }
+
+  // ── Family branches ──────────────────────────────────────────────────
+
+  /// The named lines inside one clan.
+  Future<List<FamilyBranchSummary>> branches(String clanUlid) async {
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.familyBranches,
+      query: {'clan': clanUlid, 'per_page': 50},
+      parse: (data) => data as List<dynamic>,
+    );
+
+    return (envelope.data ?? const [])
+        .map(
+          (b) =>
+              FamilyBranchSummary.fromJson((b as Map).cast<String, dynamic>()),
+        )
+        .toList(growable: false);
+  }
+
+  /// Creates a line and says where it starts.
+  ///
+  /// Returns how many people the branch gained, which is the only visible
+  /// consequence: the server counts everybody descended from the ancestor and
+  /// places those who belong to no line yet, and that is what gives them a
+  /// generation.
+  Future<int> createBranch({
+    required String tribeUlid,
+    required String clanUlid,
+    required String name,
+    String? ancestorUlid,
+  }) async {
+    final envelope = await _api.post<Map<String, dynamic>>(
+      ApiPaths.familyBranches,
+      body: {
+        'tribe_ulid': tribeUlid,
+        'clan_ulid': clanUlid,
+        'name': name,
+        'ancestor_person_ulid': ?ancestorUlid,
+      },
+      parse: (data) => (data as Map).cast<String, dynamic>(),
+    );
+
+    return envelope.meta['people_placed'] as int? ?? 0;
+  }
+
+  Future<int> setBranchAncestor({
+    required String branchUlid,
+    required String ancestorUlid,
+  }) async {
+    final envelope = await _api.patch<Map<String, dynamic>>(
+      ApiPaths.familyBranch(branchUlid),
+      body: {'ancestor_person_ulid': ancestorUlid},
+      parse: (data) => (data as Map).cast<String, dynamic>(),
+    );
+
+    return envelope.meta['people_placed'] as int? ?? 0;
+  }
+
+  /// People already in the clan, for choosing which of them a line starts at.
+  Future<List<PersonSummary>> peopleIn(
+    String clanUlid, {
+    String? search,
+  }) async {
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.people,
+      query: {
+        'clan': clanUlid,
+        if (search != null && search.trim().isNotEmpty) 'q': search.trim(),
+        'per_page': 30,
+      },
+      parse: (data) => data as List<dynamic>,
+    );
+
+    return (envelope.data ?? const [])
+        .map((p) => PersonSummary.fromJson((p as Map).cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
+  // ── Generations ──────────────────────────────────────────────────────
+
+  /// Every generation label usable in one tribe, its clans' own included.
+  Future<List<GenerationLabel>> generations(String tribeUlid) async {
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.generations,
+      query: {'tribe': tribeUlid},
+      parse: (data) => data as List<dynamic>,
+    );
+
+    return (envelope.data ?? const [])
+        .map(
+          (g) => GenerationLabel.fromJson((g as Map).cast<String, dynamic>()),
+        )
+        .toList(growable: false);
+  }
+
+  /// A label a clan names for itself.
+  ///
+  /// Sent with the clan, so it belongs to that clan rather than to the whole
+  /// tribe — and so a clan admin is allowed to make it.
+  Future<GenerationLabel> createGeneration({
+    required String tribeUlid,
+    required String clanUlid,
+    required int number,
+    String? name,
+  }) async {
+    final envelope = await _api.post<Map<String, dynamic>>(
+      ApiPaths.generations,
+      body: {
+        'tribe_ulid': tribeUlid,
+        'clan_ulid': clanUlid,
+        'generation_number': number,
+        'generation_name': ?name,
+      },
+      parse: (data) => (data as Map).cast<String, dynamic>(),
+    );
+
+    return GenerationLabel.fromJson(envelope.data!);
   }
 
   // ── The committee ────────────────────────────────────────────────────

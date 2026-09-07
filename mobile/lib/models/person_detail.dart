@@ -12,6 +12,7 @@ class PersonDetail {
     this.birthPlace,
     this.deathPlace,
     this.tribeName,
+    this.tribeUlid,
     this.clanName,
     this.branchName,
     this.mergedIntoUlid,
@@ -23,6 +24,10 @@ class PersonDetail {
   final String? birthPlace;
   final String? deathPlace;
   final String? tribeName;
+
+  /// Which tribe's generation labels apply to this person.
+  final String? tribeUlid;
+
   final String? clanName;
   final String? branchName;
 
@@ -50,6 +55,7 @@ class PersonDetail {
       birthPlace: placeName(json['birth_place']),
       deathPlace: placeName(json['death_place']),
       tribeName: (json['tribe'] as Map?)?['name'] as String?,
+      tribeUlid: (json['tribe'] as Map?)?['ulid'] as String?,
       clanName: (json['clan'] as Map?)?['name'] as String?,
       branchName: (json['family_branch'] as Map?)?['name'] as String?,
       mergedIntoUlid: (json['merged_into'] as Map?)?['ulid'] as String?,
