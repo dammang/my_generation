@@ -20,7 +20,7 @@ class TreeCanvas extends StatefulWidget {
     required this.onPersonLongPress,
     required this.onExpand,
     this.onScaleSettled,
-    this.onInteractionChanged,
+    this.onScrolled,
   });
 
   final TreeGraph graph;
@@ -35,15 +35,50 @@ class TreeCanvas extends StatefulWidget {
   /// the gesture rather than during it: nobody wants a fetch per frame.
   final void Function(double scale)? onScaleSettled;
 
-  /// True while a pan or a pinch is in progress, so the screen around the
-  /// chart can move out of its way.
-  final void Function(bool moving)? onInteractionChanged;
+  /// Which way the chart is being pulled, so the screen around it can get out
+  /// of the way going down and come back coming up.
+  final void Function(bool downward)? onScrolled;
 
   @override
   State<TreeCanvas> createState() => _TreeCanvasState();
 }
 
 class _TreeCanvasState extends State<TreeCanvas> {
+  /// How far the current drag has gone in one direction.
+  ///
+  /// Accumulated rather than read per frame, and reset when the direction
+  /// changes: a single pointer wobbles by a pixel either way, and chrome that
+  /// answered every frame would flicker for the whole gesture.
+  double _travelled = 0;
+
+  /// Far enough to be a decision rather than a tremor.
+  static const double _decisive = 24;
+
+  void _onPanned(ScaleUpdateDetails details) {
+    // One finger only. A pinch moves the focal point as a side effect of the
+    // zoom, and hiding the screen furniture is not what somebody zooming asked
+    // for.
+    if (details.pointerCount != 1) return;
+
+    final dy = details.focalPointDelta.dy;
+
+    if (dy == 0) return;
+
+    if (_travelled.sign != dy.sign) _travelled = 0;
+
+    _travelled += dy;
+
+    // The finger going up pulls the chart down the family: that is "scrolling
+    // down", and it is when the room is wanted.
+    if (_travelled <= -_decisive) {
+      widget.onScrolled?.call(true);
+      _travelled = 0;
+    } else if (_travelled >= _decisive) {
+      widget.onScrolled?.call(false);
+      _travelled = 0;
+    }
+  }
+
   /// Built beyond the visible edge so a card is never seen popping in.
   static const double _cullMargin = 220;
 
@@ -85,13 +120,11 @@ class _TreeCanvasState extends State<TreeCanvas> {
 
         return InteractiveViewer(
           transformationController: widget.controller,
-          onInteractionStart: (_) => widget.onInteractionChanged?.call(true),
-          onInteractionEnd: (_) {
-            widget.onInteractionChanged?.call(false);
-            widget.onScaleSettled?.call(
-              widget.controller.value.getMaxScaleOnAxis(),
-            );
-          },
+          onInteractionStart: (_) => _travelled = 0,
+          onInteractionUpdate: _onPanned,
+          onInteractionEnd: (_) => widget.onScaleSettled?.call(
+            widget.controller.value.getMaxScaleOnAxis(),
+          ),
           // Far enough out to take in a whole family at once. 0.25 stopped
           // while the chart was still wider than the screen, which is the
           // moment somebody most wants to see all of it. A card at 0.08 is

@@ -129,7 +129,7 @@ void main() {
     expect(find.text('Stay signed in'), findsOneWidget);
   });
 
-  testWidgets('the bar gets out of the way while the tree is being moved', (
+  testWidgets('the bar leaves with the rest of the chart\'s furniture', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -151,7 +151,7 @@ void main() {
 
     // Only on the tree's own tab: a bar that came and went everywhere would be
     // one nobody could rely on finding.
-    container.read(treeIsMovingProvider.notifier).moving(true);
+    container.read(treeChromeHiddenProvider.notifier).hidden(true);
     await tester.pump();
 
     expect(offset(), Offset.zero, reason: 'home is not the chart');
@@ -161,10 +161,14 @@ void main() {
 
     expect(offset(), const Offset(0, 1));
 
-    container.read(treeIsMovingProvider.notifier).moving(false);
+    container.read(treeChromeHiddenProvider.notifier).hidden(false);
     await tester.pump();
 
-    expect(offset(), Offset.zero, reason: 'it has to come back on its own');
+    expect(
+      offset(),
+      Offset.zero,
+      reason: 'pulling the chart back up has to bring it back',
+    );
   });
 
   testWidgets('the chart paints the strip the bar sits on', (tester) async {

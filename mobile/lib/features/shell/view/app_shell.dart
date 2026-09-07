@@ -31,7 +31,7 @@ class AppShell extends ConsumerWidget {
     // nobody could rely on finding.
     const treeTab = 1;
     final onTheTree = shell.currentIndex == treeTab;
-    final movingTheTree = ref.watch(treeIsMovingProvider) && onTheTree;
+    final chromeHidden = ref.watch(treeChromeHiddenProvider) && onTheTree;
 
     return Scaffold(
       // The chart paints the whole height, including the strip the bar sits
@@ -47,7 +47,7 @@ class AppShell extends ConsumerWidget {
       // body's height mid-gesture, and the chart jumps under the finger
       // dragging it.
       bottomNavigationBar: AnimatedSlide(
-        offset: movingTheTree ? const Offset(0, 1) : Offset.zero,
+        offset: chromeHidden ? const Offset(0, 1) : Offset.zero,
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         child: NavigationBar(

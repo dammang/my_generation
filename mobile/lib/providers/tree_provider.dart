@@ -142,19 +142,25 @@ final treeProvider = FutureProvider<TreeGraph>((ref) async {
   }
 });
 
-/// Whether the chart is being panned or pinched at this moment.
+/// Whether the app bar, the summary and the bottom bar are out of the way.
 ///
-/// The chrome gets out of the way while it is: on a phone the summary card and
-/// the bottom bar together take a third of the height, and that is the third
-/// somebody is trying to drag the tree through. Both come back the moment the
-/// gesture ends, so nothing has to be learned and nothing stays hidden.
-class TreeIsMovingNotifier extends Notifier<bool> {
+/// On a phone those three take half the height, and it is the half somebody is
+/// trying to read the tree through. They leave when you pull the chart
+/// downward — going further down a family — and come back when you pull it
+/// back up, which is the gesture every list on the phone already uses.
+///
+/// Hiding only for the duration of a gesture, as this did first, gives the
+/// space back at the moment it stops being useful: you get room while your
+/// thumb is moving and lose it the instant you stop to read.
+class TreeChromeNotifier extends Notifier<bool> {
   @override
   bool build() => false;
 
-  void moving(bool value) => state = value;
+  void hidden(bool value) {
+    if (state != value) state = value;
+  }
 }
 
-final treeIsMovingProvider = NotifierProvider<TreeIsMovingNotifier, bool>(
-  TreeIsMovingNotifier.new,
+final treeChromeHiddenProvider = NotifierProvider<TreeChromeNotifier, bool>(
+  TreeChromeNotifier.new,
 );

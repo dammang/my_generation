@@ -144,26 +144,16 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     final tree = ref.watch(treeProvider);
     final query = ref.watch(treeQueryProvider);
 
+    final hidden = ref.watch(treeChromeHiddenProvider);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Family tree'),
-        actions: [
-          IconButton(
-            tooltip: 'Find someone',
-            onPressed: () => context.push(Routes.personSearch),
-            icon: const Icon(Icons.search),
-          ),
-          IconButton(
-            tooltip: 'Go to me',
-            onPressed: _goToMe,
-            icon: const Icon(Icons.my_location),
-          ),
-        ],
-      ),
-      body: Column(
+      // No app bar slot: the bar is part of the chart's own stack so it can
+      // leave without the chart changing height underneath the finger moving
+      // it. A layout that reflows mid-drag makes the tree slide out from
+      // under you at the moment you are reading it.
+      body: Stack(
         children: [
-          SyncBanner(onTap: () => context.go(Routes.pendingChanges)),
-          Expanded(
+          Positioned.fill(
             child: tree.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => _Error(
@@ -203,18 +193,20 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                           onScaleSettled: (scale) => ref
                               .read(treeQueryProvider.notifier)
                               .deepenForScale(scale),
-                          onInteractionChanged: (moving) => ref
-                              .read(treeIsMovingProvider.notifier)
-                              .moving(moving),
+                          onScrolled: (downward) => ref
+                              .read(treeChromeHiddenProvider.notifier)
+                              .hidden(downward),
                         ),
                         _Legend(
                           graph: graph,
                           layout: layout,
                           onOpenProfile: _openProfile,
-                          hidden: ref.watch(treeIsMovingProvider),
-                          // The chart now runs under the bottom bar, so the
+                          hidden: hidden,
+                          // The chart runs under the bottom bar, so the
                           // summary steps over it rather than hiding behind
-                          // it. The bar's own height arrives as padding.
+                          // it. The bar's own height arrives as padding — and
+                          // when the bar has gone there is nothing to step
+                          // over, though the summary has gone with it anyway.
                           clearance: MediaQuery.paddingOf(context).bottom,
                         ),
                       ],
@@ -222,6 +214,39 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                   },
                 );
               },
+            ),
+          ),
+          // The bar and the sync notice leave together: they are one band of
+          // screen furniture and hiding half of it would just look broken.
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: AnimatedSlide(
+              offset: hidden ? const Offset(0, -1) : Offset.zero,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppBar(
+                    title: const Text('Family tree'),
+                    actions: [
+                      IconButton(
+                        tooltip: 'Find someone',
+                        onPressed: () => context.push(Routes.personSearch),
+                        icon: const Icon(Icons.search),
+                      ),
+                      IconButton(
+                        tooltip: 'Go to me',
+                        onPressed: _goToMe,
+                        icon: const Icon(Icons.my_location),
+                      ),
+                    ],
+                  ),
+                  SyncBanner(onTap: () => context.go(Routes.pendingChanges)),
+                ],
+              ),
             ),
           ),
         ],
