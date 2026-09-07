@@ -326,6 +326,66 @@ void main() {
 
       expect(byX.map((n) => n.ulid).toList(), children);
     });
+
+    test('a sibling with descendants of their own keeps their place', () {
+      // The real shape of the reported family, and the thing that actually
+      // moved him: of seven children only the youngest had a family, so the
+      // upward sweep read his median from his own children — who sat at the
+      // left edge, being the only people on their row — and pulled him to the
+      // front of his brothers.
+      const children = ['sinte', 'pante', 'kawngte', 'khupson'];
+
+      final layout = engine.layout(
+        _graph(
+          focus: 'jasuan',
+          depths: {
+            'jasuan': 0,
+            for (final child in children) child: 1,
+            'grandchild': 2,
+            'greatgrandchild': 3,
+          },
+          unions: const [
+            TreeUnion(
+              ulid: 'u1',
+              partnerUlids: ['jasuan'],
+              childUlids: children,
+            ),
+            TreeUnion(
+              ulid: 'u2',
+              partnerUlids: ['khupson'],
+              childUlids: ['grandchild'],
+            ),
+            TreeUnion(
+              ulid: 'u3',
+              partnerUlids: ['grandchild'],
+              childUlids: ['greatgrandchild'],
+            ),
+          ],
+          edges: [
+            for (final child in children)
+              TreeEdge(parentUlid: 'jasuan', childUlid: child),
+            const TreeEdge(parentUlid: 'khupson', childUlid: 'grandchild'),
+            const TreeEdge(
+              parentUlid: 'grandchild',
+              childUlid: 'greatgrandchild',
+            ),
+          ],
+        ),
+      );
+
+      final row =
+          layout.nodes.values.where((n) => children.contains(n.ulid)).toList()
+            ..sort((a, b) => a.rect.left.compareTo(b.rect.left));
+
+      expect(row.map((n) => n.ulid).toList(), children);
+
+      // And his line hangs under him rather than at the left edge of the
+      // canvas, which is what dragged him there in the first place.
+      expect(
+        layout.nodes['grandchild']!.rect.left,
+        greaterThan(layout.nodes['sinte']!.rect.left),
+      );
+    });
   });
 
   group('edges', () {
