@@ -246,4 +246,102 @@ class ClanFoundingTest extends TestCase
 
         return Person::where('ulid', $ulid)->firstOrFail();
     }
+
+    #[Test]
+    public function a_clan_counts_from_its_own_origin_and_still_knows_the_older_scale(): void
+    {
+        // Pu Zo — Kham — Jasuan — Thang. The clan descends from Pu Zo but
+        // counts from Jasuan, which is how a family that can name an ancestor
+        // eleven generations back still says "first generation of Jasuan".
+        $puZo = $this->founding('Pu Zo');
+        $kham = $this->addChild($puZo, 'Kham');
+        $jasuan = $this->addChild($kham, 'Jasuan');
+        $thang = $this->addChild($jasuan, 'Thang');
+
+        $this->actingAs($this->founder)
+            ->patchJson(route('api.v1.clans.update', $this->clan->ulid), [
+                'ancestor_person_ulid' => $puZo->ulid,
+                'counting_origin_person_ulid' => $jasuan->ulid,
+            ])
+            ->assertOk();
+
+        // The origin is the first generation of its own scale and the third
+        // on the older one. Both numbers are true and families use both.
+        $this->assertGeneration($jasuan, '1st Generation', [
+            'number' => 1,
+            'origin' => 'Jasuan',
+            'outer_number' => 3,
+            'outer_origin' => 'Pu Zo',
+        ]);
+
+        $this->assertGeneration($thang, '2nd Generation', [
+            'number' => 2,
+            'outer_number' => 4,
+        ]);
+
+        // Above the origin. They are not the zeroth or minus-first generation
+        // of anything — they are the people the counting starts after, and
+        // before this they carried no generation at all.
+        $this->assertGeneration($kham, 'Pre-generation 1', [
+            'before_origin' => 1,
+            'outer_number' => 2,
+        ]);
+
+        $this->assertGeneration($puZo, 'Pre-generation 2', [
+            'before_origin' => 2,
+            'outer_number' => 1,
+        ]);
+    }
+
+    #[Test]
+    public function moving_the_origin_renumbers_everybody_at_once(): void
+    {
+        $puZo = $this->founding('Pu Zo');
+        $kham = $this->addChild($puZo, 'Kham');
+
+        $this->setScale(ancestor: $puZo, origin: $puZo);
+        $this->assertGeneration($kham, '2nd Generation', ['number' => 2]);
+
+        // The same person, one setting later. Nothing about the graph changed;
+        // what changed is where the family says counting begins.
+        $this->setScale(ancestor: $puZo, origin: $kham);
+        $this->assertGeneration($kham, '1st Generation', ['number' => 1]);
+        $this->assertGeneration($puZo, 'Pre-generation 1', ['before_origin' => 1]);
+    }
+
+    private function setScale(Person $ancestor, Person $origin): void
+    {
+        $this->actingAs($this->founder)
+            ->patchJson(route('api.v1.clans.update', $this->clan->ulid), [
+                'ancestor_person_ulid' => $ancestor->ulid,
+                'counting_origin_person_ulid' => $origin->ulid,
+            ])
+            ->assertOk();
+    }
+
+    private function addChild(Person $parent, string $name): Person
+    {
+        $ulid = $this->actingAs($this->founder)
+            ->postJson(route('api.v1.people.relatives', $parent), [
+                'relation' => 'son',
+                'person' => ['display_name' => $name],
+            ])
+            ->assertCreated()
+            ->json('data.person.ulid');
+
+        return Person::where('ulid', $ulid)->firstOrFail();
+    }
+
+    /** @param  array<string, mixed>  $detail */
+    private function assertGeneration(Person $person, string $label, array $detail): void
+    {
+        $response = $this->actingAs($this->founder)
+            ->getJson(route('api.v1.people.show', $person))
+            ->assertOk()
+            ->assertJsonPath('data.generation_label', $label);
+
+        foreach ($detail as $key => $value) {
+            $response->assertJsonPath("data.generation.$key", $value);
+        }
+    }
 }

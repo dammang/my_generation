@@ -105,13 +105,16 @@ class PersonController extends Controller
 
         $person->load([
             'tribe:id,ulid,name',
-            'clan:id,ulid,name',
+            'clan:id,ulid,name,ancestor_person_id,counting_origin_person_id,generation_offset',
+            'clan.ancestor:id,display_name',
+            'clan.countingOrigin:id,display_name',
             // The same set the tree loads, and for the same reason: the
             // generation label is derived from the distance to the branch's
             // founder, so the branch has to carry who that is and the depths
             // have to be present. Without them this page showed no generation
             // at all while the tree showed one for the same person.
-            'familyBranch:id,ulid,name,ancestor_person_id',
+            'familyBranch:id,ulid,name,ancestor_person_id,generation_offset',
+            'familyBranch.ancestor:id,display_name',
             'lineageDepths:person_id,root_person_id,depth',
             'unionsAsPartner1.partner2.lineageDepths:person_id,root_person_id,depth',
             'unionsAsPartner2.partner1.lineageDepths:person_id,root_person_id,depth',

@@ -76,6 +76,7 @@ class Clan extends Model
         'description',
         // Where the clan begins, mirroring family_branches.
         'ancestor_person_id',
+        'counting_origin_person_id',
         'history',
         'logo_media_id',
         'cover_media_id',
@@ -87,6 +88,9 @@ class Clan extends Model
     protected function casts(): array
     {
         return [
+            // Derived from the older ancestor's depths, never sent by a
+            // client, which is why it is cast but not fillable.
+            'generation_offset' => 'integer',
             'status' => RecordStatus::class,
             'depth' => 'integer',
         ];
@@ -116,6 +120,16 @@ class Clan extends Model
     public function ancestor(): BelongsTo
     {
         return $this->belongsTo(Person::class, 'ancestor_person_id');
+    }
+
+    /**
+     * Where the clan's own numbering starts — often generations below the
+     * ancestor it descends from, because that is where the counting people
+     * actually do begins.
+     */
+    public function countingOrigin(): BelongsTo
+    {
+        return $this->belongsTo(Person::class, 'counting_origin_person_id');
     }
 
     public function familyBranches(): HasMany

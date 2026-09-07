@@ -117,6 +117,12 @@ class PersonResource extends JsonResource
             // what the label read.
             'generation_label' => $this->generationLabel(),
 
+            // Both reckonings, because families use both. A branch counts from
+            // its own founder while the clan counts from the ancestor it
+            // descends from, and "11th generation from Pu Zo, 1st generation of
+            // Jasuan" is one person described twice, not a contradiction.
+            'generation' => $this->generationDetail(),
+
             'merged_into' => $this->when(
                 $this->merged_into_person_id !== null,
                 fn () => $this->mergedInto?->ulid,
@@ -146,20 +152,180 @@ class PersonResource extends JsonResource
             return null;
         }
 
-        $root = $this->resource->relationLoaded('familyBranch')
-            ? $this->familyBranch?->ancestor_person_id
-            : null;
+        $inner = $this->depthFrom($this->originId());
 
-        $row = $this->lineageDepths->firstWhere('root_person_id', $root);
+        if ($inner !== null) {
+            return self::ordinal($inner + 1).' Generation';
+        }
 
-        if ($row !== null) {
-            return self::ordinal($row->depth + 1).' Generation';
+        $before = $this->generationsBeforeOrigin();
+
+        if ($before !== null) {
+            // Above the founder the branch counts from. They are not the
+            // minus-first generation of anything — they are the people the
+            // counting starts after, and a family says so in those words.
+            return 'Pre-generation '.$before;
+        }
+
+        $outer = $this->depthFrom($this->clanAncestorId());
+
+        if ($outer !== null) {
+            return self::ordinal($outer + 1).' Generation';
         }
 
         // Married in. They have no descent from the founder, so they have no
         // depth of their own — they stand where their husband or wife stands,
         // which is what a family tree on paper has always shown.
-        return $this->partnerGeneration($root);
+        return $this->partnerGeneration($this->originId());
+    }
+
+    /**
+     * The same person on both scales, for a summary that shows them together.
+     *
+     * Null when nothing is known, so a client renders nothing rather than a
+     * row of empty fields.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function generationDetail(): ?array
+    {
+        if (! $this->resource->relationLoaded('lineageDepths')) {
+            return null;
+        }
+
+        $offset = $this->originOffset();
+
+        $innerDepth = $this->depthFrom($this->originId());
+        $inner = $innerDepth === null ? null : $innerDepth + 1;
+
+        $outerDepth = $this->depthFrom($this->clanAncestorId());
+        $outer = match (true) {
+            $inner !== null && $offset !== null => $offset + $inner - 1,
+            $outerDepth !== null => $outerDepth + 1,
+            default => null,
+        };
+
+        $detail = array_filter([
+            'number' => $inner,
+            'origin' => $this->originName($this->origin()),
+            'outer_number' => $outer,
+            'outer_origin' => $this->originName($this->clanAncestor()),
+            'before_origin' => $this->generationsBeforeOrigin(),
+        ], fn ($value) => $value !== null);
+
+        return $detail === [] ? null : $detail;
+    }
+
+    /**
+     * How many generations above the founder this person stands.
+     *
+     * Only answerable when the clan names an older ancestor and the branch
+     * knows where its own founder sits on that scale — otherwise "above" has
+     * no distance attached to it.
+     */
+    private function generationsBeforeOrigin(): ?int
+    {
+        $offset = $this->originOffset();
+
+        if ($offset === null || $this->depthFrom($this->originId()) !== null) {
+            return null;
+        }
+
+        $outerDepth = $this->depthFrom($this->clanAncestorId());
+
+        if ($outerDepth === null) {
+            return null;
+        }
+
+        $before = $offset - ($outerDepth + 1);
+
+        return $before > 0 ? $before : null;
+    }
+
+    private function depthFrom(?int $rootId): ?int
+    {
+        if ($rootId === null) {
+            return null;
+        }
+
+        $row = $this->lineageDepths->firstWhere('root_person_id', $rootId);
+
+        return $row === null ? null : (int) $row->depth;
+    }
+
+    /**
+     * Whoever this person's generation is counted from.
+     *
+     * The clan's own origin first: it is the one the family says out loud, it
+     * applies to everybody in the clan, and — unlike a branch founder — it
+     * labels the people *above* it too, who belong to no branch at all and
+     * were otherwise left with no generation whatsoever.
+     */
+    private function originId(): ?int
+    {
+        $fromClan = $this->resource->relationLoaded('clan')
+            ? $this->clan?->counting_origin_person_id
+            : null;
+
+        if ($fromClan !== null) {
+            return $fromClan;
+        }
+
+        return $this->resource->relationLoaded('familyBranch')
+            ? $this->familyBranch?->ancestor_person_id
+            : null;
+    }
+
+    /** The origin's own number on the older scale, from whichever set it. */
+    private function originOffset(): ?int
+    {
+        $clan = $this->resource->relationLoaded('clan') ? $this->clan : null;
+
+        if ($clan?->counting_origin_person_id !== null) {
+            return $clan->generation_offset;
+        }
+
+        return $this->resource->relationLoaded('familyBranch')
+            ? $this->familyBranch?->generation_offset
+            : null;
+    }
+
+    /** The person the scale is named after, for "1st generation of Jasuan". */
+    private function origin(): ?Person
+    {
+        $clan = $this->resource->relationLoaded('clan') ? $this->clan : null;
+
+        if ($clan?->counting_origin_person_id !== null) {
+            return $clan->relationLoaded('countingOrigin') ? $clan->countingOrigin : null;
+        }
+
+        $branch = $this->resource->relationLoaded('familyBranch') ? $this->familyBranch : null;
+
+        return $branch !== null && $branch->relationLoaded('ancestor') ? $branch->ancestor : null;
+    }
+
+    private function clanAncestorId(): ?int
+    {
+        return $this->resource->relationLoaded('clan')
+            ? $this->clan?->ancestor_person_id
+            : null;
+    }
+
+    private function clanAncestor(): ?Person
+    {
+        $clan = $this->resource->relationLoaded('clan') ? $this->clan : null;
+
+        return $clan !== null && $clan->relationLoaded('ancestor') ? $clan->ancestor : null;
+    }
+
+    /**
+     * A founder's name is the scale's name — "of Jasuan" means nothing without
+     * it — and a founder is, by definition, somebody the family already names
+     * publicly as where it begins.
+     */
+    private function originName(?Person $ancestor): ?string
+    {
+        return $ancestor?->display_name;
     }
 
     /** The generation of whoever this person is partnered with, if any. */

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:my_generation/features/clans/view/administer_screen.dart';
+import 'package:my_generation/models/person_summary.dart';
 import 'package:my_generation/providers/app_providers.dart';
 
 import 'support/fake_api.dart';
@@ -10,16 +11,23 @@ import 'support/fake_api.dart';
 const _clanUlid = '01CLANCLANCLANCLANCLANCLAN';
 const _personUlid = '01PERSONPERSONPERSONPERSON';
 const _branchUlid = '01BRANCHBRANCHBRANCHBRANCH';
+const _originUlid = '01ORIGINORIGINORIGINORIGI';
 const _tribeUlid = '01TRIBETRIBETRIBETRIBETRIB';
 
 Map<String, dynamic> _ok(Object data) => {'success': true, 'data': data};
 
 /// The clan as ClanResource sends it: `ancestor` is present and null until
 /// somebody records one, which is the state every approved clan starts in.
-Map<String, dynamic> _clan({Map<String, dynamic>? ancestor}) => {
+Map<String, dynamic> _clan({
+  Map<String, dynamic>? ancestor,
+  Map<String, dynamic>? origin,
+  int? offset,
+}) => {
   'ulid': _clanUlid,
   'name': 'Guite',
   'tribe': {'ulid': _tribeUlid, 'name': 'Zomi'},
+  'counting_origin': origin,
+  'generation_offset': offset,
   'slug': 'guite',
   'native_name': null,
   'description': null,
@@ -43,10 +51,18 @@ Map<String, dynamic> _branch({Map<String, dynamic>? ancestor}) => {
 
 FakeAdapter _adapter({
   Map<String, dynamic>? ancestor,
+  Map<String, dynamic>? origin,
+  int? offset,
   List<Map<String, dynamic>>? branches,
 }) => FakeAdapter({
   'GET /api/v1/clans/$_clanUlid': [
-    FakeReply(200, _ok(_clan(ancestor: ancestor))),
+    FakeReply(
+      200,
+      _ok(_clan(ancestor: ancestor, origin: origin, offset: offset)),
+    ),
+  ],
+  'PATCH /api/v1/clans/$_clanUlid': [
+    FakeReply(200, _ok(_clan(ancestor: ancestor, origin: origin))),
   ],
   'GET /api/v1/family-branches': [
     FakeReply(200, _ok(branches ?? <Map<String, dynamic>>[])),
@@ -273,5 +289,83 @@ void main() {
     expect((post.data as Map)['tribe_ulid'], _tribeUlid);
     expect((post.data as Map)['name'], 'Zo line');
     expect((post.data as Map)['ancestor_person_ulid'], _personUlid);
+  });
+
+  testWidgets('a clan says where its counting starts, on both scales', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      _adapter(
+        ancestor: {'ulid': _personUlid, 'display_name': 'Pu Zo'},
+        origin: {'ulid': _originUlid, 'display_name': 'Jasuan'},
+        offset: 11,
+      ),
+    );
+
+    expect(find.text('Pu Zo'), findsOneWidget);
+    expect(find.text('Jasuan'), findsOneWidget);
+
+    // Both numbers, because a family that counts from Jasuan still knows he
+    // is the eleventh from Pu Zo, and says so.
+    expect(
+      find.text('Generations are counted from here · 11th from Pu Zo'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('choosing an origin says what it does to everybody above', (
+    tester,
+  ) async {
+    final adapter = _adapter(
+      ancestor: {'ulid': _originUlid, 'display_name': 'Pu Zo'},
+    );
+    await pump(tester, adapter);
+
+    await tester.tap(find.text('Tap to count generations from somebody later'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Thawng Dam').last);
+    await tester.pumpAndSettle();
+
+    final patch = adapter.received
+        .where(
+          (r) => r.method == 'PATCH' && r.path == '/api/v1/clans/$_clanUlid',
+        )
+        .single;
+
+    expect((patch.data as Map)['counting_origin_person_ulid'], _personUlid);
+
+    // The consequence nobody would guess: the people above do not vanish, they
+    // become the generations the counting starts after.
+    expect(find.textContaining('becomes a pre-generation'), findsOneWidget);
+  });
+
+  test('a standing reads the way a family says it', () {
+    const standing = GenerationStanding(
+      number: 1,
+      origin: 'Jasuan',
+      outerNumber: 11,
+      outerOrigin: 'Pu Zo',
+    );
+
+    expect(
+      standing.summary,
+      '11th generation from Pu Zo · 1st generation of Jasuan',
+    );
+
+    // Above the origin there is no number of their own, and inventing one
+    // would put them in a generation the family does not count.
+    const before = GenerationStanding(
+      origin: 'Jasuan',
+      outerNumber: 10,
+      outerOrigin: 'Pu Zo',
+      beforeOrigin: 1,
+    );
+
+    expect(
+      before.summary,
+      '10th generation from Pu Zo · 1 generation before Jasuan',
+    );
   });
 }

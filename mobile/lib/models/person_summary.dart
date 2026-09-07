@@ -21,6 +21,7 @@ class PersonSummary {
     this.verificationStatus,
     this.hasOpenDispute = false,
     this.generationLabel,
+    this.generation,
     this.depth,
   });
 
@@ -44,6 +45,9 @@ class PersonSummary {
   final bool hasOpenDispute;
   final String? generationLabel;
 
+  /// The same person on both scales, where the clan has set them.
+  final GenerationStanding? generation;
+
   /// Layer relative to the focus of a tree: negative up, positive down.
   final int? depth;
 
@@ -52,7 +56,9 @@ class PersonSummary {
   /// "1920–1998", "b. 1975", or nothing when no date is known or permitted.
   String? get lifespan {
     if (birthDisplay == null && deathDisplay == null) return null;
-    if (birthDisplay != null && deathDisplay != null) return '$birthDisplay–$deathDisplay';
+    if (birthDisplay != null && deathDisplay != null) {
+      return '$birthDisplay–$deathDisplay';
+    }
     return birthDisplay != null ? 'b. $birthDisplay' : 'd. $deathDisplay';
   }
 
@@ -76,7 +82,75 @@ class PersonSummary {
       verificationStatus: json['verification_status'] as String?,
       hasOpenDispute: json['has_open_dispute'] as bool? ?? false,
       generationLabel: json['generation_label'] as String?,
+      generation: json['generation'] == null
+          ? null
+          : GenerationStanding.fromJson(
+              (json['generation'] as Map).cast<String, dynamic>(),
+            ),
       depth: json['depth'] as int?,
     );
   }
+}
+
+/// Where somebody stands, counted two ways.
+///
+/// A clan counts from an origin recent enough for the numbers to mean
+/// something, while still descending from an ancestor much further back.
+/// "11th generation from Pu Zo, 1st generation of Jasuan" is one person
+/// described twice, and families say both.
+class GenerationStanding {
+  const GenerationStanding({
+    this.number,
+    this.origin,
+    this.outerNumber,
+    this.outerOrigin,
+    this.beforeOrigin,
+  });
+
+  /// Counted from the clan's own origin. Null for anybody above it.
+  final int? number;
+  final String? origin;
+
+  /// Counted from the older ancestor the clan descends from.
+  final int? outerNumber;
+  final String? outerOrigin;
+
+  /// How far above the origin they stand, for the people counting starts after.
+  final int? beforeOrigin;
+
+  factory GenerationStanding.fromJson(Map<String, dynamic> json) =>
+      GenerationStanding(
+        number: json['number'] as int?,
+        origin: json['origin'] as String?,
+        outerNumber: json['outer_number'] as int?,
+        outerOrigin: json['outer_origin'] as String?,
+        beforeOrigin: json['before_origin'] as int?,
+      );
+
+  /// "11th generation from Pu Zo · 1st generation of Jasuan", dropping
+  /// whichever half is not known rather than printing a blank.
+  String? get summary {
+    final parts = [
+      if (outerNumber != null && outerOrigin != null)
+        '${_ordinal(outerNumber!)} generation from $outerOrigin',
+      if (number != null && origin != null)
+        '${_ordinal(number!)} generation of $origin',
+      if (beforeOrigin != null && origin != null)
+        beforeOrigin == 1
+            ? '1 generation before $origin'
+            : '$beforeOrigin generations before $origin',
+    ];
+
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
+  static String _ordinal(int n) => switch (n % 100) {
+    11 || 12 || 13 => '${n}th',
+    _ => switch (n % 10) {
+      1 => '${n}st',
+      2 => '${n}nd',
+      3 => '${n}rd',
+      _ => '${n}th',
+    },
+  };
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Genealogy\AnchorClanGenerations;
+use App\Actions\Genealogy\AnchorFamilyBranch;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\StoreClanRequest;
 use App\Http\Requests\V1\UpdateClanRequest;
@@ -20,7 +22,11 @@ use Illuminate\Http\Request;
 
 class ClanController extends Controller
 {
-    public function __construct(private readonly ViewerScope $viewer) {}
+    public function __construct(
+        private readonly ViewerScope $viewer,
+        private readonly AnchorClanGenerations $clanGenerations,
+        private readonly AnchorFamilyBranch $anchor,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -60,7 +66,7 @@ class ClanController extends Controller
     public function show(Clan $clan): JsonResponse
     {
         $clan->loadCount('childClans');
-        $clan->load(['tribe:id,ulid,name', 'parentClan:id,ulid,name', 'childClans', 'ancestor']);
+        $clan->load(['tribe:id,ulid,name', 'parentClan:id,ulid,name', 'childClans', 'ancestor', 'countingOrigin']);
 
         return ApiResponse::success(ClanResource::make($clan));
     }
@@ -69,11 +75,16 @@ class ClanController extends Controller
     {
         $data = $request->validated();
 
-        if (array_key_exists('ancestor_person_ulid', $data)) {
-            $data['ancestor_person_id'] = $data['ancestor_person_ulid'] === null
-                ? null
-                : Person::where('ulid', $data['ancestor_person_ulid'])->value('id');
-            unset($data['ancestor_person_ulid']);
+        foreach ([
+            'ancestor_person_ulid' => 'ancestor_person_id',
+            'counting_origin_person_ulid' => 'counting_origin_person_id',
+        ] as $input => $column) {
+            if (array_key_exists($input, $data)) {
+                $data[$column] = $data[$input] === null
+                    ? null
+                    : Person::where('ulid', $data[$input])->value('id');
+                unset($data[$input]);
+            }
         }
 
         if (array_key_exists('parent_clan_ulid', $data)) {
@@ -83,13 +94,21 @@ class ClanController extends Controller
             unset($data['parent_clan_ulid']);
         }
 
+        $scaleChanged = collect(['ancestor_person_id', 'counting_origin_person_id'])
+            ->contains(fn (string $column) => array_key_exists($column, $data)
+                && $data[$column] !== $clan->{$column});
+
         // Re-parenting rewrites this clan's path and every path beneath it, so
         // permission checks below the move keep answering with the real
         // hierarchy. ScopedEntityObserver handles that.
         $clan->update($data);
 
+        if ($scaleChanged) {
+            $this->recountFrom($clan);
+        }
+
         return ApiResponse::success(ClanResource::make(
-            $clan->fresh(['tribe:id,ulid,name', 'parentClan:id,ulid,name', 'ancestor']),
+            $clan->fresh(['tribe:id,ulid,name', 'parentClan:id,ulid,name', 'ancestor', 'countingOrigin']),
         ));
     }
 
@@ -109,6 +128,22 @@ class ClanController extends Controller
         $clan->delete();
 
         return ApiResponse::noContent();
+    }
+
+    /**
+     * The clan's own scale moved, so everything measured against it is stale.
+     *
+     * Every branch inside the clan reports its founder's number on that scale
+     * — "the 11th generation from Pu Zo" — and a clan that names a different
+     * ancestor makes all of those wrong at once, silently.
+     */
+    private function recountFrom(Clan $clan): void
+    {
+        $this->clanGenerations->handle($clan);
+
+        foreach ($clan->familyBranches()->whereNotNull('ancestor_person_id')->get() as $branch) {
+            $this->anchor->handle($branch->setRelation('clan', $clan));
+        }
     }
 
     public function branches(Clan $clan): JsonResponse

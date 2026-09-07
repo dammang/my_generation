@@ -35,6 +35,9 @@ class ClanDetail {
     this.tribeUlid,
     this.ancestorUlid,
     this.ancestorName,
+    this.originUlid,
+    this.originName,
+    this.generationOffset,
   });
 
   final String ulid;
@@ -46,10 +49,22 @@ class ClanDetail {
   final String? ancestorUlid;
   final String? ancestorName;
 
+  /// Where the clan's own numbering starts — usually generations below the
+  /// ancestor it descends from.
+  final String? originUlid;
+  final String? originName;
+
+  /// The origin's own number on the older scale: Jasuan being the 11th from
+  /// Pu Zo. Null when the two are not connected in the archive.
+  final int? generationOffset;
+
   bool get hasAncestor => ancestorUlid != null;
+
+  bool get hasOrigin => originUlid != null;
 
   factory ClanDetail.fromJson(Map<String, dynamic> json) {
     final ancestor = (json['ancestor'] as Map?)?.cast<String, dynamic>();
+    final origin = (json['counting_origin'] as Map?)?.cast<String, dynamic>();
 
     return ClanDetail(
       ulid: json['ulid'] as String,
@@ -59,6 +74,9 @@ class ClanDetail {
               as String?,
       ancestorUlid: ancestor?['ulid'] as String?,
       ancestorName: ancestor?['display_name'] as String?,
+      originUlid: origin?['ulid'] as String?,
+      originName: origin?['display_name'] as String?,
+      generationOffset: json['generation_offset'] as int?,
     );
   }
 }

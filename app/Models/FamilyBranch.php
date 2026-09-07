@@ -81,6 +81,9 @@ class FamilyBranch extends Model
     protected function casts(): array
     {
         return [
+            // Derived from the clan ancestor's depths, never sent by a client,
+            // which is why it is cast but not fillable.
+            'generation_offset' => 'integer',
             'status' => RecordStatus::class,
         ];
     }

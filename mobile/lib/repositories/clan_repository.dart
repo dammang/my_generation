@@ -117,6 +117,20 @@ class ClanRepository {
     return personUlid;
   }
 
+  /// Where the clan starts counting generations.
+  ///
+  /// Separate from the ancestor it descends from, and usually a different
+  /// person: numbering from somebody eleven generations back makes every
+  /// number too large to mean anything to the people using it.
+  Future<void> setCountingOrigin({
+    required String clanUlid,
+    required String personUlid,
+  }) => _api.patch<Map<String, dynamic>>(
+    ApiPaths.clan(clanUlid),
+    body: {'counting_origin_person_ulid': personUlid},
+    parse: (data) => (data as Map).cast<String, dynamic>(),
+  );
+
   // ── Family branches ──────────────────────────────────────────────────
 
   /// The named lines inside one clan.

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Actions\Genealogy\PlaceDescendantsInBranch;
+use App\Actions\Genealogy\AnchorFamilyBranch;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\StoreFamilyBranchRequest;
 use App\Http\Requests\V1\UpdateFamilyBranchRequest;
@@ -18,7 +18,6 @@ use App\Models\User;
 use App\Policies\ResolvesScopePath;
 use App\Services\Permissions\PermissionResolver;
 use App\Services\Privacy\ViewerScope;
-use App\Services\Tree\LineageDepthService;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
@@ -33,8 +32,7 @@ class FamilyBranchController extends Controller
     public function __construct(
         private readonly ViewerScope $viewer,
         private readonly PermissionResolver $permissions,
-        private readonly LineageDepthService $depths,
-        private readonly PlaceDescendantsInBranch $placeDescendants,
+        private readonly AnchorFamilyBranch $anchor,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -142,27 +140,15 @@ class FamilyBranchController extends Controller
     }
 
     /**
-     * Generations are counted from here, so counting has to start now.
-     *
-     * Otherwise nothing in the archive has a generation until the hourly
-     * command next runs, and somebody who has just told the app where their
-     * family begins sees no change and concludes it did not work.
+     * Counting starts now, not at the next hourly run: somebody who has just
+     * told the app where their family begins and sees no change concludes it
+     * did not work.
      *
      * @return int how many people the branch gained
      */
     private function recomputeDepths(FamilyBranch $branch): int
     {
-        $ancestor = $branch->ancestor_person_id === null
-            ? null
-            : Person::find($branch->ancestor_person_id);
-
-        if ($ancestor === null) {
-            return 0;
-        }
-
-        $this->depths->recomputeFor($ancestor);
-
-        return $this->placeDescendants->handle($branch);
+        return $this->anchor->handle($branch->loadMissing('clan'));
     }
 
     /**

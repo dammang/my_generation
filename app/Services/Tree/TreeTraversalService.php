@@ -183,7 +183,11 @@ class TreeTraversalService
             ->with([
                 'profileMedia:id,path,conversions',
                 'tribe:id,ulid,name',
-                'clan:id,ulid,name',
+                // ancestor_person_id and its person: the clan's own scale, the
+                // one a branch's "11th generation from Pu Zo" is measured on.
+                'clan:id,ulid,name,ancestor_person_id,counting_origin_person_id,generation_offset',
+                'clan.ancestor:id,display_name',
+                'clan.countingOrigin:id,display_name',
                 // generation_number too: the label falls back to an ordinal
                 // built from it when a generation carries no name, and a
                 // column that was not selected reads as zero.
@@ -191,7 +195,8 @@ class TreeTraversalService
                 // The displayed generation is derived from these; the branch
                 // carries which ancestor the depth is measured from.
                 'lineageDepths:person_id,root_person_id,depth',
-                'familyBranch:id,ulid,name,ancestor_person_id',
+                'familyBranch:id,ulid,name,ancestor_person_id,generation_offset',
+                'familyBranch.ancestor:id,display_name',
                 // For somebody who married in: they have no descent from the
                 // founder, so their generation is their partner's. Loaded from
                 // both sides of a union because a marriage is stored once, not

@@ -44,6 +44,13 @@ class ClanResource extends JsonResource
             'ancestor' => $this->whenLoaded('ancestor', fn () => $this->ancestor === null
                 ? null
                 : PersonResource::make($this->ancestor)),
+            // Where its own numbering starts, which is usually not the same
+            // person: generations are counted from somebody recent enough for
+            // the numbers to mean something.
+            'counting_origin' => $this->whenLoaded('countingOrigin', fn () => $this->countingOrigin === null
+                ? null
+                : PersonResource::make($this->countingOrigin)),
+            'generation_offset' => $this->generation_offset,
             'parent_clan' => $this->whenLoaded('parentClan', fn () => $this->parentClan === null ? null : [
                 'ulid' => $this->parentClan->ulid,
                 'name' => $this->parentClan->name,

@@ -293,18 +293,43 @@ class _BeginsWith extends ConsumerWidget {
                 style: theme.textTheme.bodyMedium,
               ),
               data: (clan) => clan.hasAncestor
-                  ? ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.account_tree_outlined),
-                      title: Text(clan.ancestorName ?? 'The founding ancestor'),
-                      subtitle: const Text(
-                        'Everyone in this clan is counted from here',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      // Their own record, where Add Relative lives: the tree
-                      // is built downward from this one person.
-                      onTap: () =>
-                          context.push(Routes.personPath(clan.ancestorUlid!)),
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.account_tree_outlined),
+                          title: Text(
+                            clan.ancestorName ?? 'The founding ancestor',
+                          ),
+                          subtitle: const Text('The clan descends from here'),
+                          trailing: const Icon(Icons.chevron_right),
+                          // Their own record, where Add Relative lives: the
+                          // tree is built downward from this one person.
+                          onTap: () => context.push(
+                            Routes.personPath(clan.ancestorUlid!),
+                          ),
+                        ),
+                        const Divider(height: 8),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.filter_1_outlined),
+                          title: Text(
+                            clan.originName ?? 'Not set — counted from the top',
+                          ),
+                          // Two different people, and the difference is the
+                          // point: numbering from an ancestor eleven
+                          // generations back makes every number too large to
+                          // mean anything to the family using it.
+                          subtitle: Text(
+                            clan.hasOrigin
+                                ? _countedFrom(clan)
+                                : 'Tap to count generations from somebody later',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => _setOrigin(context, ref, clan.name),
+                        ),
+                      ],
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,6 +358,66 @@ class _BeginsWith extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// "Generations are counted from here · 11th from Pu Zo".
+  static String _countedFrom(ClanDetail clan) {
+    final offset = clan.generationOffset;
+
+    if (offset == null || clan.ancestorName == null) {
+      return 'Generations are counted from here';
+    }
+
+    return 'Generations are counted from here · '
+        '${_ordinal(offset)} from ${clan.ancestorName}';
+  }
+
+  /// Choosing where the numbering starts.
+  ///
+  /// People above the origin are not renumbered downward — they become the
+  /// pre-generations, which is what a family calls the ancestors it counts
+  /// back to but not from.
+  Future<void> _setOrigin(
+    BuildContext context,
+    WidgetRef ref,
+    String clanName,
+  ) async {
+    final person = await showModalBottomSheet<PersonSummary>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _ClanPersonSheet(
+        clanUlid: clanUlid,
+        title: 'Count the generations of $clanName from',
+      ),
+    );
+
+    if (person == null || !context.mounted) return;
+
+    try {
+      await ref
+          .read(clanRepositoryProvider)
+          .setCountingOrigin(clanUlid: clanUlid, personUlid: person.ulid);
+
+      ref.invalidate(clanProvider(clanUlid));
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${person.displayName} is now the first generation. '
+              'Everybody above them becomes a pre-generation.',
+            ),
+          ),
+        );
+      }
+    } on ApiException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 
   Future<void> _startTree(

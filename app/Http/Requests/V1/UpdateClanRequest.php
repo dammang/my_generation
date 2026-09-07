@@ -46,6 +46,15 @@ class UpdateClanRequest extends FormRequest
                 'sometimes', 'nullable', 'string',
                 Rule::exists('people', 'ulid')->whereNull('deleted_at'),
             ],
+
+            // Where the clan's own numbering starts. Usually somebody much
+            // more recent than the ancestor above: an eleventh-generation
+            // founder whose descendants are the first, second and third
+            // generations everybody actually says out loud.
+            'counting_origin_person_ulid' => [
+                'sometimes', 'nullable', 'string',
+                Rule::exists('people', 'ulid')->whereNull('deleted_at'),
+            ],
         ];
     }
 
@@ -97,20 +106,22 @@ class UpdateClanRequest extends FormRequest
      */
     private function validateAncestor($validator): void
     {
-        $ulid = $this->input('ancestor_person_ulid');
+        foreach (['ancestor_person_ulid', 'counting_origin_person_ulid'] as $field) {
+            $ulid = $this->input($field);
 
-        if (! $this->has('ancestor_person_ulid') || $ulid === null) {
-            return;
-        }
+            if (! $this->has($field) || $ulid === null) {
+                continue;
+            }
 
-        $person = Person::where('ulid', $ulid)->first();
-        $clan = $this->route('clan');
+            $person = Person::where('ulid', $ulid)->first();
+            $clan = $this->route('clan');
 
-        if ($person !== null && $person->clan_id !== $clan->getKey()) {
-            $validator->errors()->add(
-                'ancestor_person_ulid',
-                'That person is not in this clan. Add them to it first, or start the tree with somebody who is.',
-            );
+            if ($person !== null && $person->clan_id !== $clan->getKey()) {
+                $validator->errors()->add(
+                    $field,
+                    'That person is not in this clan. Add them to it first, or start the tree with somebody who is.',
+                );
+            }
         }
     }
 }

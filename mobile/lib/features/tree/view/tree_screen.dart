@@ -273,6 +273,18 @@ class _Legend extends StatelessWidget {
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
+                      // Both scales, on their own line: "11th generation from
+                      // Pu Zo · 1st generation of Jasuan". A clan that counts
+                      // from somebody recent still descends from somebody far
+                      // older, and a summary that gave only one number would
+                      // be answering a question nobody asked.
+                      if (focus?.generation?.summary != null)
+                        Text(
+                          focus!.generation!.summary!,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                     ],
                   ),
                 ),
