@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Genealogy;
 
+use App\Actions\Genealogy\AddChildToUnion;
+use App\Enums\ChildRelationshipType;
 use App\Models\Person;
 use App\Models\Union;
 use App\Models\User;
@@ -166,6 +168,110 @@ class FamilyEditingTest extends TestCase
 
         // Soft deleted: the record leaves the graph, the history does not.
         $this->assertSoftDeleted('people', ['id' => $children[0]->id]);
+    }
+
+    #[Test]
+    public function a_child_can_be_moved_to_the_other_marriage(): void
+    {
+        [$father, $first, $second, $child] = $this->twoMarriages();
+
+        $this->actingAs($this->user)
+            ->postJson(route('api.v1.unions.children.move', [$first, $child]), [
+                'union_ulid' => $second->ulid,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.children.0.ulid', $child->ulid);
+
+        $this->assertDatabaseMissing('union_children', [
+            'union_id' => $first->id,
+            'person_id' => $child->id,
+        ]);
+
+        // The edges belonging to the old marriage go with it, or the archive
+        // would assert both mothers at once — which is the thing being
+        // corrected.
+        $mothers = DB::table('relationships')
+            ->where('related_person_id', $child->id)
+            ->whereNull('deleted_at')
+            ->pluck('person_id');
+
+        $this->assertContains($father->id, $mothers);
+        $this->assertContains($second->partner_2_id, $mothers);
+        $this->assertNotContains($first->partner_2_id, $mothers);
+    }
+
+    #[Test]
+    public function moving_a_child_keeps_how_they_joined_the_family(): void
+    {
+        [, $first, $second, $child] = $this->twoMarriages(
+            kind: ChildRelationshipType::Adoptive,
+        );
+
+        $this->actingAs($this->user)
+            ->postJson(route('api.v1.unions.children.move', [$first, $child]), [
+                'union_ulid' => $second->ulid,
+            ])
+            ->assertOk();
+
+        // An adopted child moved between two of the same father's marriages is
+        // still adopted, and re-deriving it would quietly lose it.
+        $this->assertDatabaseHas('union_children', [
+            'union_id' => $second->id,
+            'person_id' => $child->id,
+            'relationship_type' => ChildRelationshipType::Adoptive->value,
+        ]);
+    }
+
+    #[Test]
+    public function a_child_cannot_be_moved_to_a_couple_with_nobody_in_common(): void
+    {
+        [, $first, , $child] = $this->twoMarriages();
+        $strangers = Union::factory()->create([
+            'partner_1_id' => Person::factory()->bornExactly(1930)->create()->id,
+            'partner_2_id' => Person::factory()->bornExactly(1935)->create()->id,
+        ]);
+
+        // Not a correction about which mother — a different claim about who
+        // the child is, and it should be made by saying so.
+        $this->actingAs($this->user)
+            ->postJson(route('api.v1.unions.children.move', [$first, $child]), [
+                'union_ulid' => $strangers->ulid,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'UNIONS_UNRELATED');
+
+        $this->assertDatabaseHas('union_children', [
+            'union_id' => $first->id,
+            'person_id' => $child->id,
+        ]);
+    }
+
+    /**
+     * One man, two wives, and a child recorded under the first.
+     *
+     * @return array{0: Person, 1: Union, 2: Union, 3: Person}
+     */
+    private function twoMarriages(
+        ChildRelationshipType $kind = ChildRelationshipType::Biological,
+    ): array {
+        $father = Person::factory()->bornExactly(1940)->create();
+
+        $first = Union::factory()->create([
+            'partner_1_id' => $father->id,
+            'partner_2_id' => Person::factory()->bornExactly(1945)->create()->id,
+        ]);
+
+        $second = Union::factory()->create([
+            'partner_1_id' => $father->id,
+            'partner_2_id' => Person::factory()->bornExactly(1950)->create()->id,
+            'order_index' => 2,
+        ]);
+
+        $child = Person::factory()->bornExactly(1970)->create();
+
+        app(AddChildToUnion::class)->handle($first, $child, $kind, 1);
+
+        return [$father, $first, $second, $child];
     }
 
     /** @return array{0: Union, 1: array<int, Person>} */

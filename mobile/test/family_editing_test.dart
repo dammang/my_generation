@@ -21,7 +21,10 @@ Map<String, dynamic> _person(
   'relationship_type': ?relationshipType,
 };
 
-Map<String, dynamic> _bundle(List<Map<String, dynamic>> children) => {
+Map<String, dynamic> _bundle(
+  List<Map<String, dynamic>> children, [
+  List<Map<String, dynamic>> extraUnions = const [],
+]) => {
   'person': _person('01FATHER', 'Thawng Dam'),
   'parents': <dynamic>[],
   'spouses': <dynamic>[],
@@ -36,6 +39,7 @@ Map<String, dynamic> _bundle(List<Map<String, dynamic>> children) => {
       'children': children,
       'children_count': children.length,
     },
+    ...extraUnions,
   ],
 };
 
@@ -43,6 +47,8 @@ Future<List<String>> pumpFamily(
   WidgetTester tester,
   List<Map<String, dynamic>> children, {
   void Function(PersonSummary person)? onDelete,
+  void Function(FamilyUnion from, PersonSummary child)? onMove,
+  List<Map<String, dynamic>> extraUnions = const [],
 }) async {
   await tester.binding.setSurfaceSize(const Size(402, 1400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -53,12 +59,13 @@ Future<List<String>> pumpFamily(
     MaterialApp(
       home: Scaffold(
         body: FamilyTab(
-          bundle: FamilyBundle.fromJson(_bundle(children)),
+          bundle: FamilyBundle.fromJson(_bundle(children, extraUnions)),
           onOpenPerson: (_) {},
           onAddRelative: (_) {},
           onLinkFamily: () {},
           onReorderChildren: (_, ulids) => sent.addAll(ulids),
           onDeletePerson: onDelete ?? (_) {},
+          onMoveChild: onMove ?? (_, _) {},
         ),
       ),
     ),
@@ -132,6 +139,52 @@ void main() {
     // The tab hands the person up rather than deleting anything itself: the
     // confirmation belongs with the screen that owns the record.
     expect(asked?.displayName, 'Zen Za Awi');
+  });
+
+  testWidgets('a child can be moved to the other marriage', (tester) async {
+    FamilyUnion? from;
+    PersonSummary? moved;
+
+    await pumpFamily(
+      tester,
+      [_person('01A', 'Zen Za Awi')],
+      onMove: (union, child) {
+        from = union;
+        moved = child;
+      },
+      extraUnions: [
+        {
+          'ulid': '01UNION2',
+          'union_type': 'marriage',
+          'status': 'married',
+          'partners': [_person('01WIFE2', 'Sing Za Cing', gender: 'female')],
+          'children': <dynamic>[],
+          'children_count': 0,
+        },
+      ],
+    );
+
+    await tester.tap(find.byIcon(Icons.more_vert).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Move to another marriage'));
+    await tester.pumpAndSettle();
+
+    // The tab hands both up: which marriage they are leaving, and who. The
+    // screen that owns the record asks which marriage they are going to.
+    expect(from?.ulid, '01UNION');
+    expect(moved?.displayName, 'Zen Za Awi');
+  });
+
+  testWidgets('with one marriage there is nowhere to move a child', (
+    tester,
+  ) async {
+    await pumpFamily(tester, [_person('01A', 'Zen Za Awi')]);
+
+    await tester.tap(find.byIcon(Icons.more_vert).first);
+    await tester.pumpAndSettle();
+
+    // An option that leads nowhere is worse than no option.
+    expect(find.text('Move to another marriage'), findsNothing);
   });
 
   group('the date line', () {

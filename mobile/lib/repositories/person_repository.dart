@@ -107,6 +107,22 @@ class PersonRepository {
     parse: (data) => (data as Map).cast<String, dynamic>(),
   );
 
+  /// Moves a child from one of a person's marriages to another.
+  ///
+  /// One call, because the server does both halves in a transaction: detaching
+  /// and re-attaching separately would leave a child with no parents at all if
+  /// the second request never arrived, and on a phone that is not a
+  /// hypothetical.
+  Future<void> moveChildToUnion({
+    required String fromUnionUlid,
+    required String toUnionUlid,
+    required String personUlid,
+  }) => _api.post<Map<String, dynamic>>(
+    ApiPaths.unionChildMove(fromUnionUlid, personUlid),
+    body: {'union_ulid': toUnionUlid},
+    parse: (data) => (data as Map).cast<String, dynamic>(),
+  );
+
   /// Removes a record from the archive.
   ///
   /// A soft delete on the server: the person leaves the graph, the history of

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Genealogy\AddChildToUnion;
+use App\Actions\Genealogy\MoveChildBetweenUnions;
 use App\Enums\ChildRelationshipType;
 use App\Enums\UnionStatus;
 use App\Enums\UnionType;
@@ -225,6 +226,39 @@ class UnionController extends Controller
 
         return ApiResponse::success(
             UnionResource::make($union->fresh(['partner1', 'partner2', 'children'])),
+        );
+    }
+
+    /**
+     * Moves a child from this marriage to another of the same person's.
+     *
+     * Both unions are authorised, because this takes a child out of one family
+     * and puts them in another — permission over the one you happen to be
+     * looking at is not permission over the one you are moving them into.
+     */
+    public function moveChild(
+        Request $request,
+        Union $union,
+        Person $person,
+        MoveChildBetweenUnions $action,
+    ): JsonResponse {
+        $this->authorize('update', $union);
+
+        $data = $request->validate([
+            'union_ulid' => [
+                'required', 'string',
+                Rule::exists('unions', 'ulid')->whereNull('deleted_at'),
+            ],
+        ]);
+
+        $target = Union::where('ulid', $data['union_ulid'])->firstOrFail();
+        $this->authorize('update', $target);
+
+        $warnings = $action->handle($union, $target, $person);
+
+        return ApiResponse::success(
+            UnionResource::make($target->fresh(['partner1', 'partner2', 'children'])),
+            warnings: array_map(fn ($w) => $w->jsonSerialize(), $warnings),
         );
     }
 

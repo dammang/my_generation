@@ -198,6 +198,7 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             Route::delete('unions/{union}', [UnionController::class, 'destroy'])->name('unions.destroy');
             Route::post('unions/{union}/children', [UnionController::class, 'addChild'])->name('unions.children.store');
             Route::patch('unions/{union}/children/order', [UnionController::class, 'orderChildren'])->name('unions.children.order');
+            Route::post('unions/{union}/children/{person}/move', [UnionController::class, 'moveChild'])->name('unions.children.move');
             Route::delete('unions/{union}/children/{person}', [UnionController::class, 'removeChild'])->name('unions.children.destroy');
 
             Route::post('tribes', [TribeController::class, 'store'])->name('tribes.store');

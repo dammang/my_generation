@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/errors/api_exception.dart';
 import '../../../models/change_request.dart';
+import '../../../models/family_bundle.dart';
 import '../../../models/person_detail.dart';
 import '../../../models/media_item.dart';
 import '../../../models/person_summary.dart';
@@ -150,6 +151,78 @@ class _LoadedState extends ConsumerState<_Loaded>
           .orderChildren(unionUlid: unionUlid, personUlids: ulids);
 
       if (mounted) ref.invalidate(familyProvider(detail.ulid));
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
+  /// Moving a child from one of this person's marriages to another.
+  ///
+  /// The choice is named by the other partner, because "the second marriage"
+  /// is not how anybody thinks of it — they think of it as the children of
+  /// one wife or the other.
+  Future<void> _moveChild(
+    FamilyBundle bundle,
+    FamilyUnion from,
+    PersonSummary child,
+  ) async {
+    final others = bundle.unions.where((u) => u.ulid != from.ulid).toList();
+
+    if (others.isEmpty) return;
+
+    final target = await showDialog<FamilyUnion>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text('Move ${child.displayName} to'),
+        children: [
+          for (final union in others)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, union),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.favorite_outline),
+                title: Text(
+                  union.partnerOther(detail.ulid)?.displayName ??
+                      'The other marriage',
+                ),
+                subtitle: Text(union.describe()),
+                dense: true,
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (target == null || !mounted) return;
+
+    try {
+      await ref
+          .read(personRepositoryProvider)
+          .moveChildToUnion(
+            fromUnionUlid: from.ulid,
+            toUnionUlid: target.ulid,
+            personUlid: child.ulid,
+          );
+
+      if (mounted) {
+        invalidatePerson(ref, detail.ulid, alsoUlid: child.ulid);
+
+        final mother = target.partnerOther(detail.ulid)?.displayName;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              mother == null
+                  ? '${child.displayName} was moved.'
+                  : '${child.displayName} is now recorded with $mother.',
+            ),
+          ),
+        );
+      }
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -393,6 +466,7 @@ class _LoadedState extends ConsumerState<_Loaded>
                 onLinkFamily: () => _linkFamily(detail),
                 onReorderChildren: _reorderChildren,
                 onDeletePerson: _deletePerson,
+                onMoveChild: (from, child) => _moveChild(bundle, from, child),
               ),
             ),
             timeline.when(

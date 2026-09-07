@@ -19,6 +19,7 @@ class FamilyTab extends StatelessWidget {
     required this.onLinkFamily,
     required this.onReorderChildren,
     required this.onDeletePerson,
+    required this.onMoveChild,
   });
 
   final FamilyBundle bundle;
@@ -30,6 +31,11 @@ class FamilyTab extends StatelessWidget {
   onReorderChildren;
 
   final void Function(PersonSummary person) onDeletePerson;
+
+  /// Which marriage a child belongs to. A man with two wives has two sets of
+  /// children, and until now the only way to correct one was to delete the
+  /// child and enter them again.
+  final void Function(FamilyUnion from, PersonSummary child) onMoveChild;
 
   /// Somebody who married in belongs to a family of their own, and the archive
   /// has no way to work out which. Asked for rather than guessed at.
@@ -96,6 +102,8 @@ class FamilyTab extends StatelessWidget {
             onAddChild: () => onAddRelative('child'),
             onReorderChildren: onReorderChildren,
             onDeletePerson: onDeletePerson,
+            // Offered only when there is somewhere to move them to.
+            onMoveChild: bundle.unions.length > 1 ? onMoveChild : null,
           ),
         if (bundle.unions.isEmpty)
           _Section(
@@ -142,6 +150,7 @@ class _UnionSection extends StatelessWidget {
     required this.onAddChild,
     required this.onReorderChildren,
     required this.onDeletePerson,
+    required this.onMoveChild,
   });
 
   final FamilyUnion union;
@@ -151,6 +160,7 @@ class _UnionSection extends StatelessWidget {
   final void Function(String unionUlid, List<String> personUlids)
   onReorderChildren;
   final void Function(PersonSummary person) onDeletePerson;
+  final void Function(FamilyUnion from, PersonSummary child)? onMoveChild;
 
   @override
   Widget build(BuildContext context) {
@@ -186,6 +196,9 @@ class _UnionSection extends StatelessWidget {
                 _moved(union.children, index, by),
               ),
               onDelete: () => onDeletePerson(child),
+              onMoveToUnion: onMoveChild == null
+                  ? null
+                  : () => onMoveChild!(union, child),
             ),
           ),
         if (hidden > 0)
@@ -271,12 +284,17 @@ class _ChildMenu extends StatelessWidget {
     required this.canMoveDown,
     required this.onMove,
     required this.onDelete,
+    this.onMoveToUnion,
   });
 
   final bool canMoveUp;
   final bool canMoveDown;
   final void Function(int by) onMove;
   final VoidCallback onDelete;
+
+  /// Null when this person has only one marriage — there is nowhere to move a
+  /// child to, and an option that leads nowhere is worse than no option.
+  final VoidCallback? onMoveToUnion;
 
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
@@ -285,6 +303,7 @@ class _ChildMenu extends StatelessWidget {
     onSelected: (choice) => switch (choice) {
       'up' => onMove(-1),
       'down' => onMove(1),
+      'union' => onMoveToUnion?.call(),
       _ => onDelete(),
     },
     itemBuilder: (context) => [
@@ -308,6 +327,18 @@ class _ChildMenu extends StatelessWidget {
           title: Text('Move down'),
         ),
       ),
+      if (onMoveToUnion != null) ...[
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'union',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            leading: Icon(Icons.swap_horiz),
+            title: Text('Move to another marriage'),
+          ),
+        ),
+      ],
       const PopupMenuDivider(),
       PopupMenuItem(
         value: 'delete',
