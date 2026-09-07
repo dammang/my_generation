@@ -7,6 +7,7 @@ import 'package:my_generation/providers/app_providers.dart';
 import 'package:my_generation/providers/auth_provider.dart';
 import 'package:my_generation/providers/onboarding_provider.dart';
 import 'package:my_generation/providers/sync_provider.dart';
+import 'package:my_generation/providers/tree_provider.dart';
 import 'package:my_generation/repositories/sync_queue_repository.dart';
 
 import 'support/fake_api.dart';
@@ -126,6 +127,44 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Stay signed in'), findsOneWidget);
+  });
+
+  testWidgets('the bar gets out of the way while the tree is being moved', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(NavigationBar)),
+    );
+
+    Offset offset() => tester
+        .widget<AnimatedSlide>(
+          find.ancestor(
+            of: find.byType(NavigationBar),
+            matching: find.byType(AnimatedSlide),
+          ),
+        )
+        .offset;
+
+    expect(offset(), Offset.zero);
+
+    // Only on the tree's own tab: a bar that came and went everywhere would be
+    // one nobody could rely on finding.
+    container.read(treeIsMovingProvider.notifier).moving(true);
+    await tester.pump();
+
+    expect(offset(), Offset.zero, reason: 'home is not the chart');
+
+    await tester.tap(find.text('Tree'));
+    await tester.pumpAndSettle();
+
+    expect(offset(), const Offset(0, 1));
+
+    container.read(treeIsMovingProvider.notifier).moving(false);
+    await tester.pump();
+
+    expect(offset(), Offset.zero, reason: 'it has to come back on its own');
   });
 
   group('the outbox badge', () {

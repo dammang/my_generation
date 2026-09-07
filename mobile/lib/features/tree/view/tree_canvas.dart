@@ -20,6 +20,7 @@ class TreeCanvas extends StatefulWidget {
     required this.onPersonLongPress,
     required this.onExpand,
     this.onScaleSettled,
+    this.onInteractionChanged,
   });
 
   final TreeGraph graph;
@@ -33,6 +34,10 @@ class TreeCanvas extends StatefulWidget {
   /// as many generations as that zoom can usefully show. Fired at the end of
   /// the gesture rather than during it: nobody wants a fetch per frame.
   final void Function(double scale)? onScaleSettled;
+
+  /// True while a pan or a pinch is in progress, so the screen around the
+  /// chart can move out of its way.
+  final void Function(bool moving)? onInteractionChanged;
 
   @override
   State<TreeCanvas> createState() => _TreeCanvasState();
@@ -80,9 +85,13 @@ class _TreeCanvasState extends State<TreeCanvas> {
 
         return InteractiveViewer(
           transformationController: widget.controller,
-          onInteractionEnd: (_) => widget.onScaleSettled?.call(
-            widget.controller.value.getMaxScaleOnAxis(),
-          ),
+          onInteractionStart: (_) => widget.onInteractionChanged?.call(true),
+          onInteractionEnd: (_) {
+            widget.onInteractionChanged?.call(false);
+            widget.onScaleSettled?.call(
+              widget.controller.value.getMaxScaleOnAxis(),
+            );
+          },
           // Far enough out to take in a whole family at once. 0.25 stopped
           // while the chart was still wider than the screen, which is the
           // moment somebody most wants to see all of it. A card at 0.08 is

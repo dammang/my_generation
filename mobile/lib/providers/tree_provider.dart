@@ -141,3 +141,20 @@ final treeProvider = FutureProvider<TreeGraph>((ref) async {
     return cached;
   }
 });
+
+/// Whether the chart is being panned or pinched at this moment.
+///
+/// The chrome gets out of the way while it is: on a phone the summary card and
+/// the bottom bar together take a third of the height, and that is the third
+/// somebody is trying to drag the tree through. Both come back the moment the
+/// gesture ends, so nothing has to be learned and nothing stays hidden.
+class TreeIsMovingNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void moving(bool value) => state = value;
+}
+
+final treeIsMovingProvider = NotifierProvider<TreeIsMovingNotifier, bool>(
+  TreeIsMovingNotifier.new,
+);

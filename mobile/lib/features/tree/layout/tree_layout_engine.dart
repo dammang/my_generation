@@ -181,10 +181,26 @@ class TreeLayoutEngine {
   /// and only who occupies which place changes. Nothing about the crossing
   /// count can therefore get worse.
   void _seatSiblingsInBirthOrder(List<String> row, _Relations relations) {
+    // A married sibling moves with their husband or wife. Seating the people
+    // one at a time put a brother in a place whose neighbour was somebody
+    // else's wife, and the chart then drew them as a couple — a worse error
+    // than the order it was correcting.
+    final blocks = _couples(row, relations);
+
+    String? familyOf(List<String> block) => block
+        .map(relations.siblingGroupOf)
+        .firstWhere((family) => family != null, orElse: () => null);
+
+    int rankOf(List<String> block) =>
+        block
+            .map(relations.birthRankOf)
+            .firstWhere((rank) => rank != null, orElse: () => null) ??
+        0;
+
     final places = <String, List<int>>{};
 
-    for (var i = 0; i < row.length; i++) {
-      final family = relations.siblingGroupOf(row[i]);
+    for (var i = 0; i < blocks.length; i++) {
+      final family = familyOf(blocks[i]);
 
       if (family != null) places.putIfAbsent(family, () => []).add(i);
     }
@@ -192,18 +208,46 @@ class TreeLayoutEngine {
     for (final entry in places.entries) {
       if (entry.value.length < 2) continue;
 
-      final siblings = entry.value.map((i) => row[i]).toList()
+      final ordered = entry.value.map((i) => blocks[i]).toList()
         ..sort((a, b) {
-          final ra = relations.birthRankOf(a) ?? 0;
-          final rb = relations.birthRankOf(b) ?? 0;
+          final byBirth = rankOf(a).compareTo(rankOf(b));
 
-          return ra == rb ? a.compareTo(b) : ra.compareTo(rb);
+          return byBirth != 0 ? byBirth : a.first.compareTo(b.first);
         });
 
       for (var k = 0; k < entry.value.length; k++) {
-        row[entry.value[k]] = siblings[k];
+        blocks[entry.value[k]] = ordered[k];
       }
     }
+
+    final seated = blocks.expand((block) => block).toList();
+
+    for (var i = 0; i < row.length; i++) {
+      row[i] = seated[i];
+    }
+  }
+
+  /// The row split into runs of people who are drawn as couples.
+  ///
+  /// Each run is one thing as far as ordering is concerned: whatever happens to
+  /// a married person happens to their partner, or the two are left standing
+  /// beside somebody they were never married to.
+  List<List<String>> _couples(List<String> row, _Relations relations) {
+    final blocks = <List<String>>[];
+
+    for (final ulid in row) {
+      final joinsPrevious =
+          blocks.isNotEmpty &&
+          relations.partnersOf(blocks.last.last).contains(ulid);
+
+      if (joinsPrevious) {
+        blocks.last.add(ulid);
+      } else {
+        blocks.add([ulid]);
+      }
+    }
+
+    return blocks;
   }
 
   /// Horizontal coordinates.

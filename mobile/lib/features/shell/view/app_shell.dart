@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../providers/sync_provider.dart';
+import '../../../providers/tree_provider.dart';
 
 /// The frame the five main sections live inside.
 ///
@@ -25,48 +26,62 @@ class AppShell extends ConsumerWidget {
     // correct on a phone with no signal — which is exactly when it matters.
     final sync = ref.watch(syncControllerProvider);
 
+    // Only while the chart is actually being moved, and only on the tab the
+    // chart is on. A bar that came and went on every screen would be a bar
+    // nobody could rely on finding.
+    final movingTheTree =
+        ref.watch(treeIsMovingProvider) && shell.currentIndex == 1;
+
     return Scaffold(
       body: shell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: shell.currentIndex,
-        onDestinationSelected: (index) => shell.goBranch(
-          index,
-          // Tapping the tab you are already on returns to the root of that
-          // section, which is the behaviour people expect from every other app
-          // and the only way back out of a deep stack without the back button.
-          initialLocation: index == shell.currentIndex,
+      // Slid down rather than removed: taking it out of the tree changes the
+      // body's height mid-gesture, and the chart jumps under the finger
+      // dragging it.
+      bottomNavigationBar: AnimatedSlide(
+        offset: movingTheTree ? const Offset(0, 1) : Offset.zero,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        child: NavigationBar(
+          selectedIndex: shell.currentIndex,
+          onDestinationSelected: (index) => shell.goBranch(
+            index,
+            // Tapping the tab you are already on returns to the root of that
+            // section, which is the behaviour people expect from every other app
+            // and the only way back out of a deep stack without the back button.
+            initialLocation: index == shell.currentIndex,
+          ),
+          destinations: [
+            const NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.account_tree_outlined),
+              selectedIcon: Icon(Icons.account_tree),
+              label: 'Tree',
+            ),
+            // "Edits" rather than "Contributions": five labels have to fit across
+            // a narrow phone, and a truncated word reads as a bug. It covers both
+            // sides of that screen — edits somebody proposed, and edits waiting
+            // on them — which "Review" would not for a plain contributor.
+            const NavigationDestination(
+              icon: Icon(Icons.rate_review_outlined),
+              selectedIcon: Icon(Icons.rate_review),
+              label: 'Edits',
+            ),
+            NavigationDestination(
+              icon: _OutboxIcon(sync: sync, selected: false),
+              selectedIcon: _OutboxIcon(sync: sync, selected: true),
+              label: 'Outbox',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+          ],
         ),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.account_tree_outlined),
-            selectedIcon: Icon(Icons.account_tree),
-            label: 'Tree',
-          ),
-          // "Edits" rather than "Contributions": five labels have to fit across
-          // a narrow phone, and a truncated word reads as a bug. It covers both
-          // sides of that screen — edits somebody proposed, and edits waiting
-          // on them — which "Review" would not for a plain contributor.
-          const NavigationDestination(
-            icon: Icon(Icons.rate_review_outlined),
-            selectedIcon: Icon(Icons.rate_review),
-            label: 'Edits',
-          ),
-          NavigationDestination(
-            icon: _OutboxIcon(sync: sync, selected: false),
-            selectedIcon: _OutboxIcon(sync: sync, selected: true),
-            label: 'Outbox',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }

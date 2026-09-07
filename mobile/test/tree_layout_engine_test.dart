@@ -327,6 +327,66 @@ void main() {
       expect(byX.map((n) => n.ulid).toList(), children);
     });
 
+    test('a married sibling takes their husband or wife with them', () {
+      // The order the sweep happens to produce puts the wives between the
+      // brothers. Seating the brothers one at a time then left each of them
+      // standing beside somebody else's wife, and the chart drew that as a
+      // marriage — a worse error than the order it was correcting.
+      final layout = engine.layout(
+        _graph(
+          focus: 'father',
+          depths: {
+            'father': 0,
+            'aeldest': 1,
+            'awife': 1,
+            'zyoungest': 1,
+            'zwife': 1,
+          },
+          unions: const [
+            TreeUnion(
+              ulid: 'u1',
+              partnerUlids: ['father'],
+              childUlids: ['zyoungest', 'aeldest'],
+            ),
+            TreeUnion(
+              ulid: 'u2',
+              partnerUlids: ['zyoungest', 'zwife'],
+              childUlids: [],
+            ),
+            TreeUnion(
+              ulid: 'u3',
+              partnerUlids: ['aeldest', 'awife'],
+              childUlids: [],
+            ),
+          ],
+          edges: const [
+            TreeEdge(parentUlid: 'father', childUlid: 'zyoungest'),
+            TreeEdge(parentUlid: 'father', childUlid: 'aeldest'),
+          ],
+        ),
+      );
+
+      final row = layout.nodes.values.where((n) => n.ulid != 'father').toList()
+        ..sort((a, b) => a.rect.left.compareTo(b.rect.left));
+
+      final order = row.map((n) => n.ulid).toList();
+
+      // Birth order first: the union names zyoungest before aeldest.
+      expect(order.indexOf('zyoungest'), lessThan(order.indexOf('aeldest')));
+
+      // And each of them still stands next to the person they married.
+      expect(
+        (order.indexOf('zyoungest') - order.indexOf('zwife')).abs(),
+        1,
+        reason: 'zyoungest was separated from their partner',
+      );
+      expect(
+        (order.indexOf('aeldest') - order.indexOf('awife')).abs(),
+        1,
+        reason: 'aeldest was separated from their partner',
+      );
+    });
+
     test('a sibling with descendants of their own keeps their place', () {
       // The real shape of the reported family, and the thing that actually
       // moved him: of seven children only the youngest had a family, so the

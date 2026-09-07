@@ -197,11 +197,15 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                           onScaleSettled: (scale) => ref
                               .read(treeQueryProvider.notifier)
                               .deepenForScale(scale),
+                          onInteractionChanged: (moving) => ref
+                              .read(treeIsMovingProvider.notifier)
+                              .moving(moving),
                         ),
                         _Legend(
                           graph: graph,
                           layout: layout,
                           onOpenProfile: _openProfile,
+                          hidden: ref.watch(treeIsMovingProvider),
                         ),
                       ],
                     );
@@ -225,11 +229,17 @@ class _Legend extends StatelessWidget {
     required this.graph,
     required this.layout,
     required this.onOpenProfile,
+    this.hidden = false,
   });
 
   final TreeGraph graph;
   final TreeLayout layout;
   final void Function(String ulid) onOpenProfile;
+
+  /// Slid out of the way while the chart is being moved. It describes what is
+  /// in the middle of the screen, which is exactly what is changing during a
+  /// pan — so it is both useless and in the way at the same moment.
+  final bool hidden;
 
   @override
   Widget build(BuildContext context) {
@@ -240,65 +250,77 @@ class _Legend extends StatelessWidget {
       left: 12,
       right: 12,
       bottom: 12,
-      child: Card(
-        child: InkWell(
-          onTap: focus == null ? null : () => onOpenProfile(focus.ulid),
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        focus?.displayName ?? 'Family tree',
-                        style: theme.textTheme.titleMedium,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        // The family, not the window onto it. A count of
-                        // what happened to be fetched reads as a count of
-                        // how many relatives somebody has.
-                        '${graph.clanPeople} people · '
-                        '${graph.clanAbove} up, ${graph.clanBelow} down'
-                        '${graph.truncated ? ' · showing the nearest' : ''}'
-                        // A tree rebuilt from the device is necessarily partial.
-                        // Presenting a fragment as the whole family is the
-                        // offline failure that actually misleads people.
-                        '${graph.fromCache ? ' · saved on this device' : ''}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      // Both scales, on their own line: "11th generation from
-                      // Pu Zo · 1st generation of Jasuan". A clan that counts
-                      // from somebody recent still descends from somebody far
-                      // older, and a summary that gave only one number would
-                      // be answering a question nobody asked.
-                      if (focus?.generation?.summary != null)
-                        Text(
-                          focus!.generation!.summary!,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
+      child: AnimatedSlide(
+        offset: hidden ? const Offset(0, 1.4) : Offset.zero,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        child: AnimatedOpacity(
+          opacity: hidden ? 0 : 1,
+          duration: const Duration(milliseconds: 180),
+          child: Card(
+            child: InkWell(
+              onTap: focus == null ? null : () => onOpenProfile(focus.ulid),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
                 ),
-                if (focus?.generationLabel != null)
-                  Chip(
-                    label: Text(focus!.generationLabel!),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                if (focus != null)
-                  Icon(
-                    Icons.chevron_right,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-              ],
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            focus?.displayName ?? 'Family tree',
+                            style: theme.textTheme.titleMedium,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            // The family, not the window onto it. A count of
+                            // what happened to be fetched reads as a count of
+                            // how many relatives somebody has.
+                            '${graph.clanPeople} people · '
+                            '${graph.clanAbove} up, ${graph.clanBelow} down'
+                            '${graph.truncated ? ' · showing the nearest' : ''}'
+                            // A tree rebuilt from the device is necessarily partial.
+                            // Presenting a fragment as the whole family is the
+                            // offline failure that actually misleads people.
+                            '${graph.fromCache ? ' · saved on this device' : ''}',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          // Both scales, on their own line: "11th generation from
+                          // Pu Zo · 1st generation of Jasuan". A clan that counts
+                          // from somebody recent still descends from somebody far
+                          // older, and a summary that gave only one number would
+                          // be answering a question nobody asked.
+                          if (focus?.generation?.summary != null)
+                            Text(
+                              focus!.generation!.summary!,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (focus?.generationLabel != null)
+                      Chip(
+                        label: Text(focus!.generationLabel!),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    if (focus != null)
+                      Icon(
+                        Icons.chevron_right,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
