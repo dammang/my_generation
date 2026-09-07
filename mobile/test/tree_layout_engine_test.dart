@@ -387,6 +387,53 @@ void main() {
       );
     });
 
+    test('married siblings interleave with their own wives', () {
+      // The reported row, and the worst of these: three brothers, each with a
+      // wife. Every one of the six shares the father's barycentre — the wives
+      // inherit it from their husbands — so the whole row ties and whatever
+      // breaks the tie decides it. Sorting people put all three wives at one
+      // end and all three brothers at the other, alphabetically, with not one
+      // marriage drawn.
+      const sons = ['son1', 'son2', 'son3'];
+      const wives = {'son1': 'awife', 'son2': 'mwife', 'son3': 'bwife'};
+
+      final layout = engine.layout(
+        _graph(
+          focus: 'father',
+          depths: {
+            'father': 0,
+            for (final son in sons) son: 1,
+            for (final wife in wives.values) wife: 1,
+          },
+          unions: [
+            const TreeUnion(
+              ulid: 'u0',
+              partnerUlids: ['father'],
+              childUlids: sons,
+            ),
+            for (final son in sons)
+              TreeUnion(
+                ulid: 'u_$son',
+                partnerUlids: [son, wives[son]!],
+                childUlids: const [],
+              ),
+          ],
+          edges: [
+            for (final son in sons)
+              TreeEdge(parentUlid: 'father', childUlid: son),
+          ],
+        ),
+      );
+
+      final order =
+          (layout.nodes.values.where((n) => n.ulid != 'father').toList()
+                ..sort((a, b) => a.rect.left.compareTo(b.rect.left)))
+              .map((n) => n.ulid)
+              .toList();
+
+      expect(order, ['son1', 'awife', 'son2', 'mwife', 'son3', 'bwife']);
+    });
+
     test('a sibling with descendants of their own keeps their place', () {
       // The real shape of the reported family, and the thing that actually
       // moved him: of seven children only the youngest had a family, so the

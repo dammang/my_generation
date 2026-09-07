@@ -156,11 +156,24 @@ class TreeLayoutEngine {
           }
         }
 
-        row.sort((a, b) {
-          final byKey = keys[a]!.compareTo(keys[b]!);
+        // Couples are ordered as one thing, never as two people who happen to
+        // land together. Every child of one marriage shares a barycentre with
+        // every other, and their husbands and wives inherit it — so the whole
+        // row ties and the tie-break decides it. Sorting people put all the
+        // wives at one end and all the sons at the other, in alphabetical
+        // order, with not one marriage drawn.
+        final blocks = _couples(row, relations);
 
-          return byKey != 0 ? byKey : a.compareTo(b);
+        double keyOf(List<String> block) =>
+            block.map((m) => keys[m]!).reduce(math.min);
+
+        blocks.sort((a, b) {
+          final byKey = keyOf(a).compareTo(keyOf(b));
+
+          return byKey != 0 ? byKey : a.first.compareTo(b.first);
         });
+
+        _writeBack(row, blocks);
 
         // Crossing reduction decides which places a family occupies; birth
         // order decides who sits in each of them. Left to itself the sweep
@@ -220,34 +233,52 @@ class TreeLayoutEngine {
       }
     }
 
+    _writeBack(row, blocks);
+  }
+
+  /// The row split into the groups of people who have to stay adjacent.
+  ///
+  /// Built from who is actually married to whom, not from who happens to be
+  /// standing next to whom: reading adjacency only preserves couples that are
+  /// already together, which is no use on a row where the sort has just
+  /// scattered them.
+  ///
+  /// A man with two wives is one group of three. Members keep the order they
+  /// are already in, and the groups keep the order of their first member.
+  List<List<String>> _couples(List<String> row, _Relations relations) {
+    final place = {for (var i = 0; i < row.length; i++) row[i]: i};
+    final seen = <String>{};
+    final blocks = <List<String>>[];
+
+    for (final ulid in row) {
+      if (!seen.add(ulid)) continue;
+
+      final block = <String>[ulid];
+      final queue = <String>[ulid];
+
+      while (queue.isNotEmpty) {
+        for (final partner in relations.partnersOf(queue.removeLast())) {
+          if (place.containsKey(partner) && seen.add(partner)) {
+            block.add(partner);
+            queue.add(partner);
+          }
+        }
+      }
+
+      block.sort((a, b) => place[a]!.compareTo(place[b]!));
+      blocks.add(block);
+    }
+
+    return blocks;
+  }
+
+  /// Flattens ordered groups back over the row they came from.
+  void _writeBack(List<String> row, List<List<String>> blocks) {
     final seated = blocks.expand((block) => block).toList();
 
     for (var i = 0; i < row.length; i++) {
       row[i] = seated[i];
     }
-  }
-
-  /// The row split into runs of people who are drawn as couples.
-  ///
-  /// Each run is one thing as far as ordering is concerned: whatever happens to
-  /// a married person happens to their partner, or the two are left standing
-  /// beside somebody they were never married to.
-  List<List<String>> _couples(List<String> row, _Relations relations) {
-    final blocks = <List<String>>[];
-
-    for (final ulid in row) {
-      final joinsPrevious =
-          blocks.isNotEmpty &&
-          relations.partnersOf(blocks.last.last).contains(ulid);
-
-      if (joinsPrevious) {
-        blocks.last.add(ulid);
-      } else {
-        blocks.add([ulid]);
-      }
-    }
-
-    return blocks;
   }
 
   /// Horizontal coordinates.
