@@ -101,6 +101,46 @@ void main() {
     expect(adapter.received.single.data['person']['first_name'], 'Bawi');
   });
 
+  testWidgets('a relative can be added as already died', (tester) async {
+    final adapter = FakeAdapter({
+      _addRelative: [FakeReply(201, _createdPerson('Pu Zo'))],
+    });
+
+    await pumpScreen(tester, adapter);
+    await tester.enterText(find.byType(TextFormField).first, 'Pu Zo');
+    await tapScrolled(tester, find.text('This person has died'));
+    await tapScrolled(tester, find.text('Add to the family'));
+
+    // Most people added from memory have died and nobody remembers when, so
+    // the year field asks for something that does not exist.
+    expect(adapter.received.single.data['person']['deceased_declared'], isTrue);
+  });
+
+  testWidgets('a year said out loud replaces the toggle', (tester) async {
+    final adapter = FakeAdapter({
+      _addRelative: [FakeReply(201, _createdPerson('Pu Zo'))],
+    });
+
+    await pumpScreen(tester, adapter);
+    await tester.enterText(find.byType(TextFormField).first, 'Pu Zo');
+
+    final died = find.widgetWithText(TextFormField, 'Died (optional)');
+    await tester.ensureVisible(died);
+    await tester.enterText(died, '1968');
+    await tester.pumpAndSettle();
+
+    // The switch is gone once a year is given: it would restate, less well,
+    // a thing the date already says.
+    expect(find.text('This person has died'), findsNothing);
+
+    await tapScrolled(tester, find.text('Add to the family'));
+
+    final person = adapter.received.single.data['person'];
+
+    expect(person['death'], '1968');
+    expect(person.containsKey('deceased_declared'), isFalse);
+  });
+
   testWidgets('asks which marriage when the server refuses to guess', (
     tester,
   ) async {

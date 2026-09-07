@@ -48,6 +48,11 @@ class AddRelativeRequest extends FormRequest
             'person.death' => ['sometimes', 'nullable', 'string', 'max:120'],
             'person.birth_place_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('places', 'ulid')],
 
+            // "They have died, nobody knows when." The commonest thing to be
+            // able to say about somebody being added from memory, and the
+            // death field asks for a year that nobody has.
+            'person.deceased_declared' => ['sometimes', 'boolean'],
+
             // Required only when the anchor has more than one union; the action
             // raises UNION_AMBIGUOUS with the choices rather than guessing.
             'union_ulid' => ['sometimes', 'nullable', 'string', Rule::exists('unions', 'ulid')->whereNull('deleted_at')],

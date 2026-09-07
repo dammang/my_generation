@@ -71,6 +71,10 @@ class _AddRelativeScreenState extends ConsumerState<AddRelativeScreen> {
   final _birth = TextEditingController();
   final _death = TextEditingController();
 
+  /// They have died and nobody knows when — the commonest thing anybody can
+  /// say about a person being added from memory.
+  bool _deceased = false;
+
   late String _relation = widget.initialRelation;
   String _gender = 'unknown';
   String _subtype = 'biological';
@@ -229,6 +233,11 @@ class _AddRelativeScreenState extends ConsumerState<AddRelativeScreen> {
     'gender': _gender,
     'birth': ?_nullIfBlank(_birth.text),
     'death': ?_nullIfBlank(_death.text),
+    // Only when it is the only thing being said about the death. A year in
+    // the field above already records it, and sending both would restate a
+    // claim the date makes better.
+    if (_deceased && _nullIfBlank(_death.text) == null)
+      'deceased_declared': true,
   };
 
   String? _pendingUlid;
@@ -371,11 +380,29 @@ class _AddRelativeScreenState extends ConsumerState<AddRelativeScreen> {
             const SizedBox(height: 14),
             TextFormField(
               controller: _death,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 labelText: 'Died (optional)',
-                helperText: 'Leave blank if they are living',
+                helperText: 'Leave blank if you know the year',
               ),
             ),
+            // Most people added from memory have died and nobody remembers
+            // when, so the field above asks for a year that does not exist.
+            // Hidden once a year is given, because then it has been said
+            // better and a switch that changes nothing teaches people that
+            // switches do nothing.
+            if (_nullIfBlank(_death.text) == null)
+              SwitchListTile(
+                value: _deceased,
+                onChanged: _saving
+                    ? null
+                    : (value) => setState(() => _deceased = value),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('This person has died'),
+                subtitle: const Text(
+                  'For when the family knows, and nobody remembers the year.',
+                ),
+              ),
             if (_isParentOrChild) ...[
               const SizedBox(height: 20),
               Text('How are they related?', style: theme.textTheme.labelLarge),

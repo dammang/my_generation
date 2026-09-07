@@ -92,6 +92,11 @@ class SyncTest extends TestCase
     private function person(array $overrides = []): Person
     {
         $person = Person::factory()->create([
+            // Named, not left to the faker. These tests count how many people
+            // called Thawng exist afterwards, and the faker draws from the
+            // same tribe's names — so roughly one run in twenty produced an
+            // anchor called Thawng and the assertion counted him too.
+            'first_name' => 'Anchor',
             'tribe_id' => $this->tribe->id,
             'clan_id' => $this->clan->id,
             'family_branch_id' => $this->branch->id,

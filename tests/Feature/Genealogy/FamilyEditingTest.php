@@ -34,7 +34,12 @@ class FamilyEditingTest extends TestCase
     #[Test]
     public function a_death_can_be_recorded_without_a_date(): void
     {
-        $person = Person::factory()->create(['display_name' => 'Thawng Dam']);
+        // Born recently enough that only the declaration can make them dead:
+        // the factory picks a year back to 1900, and anybody past the maximum
+        // age is counted as deceased whatever the flag says.
+        $person = Person::factory()->bornExactly(1990)->create([
+            'display_name' => 'Thawng Dam',
+        ]);
 
         $this->assertTrue($person->is_living, 'no dates at all reads as living');
 
@@ -55,7 +60,9 @@ class FamilyEditingTest extends TestCase
     #[Test]
     public function saying_they_are_living_again_undoes_it(): void
     {
-        $person = Person::factory()->create(['deceased_declared' => true]);
+        $person = Person::factory()->bornExactly(1990)->create([
+            'deceased_declared' => true,
+        ]);
 
         $this->actingAs($this->user)
             ->patchJson(route('api.v1.people.update', $person), ['deceased_declared' => false])
@@ -67,7 +74,7 @@ class FamilyEditingTest extends TestCase
     #[Test]
     public function a_recorded_death_date_still_outranks_the_toggle(): void
     {
-        $person = Person::factory()->create();
+        $person = Person::factory()->bornExactly(1990)->create();
 
         // Through the API, because death_year is derived and a factory cannot
         // set it: the date is parsed from what somebody actually typed.
@@ -84,6 +91,28 @@ class FamilyEditingTest extends TestCase
         // Turning the toggle off is "we did not mean to say that", not "they
         // are alive" — a recorded date is evidence and the flag is not.
         $this->assertFalse($person->refresh()->is_living);
+    }
+
+    #[Test]
+    public function a_relative_can_be_added_as_already_died(): void
+    {
+        $anchor = Person::factory()->bornExactly(1960)->create();
+
+        $ulid = $this->actingAs($this->user)
+            ->postJson(route('api.v1.people.relatives', $anchor), [
+                'relation' => 'son',
+                'person' => ['display_name' => 'Pu Zo', 'deceased_declared' => true],
+            ])
+            ->assertCreated()
+            ->json('data.person.ulid');
+
+        // Somebody added from memory is usually somebody who has died, and the
+        // death field asks for a year nobody has.
+        $person = Person::where('ulid', $ulid)->firstOrFail();
+
+        $this->assertTrue($person->deceased_declared);
+        $this->assertFalse($person->is_living);
+        $this->assertNull($person->death_year);
     }
 
     #[Test]
