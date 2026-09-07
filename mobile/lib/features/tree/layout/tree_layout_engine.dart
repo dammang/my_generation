@@ -15,33 +15,35 @@ import 'tree_metrics.dart';
 /// The algorithm is a layered one, in three passes:
 ///
 ///   1. Rows by depth, which the server already assigns.
-///   2. Ordering within each row, sweeping up and down and sorting by the
-///      median position of each node's neighbours in the adjacent row. Couples
-///      are ordered as one block so partners never end up apart.
-///   3. Coordinates: children are packed left to right, then each parent is
-///      pulled to sit centred over its own children, with overlaps resolved by
-///      pushing right.
+///   2. Families: each couple, with everything descended from them, is measured
+///      and then given a block of the canvas to itself.
+///   3. Coordinates: within a block, children are laid out in birth order and
+///      the couple is centred over them.
+///
+/// It packs families rather than rows because a row cannot be packed correctly
+/// on its own: an earlier branch pushes the next one right, the parent above is
+/// already placed and cannot follow, and a grandfather ends up six cards from
+/// his own grandchildren.
 class TreeLayoutEngine {
   const TreeLayoutEngine({this.metrics = const TreeMetrics()});
 
   final TreeMetrics metrics;
-
-  /// How many up-and-down sweeps to spend reducing crossings. Four is enough
-  /// for the depths this app allows; more buys nothing measurable.
-  static const int _orderingSweeps = 4;
 
   TreeLayout layout(TreeGraph graph) {
     if (graph.isEmpty) return TreeLayout.empty;
 
     final rows = _rowsByDepth(graph);
     final relations = _Relations.from(graph);
+    final x = _assignX(graph, relations);
 
-    var ordered = _initialOrder(graph, rows, relations);
-    ordered = _reduceCrossings(ordered, relations);
+    // Rows are read back in the order the placement produced, so everything
+    // downstream — the union bars, the drop lines — sees the same left to
+    // right as the chart does.
+    for (final row in rows.values) {
+      row.sort((a, b) => (x[a] ?? 0).compareTo(x[b] ?? 0));
+    }
 
-    final x = _assignX(ordered, relations);
-
-    return _build(graph, ordered, x);
+    return _build(graph, rows, x);
   }
 
   /// depth → people at that depth.
@@ -60,327 +62,22 @@ class TreeLayoutEngine {
     return rows;
   }
 
-  /// A first ordering, walking outward from the focus.
+  /// Horizontal coordinates, by packing whole families rather than rows.
   ///
-  /// Starting anywhere else tends to leave the person somebody actually asked
-  /// about drifting off to one side.
-  Map<int, List<String>> _initialOrder(
-    TreeGraph graph,
-    Map<int, List<String>> rows,
-    _Relations relations,
-  ) {
-    final seen = <String>{};
-    final ordered = {for (final depth in rows.keys) depth: <String>[]};
-
-    void place(String ulid) {
-      if (!seen.add(ulid)) return;
-
-      final depth = graph.person(ulid)?.depth ?? 0;
-      ordered[depth]?.add(ulid);
-
-      // Partners immediately, so a couple is never split by whatever comes next.
-      for (final partner in relations.partnersOf(ulid)) {
-        if (graph.people.containsKey(partner)) place(partner);
-      }
-
-      for (final child in relations.childrenInBirthOrder(ulid)) {
-        if (graph.people.containsKey(child)) place(child);
-      }
-
-      for (final parent in relations.parentsOf(ulid)) {
-        if (graph.people.containsKey(parent)) place(parent);
-      }
-    }
-
-    place(graph.focusUlid);
-
-    // Anybody the walk did not reach — a spouse of a spouse, a detached branch.
-    for (final entry in rows.entries) {
-      for (final ulid in entry.value) {
-        place(ulid);
-      }
-    }
-
-    return ordered;
-  }
-
-  /// Median-based crossing reduction, sweeping down then up.
-  Map<int, List<String>> _reduceCrossings(
-    Map<int, List<String>> rows,
-    _Relations relations,
-  ) {
-    final depths = rows.keys.toList()..sort();
-    var current = {
-      for (final entry in rows.entries)
-        entry.key: List<String>.from(entry.value),
-    };
-
-    for (var sweep = 0; sweep < _orderingSweeps; sweep++) {
-      final downward = sweep.isEven;
-      final order = downward ? depths : depths.reversed.toList();
-
-      for (final depth in order) {
-        final fixedDepth = downward ? depth - 1 : depth + 1;
-        final fixed = current[fixedDepth];
-
-        if (fixed == null) continue;
-
-        final index = {
-          for (var i = 0; i < fixed.length; i++) fixed[i]: i.toDouble(),
-        };
-        final row = current[depth]!;
-
-        final keys = <String, double>{};
-
-        for (var i = 0; i < row.length; i++) {
-          final ulid = row[i];
-          final neighbours = downward
-              ? relations.parentsOf(ulid)
-              : relations.childrenOf(ulid);
-          final positions =
-              neighbours.map((n) => index[n]).whereType<double>().toList()
-                ..sort();
-
-          // No neighbour in the fixed row means nothing pulls this node; its
-          // current position is as good as any, so it keeps it.
-          keys[ulid] = positions.isEmpty ? i.toDouble() : _median(positions);
-        }
-
-        // Partners share a key so they sort as one block and stay adjacent.
-        for (final ulid in row) {
-          final partners = relations.partnersOf(ulid).where(keys.containsKey);
-
-          if (partners.isNotEmpty) {
-            final shared = [keys[ulid]!, ...partners.map((p) => keys[p]!)];
-            keys[ulid] = shared.reduce(math.min);
-          }
-        }
-
-        // Couples are ordered as one thing, never as two people who happen to
-        // land together. Every child of one marriage shares a barycentre with
-        // every other, and their husbands and wives inherit it — so the whole
-        // row ties and the tie-break decides it. Sorting people put all the
-        // wives at one end and all the sons at the other, in alphabetical
-        // order, with not one marriage drawn.
-        final blocks = _couples(row, relations);
-
-        double keyOf(List<String> block) =>
-            block.map((m) => keys[m]!).reduce(math.min);
-
-        blocks.sort((a, b) {
-          final byKey = keyOf(a).compareTo(keyOf(b));
-
-          return byKey != 0 ? byKey : a.first.compareTo(b.first);
-        });
-
-        _writeBack(row, blocks);
-
-        // Crossing reduction decides which places a family occupies; birth
-        // order decides who sits in each of them. Left to itself the sweep
-        // reorders siblings by where their own children happen to be, which is
-        // how the seventh son ended up second — he was the only one of the
-        // seven with a family of his own, so his median pulled him left.
-        _seatSiblingsInBirthOrder(row, relations);
-      }
-    }
-
-    return current;
-  }
-
-  /// Puts each family back in birth order without moving where it sits.
+  /// Row-by-row packing cannot keep a parent over a wide family: an earlier
+  /// branch pushes the next one right, the parent is already placed and cannot
+  /// follow, and a grandfather ends up six cards away from his own
+  /// grandchildren. You have to know how wide a family is before you place
+  /// anybody in it.
   ///
-  /// The places a sibling group occupies are left exactly as the sweep left
-  /// them — including any gaps where another family's child sits between them —
-  /// and only who occupies which place changes. Nothing about the crossing
-  /// count can therefore get worse.
-  void _seatSiblingsInBirthOrder(List<String> row, _Relations relations) {
-    // A married sibling moves with their husband or wife. Seating the people
-    // one at a time put a brother in a place whose neighbour was somebody
-    // else's wife, and the chart then drew them as a couple — a worse error
-    // than the order it was correcting.
-    final blocks = _couples(row, relations);
+  /// So each couple, with everything descended from them, is measured first
+  /// and then given a block of the canvas to itself. Nothing from one branch
+  /// can land inside another, every parent sits over the middle of their own
+  /// children, and birth order decides the order of the branches.
+  Map<String, double> _assignX(TreeGraph graph, _Relations relations) {
+    final families = _Families.from(graph, relations, metrics);
 
-    String? familyOf(List<String> block) => block
-        .map(relations.siblingGroupOf)
-        .firstWhere((family) => family != null, orElse: () => null);
-
-    int rankOf(List<String> block) =>
-        block
-            .map(relations.birthRankOf)
-            .firstWhere((rank) => rank != null, orElse: () => null) ??
-        0;
-
-    final places = <String, List<int>>{};
-
-    for (var i = 0; i < blocks.length; i++) {
-      final family = familyOf(blocks[i]);
-
-      if (family != null) places.putIfAbsent(family, () => []).add(i);
-    }
-
-    for (final entry in places.entries) {
-      if (entry.value.length < 2) continue;
-
-      final ordered = entry.value.map((i) => blocks[i]).toList()
-        ..sort((a, b) {
-          final byBirth = rankOf(a).compareTo(rankOf(b));
-
-          return byBirth != 0 ? byBirth : a.first.compareTo(b.first);
-        });
-
-      for (var k = 0; k < entry.value.length; k++) {
-        blocks[entry.value[k]] = ordered[k];
-      }
-    }
-
-    _writeBack(row, blocks);
-  }
-
-  /// The row split into the groups of people who have to stay adjacent.
-  ///
-  /// Built from who is actually married to whom, not from who happens to be
-  /// standing next to whom: reading adjacency only preserves couples that are
-  /// already together, which is no use on a row where the sort has just
-  /// scattered them.
-  ///
-  /// A man with two wives is one group of three. Members keep the order they
-  /// are already in, and the groups keep the order of their first member.
-  List<List<String>> _couples(List<String> row, _Relations relations) {
-    final place = {for (var i = 0; i < row.length; i++) row[i]: i};
-    final seen = <String>{};
-    final blocks = <List<String>>[];
-
-    for (final ulid in row) {
-      if (!seen.add(ulid)) continue;
-
-      final block = <String>[ulid];
-      final queue = <String>[ulid];
-
-      while (queue.isNotEmpty) {
-        for (final partner in relations.partnersOf(queue.removeLast())) {
-          if (place.containsKey(partner) && seen.add(partner)) {
-            block.add(partner);
-            queue.add(partner);
-          }
-        }
-      }
-
-      block.sort((a, b) => place[a]!.compareTo(place[b]!));
-      blocks.add(block);
-    }
-
-    return blocks;
-  }
-
-  /// Flattens ordered groups back over the row they came from.
-  void _writeBack(List<String> row, List<List<String>> blocks) {
-    final seated = blocks.expand((block) => block).toList();
-
-    for (var i = 0; i < row.length; i++) {
-      row[i] = seated[i];
-    }
-  }
-
-  /// Horizontal coordinates.
-  ///
-  /// Rows are packed from the deepest upward so parents can be centred over
-  /// children that already have positions. Centring is what makes a family look
-  /// like a family; without it the chart is a correct but unreadable grid.
-  Map<String, double> _assignX(
-    Map<int, List<String>> rows,
-    _Relations relations,
-  ) {
-    final depths = rows.keys.toList()..sort();
-    final x = <String, double>{};
-
-    // Downward first, so every subtree is planted under the person it belongs
-    // to. Going bottom-up alone anchored each deep line at the left edge of the
-    // canvas and then dragged its ancestor there to sit over it — a seventh son
-    // with a family of his own was pulled to the front of his siblings, and his
-    // descendants hung off the wrong side of the chart.
-    for (final depth in depths) {
-      _packRow(rows[depth]!, relations, x, anchor: relations.parentsOf);
-    }
-
-    // Then upward, so a parent sits over the middle of their own children
-    // rather than at the left end of them. Clamped between the neighbours
-    // already placed, so nobody changes places at this stage.
-    for (final depth in depths.reversed) {
-      _centreOverChildren(rows[depth]!, relations, x);
-    }
-
-    return x;
-  }
-
-  /// One row, packed left to right, each person under whoever anchors them.
-  void _packRow(
-    List<String> row,
-    _Relations relations,
-    Map<String, double> x, {
-    required List<String> Function(String ulid) anchor,
-  }) {
-    var cursor = 0.0;
-
-    for (var i = 0; i < row.length; i++) {
-      final ulid = row[i];
-      final above = anchor(ulid).where(x.containsKey).toList();
-
-      // Under the middle of whoever they hang from, or wherever there is room.
-      final desired = above.isEmpty
-          ? cursor
-          : (above.map((a) => x[a]!).reduce(math.min) +
-                    above.map((a) => x[a]!).reduce(math.max)) /
-                2;
-
-      // Never overlap the neighbour to the left; push right instead of
-      // shrinking the gap, so cards keep a consistent size.
-      final placed = math.max(desired, cursor);
-      x[ulid] = placed;
-
-      cursor = placed + metrics.cardWidth + _gapAfter(row, i, relations);
-    }
-  }
-
-  /// Pulls each parent over their children, as far as their neighbours allow.
-  void _centreOverChildren(
-    List<String> row,
-    _Relations relations,
-    Map<String, double> x,
-  ) {
-    for (var i = 0; i < row.length; i++) {
-      final ulid = row[i];
-      final children = relations.childrenOf(ulid).where(x.containsKey).toList();
-
-      if (children.isEmpty) continue;
-
-      final centres = children.map((c) => x[c]!).toList()..sort();
-      final desired = (centres.first + centres.last) / 2;
-
-      final leftBound = i == 0
-          ? double.negativeInfinity
-          : x[row[i - 1]]! +
-                metrics.cardWidth +
-                _gapAfter(row, i - 1, relations);
-
-      final rightBound = i + 1 < row.length
-          ? x[row[i + 1]]! - metrics.cardWidth - _gapAfter(row, i, relations)
-          : double.infinity;
-
-      // A parent whose children sit outside the room they have keeps their
-      // place: moving would put them past a sibling, which is a worse lie
-      // about the family than an off-centre drop line.
-      x[ulid] = desired.clamp(leftBound, math.max(leftBound, rightBound));
-    }
-  }
-
-  /// The narrow gap belongs between two people who are actually a couple, not
-  /// after anybody who happens to have a partner somewhere in the row.
-  double _gapAfter(List<String> row, int i, _Relations relations) {
-    final next = i + 1 < row.length ? row[i + 1] : null;
-    final isPartner =
-        next != null && relations.partnersOf(row[i]).contains(next);
-
-    return isPartner ? metrics.partnerGap : metrics.horizontalGap;
+    return families.place();
   }
 
   TreeLayout _build(
@@ -548,15 +245,6 @@ class TreeLayoutEngine {
             ),
     ];
   }
-
-  static double _median(List<double> sorted) {
-    if (sorted.isEmpty) return 0;
-    final mid = sorted.length ~/ 2;
-
-    return sorted.length.isOdd
-        ? sorted[mid]
-        : (sorted[mid - 1] + sorted[mid]) / 2;
-  }
 }
 
 /// Adjacency, built once per layout instead of scanned per lookup.
@@ -640,5 +328,232 @@ class _Relations {
     }
 
     return _Relations(parents, children, partners, birthRank, siblingGroup);
+  }
+}
+
+/// Every couple in the graph, and what descends from each of them.
+///
+/// The unit is the couple rather than the person: a husband and wife are drawn
+/// side by side and their family hangs beneath both, so they are placed as one
+/// thing or they are placed wrong. A man with two wives is one unit of three.
+class _Families {
+  _Families._(this._metrics, this._blocks, this._children, this._roots);
+
+  final TreeMetrics _metrics;
+
+  /// Each couple, members in the order they should be drawn.
+  final List<List<String>> _blocks;
+
+  /// couple → the couples descended from it, already in birth order.
+  final Map<int, List<int>> _children;
+
+  /// Couples with nobody above them in this graph.
+  final List<int> _roots;
+
+  factory _Families.from(
+    TreeGraph graph,
+    _Relations relations,
+    TreeMetrics metrics,
+  ) {
+    final order = graph.people.keys.toList();
+    final position = {for (var i = 0; i < order.length; i++) order[i]: i};
+
+    // Couples first: the connected components of "is married to".
+    final blocks = <List<String>>[];
+    final of = <String, int>{};
+
+    for (final ulid in order) {
+      if (of.containsKey(ulid)) continue;
+
+      final block = <String>[ulid];
+      final queue = <String>[ulid];
+      of[ulid] = blocks.length;
+
+      while (queue.isNotEmpty) {
+        for (final partner in relations.partnersOf(queue.removeLast())) {
+          if (graph.people.containsKey(partner) && !of.containsKey(partner)) {
+            of[partner] = blocks.length;
+            block.add(partner);
+            queue.add(partner);
+          }
+        }
+      }
+
+      blocks.add(_asPath(block, relations, position));
+    }
+
+    // Then who descends from whom. One parent only, so this is a forest and
+    // every family owns exactly one stretch of the canvas; the other parent's
+    // line is still drawn, it simply does not decide the placement.
+    final children = <int, List<int>>{};
+    final parentOf = <int, int>{};
+
+    for (var i = 0; i < blocks.length; i++) {
+      for (final member in blocks[i]) {
+        final parent = relations
+            .parentsOf(member)
+            .where(of.containsKey)
+            .map((p) => of[p]!)
+            .where((b) => b != i)
+            .firstOrNull;
+
+        if (parent != null && !parentOf.containsKey(i)) {
+          parentOf[i] = parent;
+          children.putIfAbsent(parent, () => []).add(i);
+          break;
+        }
+      }
+    }
+
+    // Birth order decides the order of the branches, because it is the order
+    // the family itself uses to name them.
+    int rank(int block) =>
+        blocks[block]
+            .map(relations.birthRankOf)
+            .firstWhere((r) => r != null, orElse: () => null) ??
+        1 << 20;
+
+    for (final list in children.values) {
+      list.sort((a, b) {
+        final byBirth = rank(a).compareTo(rank(b));
+
+        return byBirth != 0
+            ? byBirth
+            : blocks[a].first.compareTo(blocks[b].first);
+      });
+    }
+
+    final roots = [
+      for (var i = 0; i < blocks.length; i++)
+        if (!parentOf.containsKey(i)) i,
+    ];
+
+    return _Families._(metrics, blocks, children, roots);
+  }
+
+  /// Orders one couple so that everybody stands next to somebody they married.
+  ///
+  /// A man with two wives is three people in one block, and laying them out in
+  /// the order they arrived puts him at one end — so one of his two marriages
+  /// is drawn between two people who never married each other. Walking the
+  /// partner links instead puts him in the middle, where he belongs.
+  static List<String> _asPath(
+    List<String> block,
+    _Relations relations,
+    Map<String, int> position,
+  ) {
+    if (block.length < 3) {
+      return block..sort((a, b) => position[a]!.compareTo(position[b]!));
+    }
+
+    final members = block.toSet();
+
+    int links(String ulid) =>
+        relations.partnersOf(ulid).where(members.contains).length;
+
+    // Start at somebody with the fewest marriages inside the block — an end of
+    // the chain rather than its middle.
+    final remaining = [...block]
+      ..sort((a, b) {
+        final byLinks = links(a).compareTo(links(b));
+
+        return byLinks != 0 ? byLinks : position[a]!.compareTo(position[b]!);
+      });
+
+    final path = <String>[remaining.removeAt(0)];
+
+    while (remaining.isNotEmpty) {
+      final next =
+          remaining
+              .where((m) => relations.partnersOf(path.last).contains(m))
+              .firstOrNull ??
+          remaining.first;
+
+      path.add(next);
+      remaining.remove(next);
+    }
+
+    return path;
+  }
+
+  /// The x of every person, measured family by family.
+  Map<String, double> place() {
+    final widths = <int, double>{};
+
+    for (final root in _roots) {
+      _measure(root, widths, <int>{});
+    }
+
+    final x = <String, double>{};
+    var cursor = 0.0;
+
+    for (final root in _roots) {
+      _lay(root, cursor, widths, x, <int>{});
+      cursor += widths[root]! + _metrics.horizontalGap;
+    }
+
+    return x;
+  }
+
+  /// How wide a family is: its own couple, or everything beneath it.
+  double _measure(int block, Map<int, double> widths, Set<int> seen) {
+    if (widths.containsKey(block)) return widths[block]!;
+    if (!seen.add(block)) return _own(block);
+
+    final below = _children[block] ?? const <int>[];
+
+    var beneath = 0.0;
+
+    for (final child in below) {
+      beneath += _measure(child, widths, seen) + _metrics.horizontalGap;
+    }
+
+    if (below.isNotEmpty) beneath -= _metrics.horizontalGap;
+
+    return widths[block] = math.max(_own(block), beneath);
+  }
+
+  /// The couple's own width, partners side by side.
+  double _own(int block) {
+    final members = _blocks[block].length;
+
+    return members * _metrics.cardWidth + (members - 1) * _metrics.partnerGap;
+  }
+
+  void _lay(
+    int block,
+    double left,
+    Map<int, double> widths,
+    Map<String, double> x,
+    Set<int> seen,
+  ) {
+    if (!seen.add(block)) return;
+
+    final width = widths[block] ?? _own(block);
+    final below = _children[block] ?? const <int>[];
+
+    var beneath = 0.0;
+
+    for (final child in below) {
+      beneath += (widths[child] ?? _own(child)) + _metrics.horizontalGap;
+    }
+
+    if (below.isNotEmpty) beneath -= _metrics.horizontalGap;
+
+    var cursor = left + (width - beneath) / 2;
+
+    for (final child in below) {
+      _lay(child, cursor, widths, x, seen);
+      cursor += (widths[child] ?? _own(child)) + _metrics.horizontalGap;
+    }
+
+    // The couple sits over the middle of what is beneath them, which is what
+    // makes a family look like a family rather than a correct grid.
+    var at = left + (width - _own(block)) / 2;
+
+    for (final member in _blocks[block]) {
+      x[member] = at;
+      at += _metrics.cardWidth + _metrics.partnerGap;
+    }
   }
 }
