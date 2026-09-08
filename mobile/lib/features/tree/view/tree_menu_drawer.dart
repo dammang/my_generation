@@ -13,6 +13,7 @@ class TreeMenuDrawer extends StatelessWidget {
     super.key,
     required this.onGoToMe,
     required this.onExport,
+    required this.onExportPdf,
     this.exporting = false,
   });
 
@@ -21,6 +22,9 @@ class TreeMenuDrawer extends StatelessWidget {
   /// Null where there is no chart to export. An entry that does nothing is
   /// read as a broken one.
   final VoidCallback? onExport;
+
+  /// The same chart as a document rather than a photograph.
+  final VoidCallback? onExportPdf;
 
   final bool exporting;
 
@@ -56,6 +60,25 @@ class TreeMenuDrawer extends StatelessWidget {
               },
             ),
             const Divider(),
+            // Two formats because they answer different questions: a document
+            // to read and print, a picture to send to somebody who will only
+            // ever look at it on a phone.
+            ListTile(
+              leading: exporting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.picture_as_pdf_outlined),
+              title: const Text('Export as a PDF'),
+              subtitle: const Text('Sharp at any size, and printable'),
+              enabled: onExportPdf != null && !exporting,
+              onTap: () {
+                Navigator.of(context).pop();
+                onExportPdf?.call();
+              },
+            ),
             ListTile(
               leading: exporting
                   ? const SizedBox(

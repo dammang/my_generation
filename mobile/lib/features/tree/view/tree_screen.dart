@@ -14,6 +14,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/tree_provider.dart';
 import '../layout/tree_layout.dart';
 import '../layout/tree_layout_engine.dart';
+import '../export/tree_chart_pdf.dart';
 import '../export/tree_exporter.dart';
 import '../layout/tree_metrics.dart';
 import 'other_family_sheet.dart';
@@ -156,7 +157,11 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
   /// The whole chart, not what is on screen: what is on screen is a culled,
   /// panned, zoomed window onto it, and exporting that would export somebody's
   /// scroll position.
-  Future<void> _export(TreeGraph graph, TreeLayout layout) async {
+  Future<void> _export(
+    TreeGraph graph,
+    TreeLayout layout, {
+    required bool asDocument,
+  }) async {
     if (_exporting) return;
 
     setState(() => _exporting = true);
@@ -191,6 +196,24 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
       }
 
       if (!mounted) return;
+
+      if (asDocument) {
+        // Drawn rather than photographed: no offscreen render, no photographs
+        // to fetch, and a file measured in kilobytes instead of megabytes.
+        final size = await TreeChartPdf(
+          graph: graph,
+          layout: layout,
+          title: title,
+          summary: summary,
+        ).share();
+
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(content: Text('Saved · ${(size / 1000).round()} KB · PDF')),
+        );
+
+        return;
+      }
 
       final exported = await exporter.export(
         context: context,
@@ -250,6 +273,15 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
           final graph? when !graph.isEmpty => () => _export(
             graph,
             _engineFor(context).layout(graph),
+            asDocument: false,
+          ),
+          _ => null,
+        },
+        onExportPdf: switch (tree.value) {
+          final graph? when !graph.isEmpty => () => _export(
+            graph,
+            _engineFor(context).layout(graph),
+            asDocument: true,
           ),
           _ => null,
         },

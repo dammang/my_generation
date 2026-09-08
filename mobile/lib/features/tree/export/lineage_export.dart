@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../models/person_summary.dart';
+import 'pdf_text.dart';
 import 'tree_export_image.dart';
 
 /// One lineage, as something you can send somebody.
@@ -44,7 +45,7 @@ class LineageExport {
 
   /// The document itself, so what it contains can be checked directly.
   Future<Uint8List> documentBytes() async {
-    final document = pw.Document(title: _plain(title));
+    final document = pw.Document(title: plainForPdf(title));
 
     document.addPage(
       pw.MultiPage(
@@ -57,12 +58,12 @@ class LineageExport {
             : _headings(),
         build: (context) => [
           pw.Text(
-            _plain(title),
+            plainForPdf(title),
             style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 4),
           pw.Text(
-            _plain(_subtitle),
+            plainForPdf(_subtitle),
             style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
           ),
           pw.SizedBox(height: 14),
@@ -118,7 +119,7 @@ class LineageExport {
   );
 
   pw.Widget _heading(String text) => pw.Text(
-    _plain(text),
+    plainForPdf(text),
     style: pw.TextStyle(
       fontSize: 9,
       fontWeight: pw.FontWeight.bold,
@@ -157,7 +158,7 @@ class LineageExport {
             flex: 4,
             child: pw.Text(
               // Where the line stops is the reason anybody printed it.
-              _plain(last ? '${person.displayName}  <-' : person.displayName),
+              plainForPdf(last ? '${person.displayName}  <-' : person.displayName),
               style: pw.TextStyle(
                 fontSize: 11,
                 fontWeight: last ? pw.FontWeight.bold : pw.FontWeight.normal,
@@ -201,25 +202,6 @@ class LineageExport {
 
     return '${stem.isEmpty ? 'lineage' : stem}-lineage.$extension';
   }
-
-  /// The typographic characters this app writes, in the characters the
-  /// document's built-in font can actually draw.
-  ///
-  /// The font has no em dash and no arrow. It does not fail on one — it drops
-  /// the glyph and leaves a hole in the line, so a name would print short and
-  /// the document would look correct to the code that wrote it. Everything the
-  /// export composes passes through here; a name in a script the font does not
-  /// cover is a different problem, and the picture export is the answer to it.
-  static String _plain(String text) => text
-      .replaceAll('\u2014', '-')
-      .replaceAll('\u2013', '-')
-      .replaceAll('\u2190', '<-')
-      .replaceAll('\u00b7', '.')
-      .replaceAll('\u2018', "'")
-      .replaceAll('\u2019', "'")
-      .replaceAll('\u201c', '"')
-      .replaceAll('\u201d', '"')
-      .replaceAll('\u2026', '...');
 
   static String _ordinalOrDash(int? number) =>
       number == null ? '-' : '${ordinal(number)} generation';
