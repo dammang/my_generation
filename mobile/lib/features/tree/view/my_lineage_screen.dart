@@ -14,8 +14,8 @@ import '../../../routing/app_router.dart';
 /// the numbers the clan counts by beside each — the older scale everybody
 /// knows and the nearer one everybody uses. It ends where you are, because
 /// that is the question it answers.
-class MyGenerationScreen extends ConsumerWidget {
-  const MyGenerationScreen({super.key, this.personUlid});
+class MyLineageScreen extends ConsumerWidget {
+  const MyLineageScreen({super.key, this.personUlid});
 
   /// Whose line. Defaults to the signed-in account's own record.
   final String? personUlid;
@@ -27,7 +27,7 @@ class MyGenerationScreen extends ConsumerWidget {
     final ulid = personUlid ?? mine;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My generation'), centerTitle: true),
+      appBar: AppBar(title: const Text('My lineage'), centerTitle: true),
       body: ulid == null
           ? const _NotLinked()
           : _Line(ulid: ulid, isMe: personUlid == null || personUlid == mine),
@@ -77,22 +77,43 @@ class _Line extends ConsumerWidget {
 
           final standing = people.last.generation;
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
-            children: [
-              _Header(
-                outerOrigin: _outerOrigin(people),
-                origin: standing?.origin ?? _origin(people),
-              ),
-              for (final (index, person) in people.indexed)
-                _Row(
-                  person: person,
-                  // The last row is where the line stops, which is the reason
-                  // anybody opened this screen.
-                  isEnd: index == people.length - 1,
-                  isMe: isMe && index == people.length - 1,
-                  onTap: () => context.push(Routes.personPath(person.ulid)),
+          return CustomScrollView(
+            slivers: [
+              // Pinned: the columns are two generation counts and a name, and
+              // a number in an unlabelled column is a number nobody can read.
+              // Thirty generations down, the heading is what tells you which
+              // of the two you are looking at.
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _PinnedHeader(
+                  outerOrigin: _outerOrigin(people),
+                  origin: standing?.origin ?? _origin(people),
+                  colour: theme.colorScheme.surface,
                 ),
+              ),
+              SliverPadding(
+                // The chart's own tab draws under the bottom bar, and this
+                // screen lives in it — so the last row, which is the person
+                // who opened the screen, sat behind the bar.
+                padding: EdgeInsets.fromLTRB(
+                  12,
+                  4,
+                  12,
+                  32 + MediaQuery.paddingOf(context).bottom,
+                ),
+                sliver: SliverList.builder(
+                  itemCount: people.length,
+                  itemBuilder: (context, index) => _Row(
+                    person: people[index],
+                    // The last row is where the line stops, which is the
+                    // reason anybody opened this screen.
+                    isEnd: index == people.length - 1,
+                    isMe: isMe && index == people.length - 1,
+                    onTap: () =>
+                        context.push(Routes.personPath(people[index].ulid)),
+                  ),
+                ),
+              ),
             ],
           );
         },
@@ -111,6 +132,41 @@ class _Line extends ConsumerWidget {
       .firstWhere((name) => name != null, orElse: () => null);
 }
 
+/// The column headings, which stay put.
+class _PinnedHeader extends SliverPersistentHeaderDelegate {
+  const _PinnedHeader({
+    required this.outerOrigin,
+    required this.origin,
+    required this.colour,
+  });
+
+  final String? outerOrigin;
+  final String? origin;
+  final Color colour;
+
+  static const double _height = 44;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
+      Material(
+        color: colour,
+        elevation: overlaps || shrinkOffset > 0 ? 1 : 0,
+        child: _Header(outerOrigin: outerOrigin, origin: origin),
+      );
+
+  @override
+  bool shouldRebuild(_PinnedHeader old) =>
+      old.outerOrigin != outerOrigin ||
+      old.origin != origin ||
+      old.colour != colour;
+}
+
 class _Header extends StatelessWidget {
   const _Header({required this.outerOrigin, required this.origin});
 
@@ -126,7 +182,7 @@ class _Header extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+      padding: const EdgeInsets.fromLTRB(22, 12, 22, 8),
       child: Row(
         children: [
           Expanded(

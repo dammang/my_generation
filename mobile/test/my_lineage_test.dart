@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:my_generation/features/tree/view/my_generation_screen.dart';
+import 'package:my_generation/features/tree/view/my_lineage_screen.dart';
 import 'package:my_generation/models/api_user.dart';
 import 'package:my_generation/providers/app_providers.dart';
 import 'package:my_generation/providers/auth_provider.dart';
@@ -53,6 +53,7 @@ Future<void> pumpLine(
   WidgetTester tester, {
   String? personUlid = _me,
   List<Map<String, dynamic>>? line,
+  double bottomInset = 0,
 }) async {
   await tester.binding.setSurfaceSize(const Size(402, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -80,7 +81,16 @@ Future<void> pumpLine(
         secureStorageProvider.overrideWithValue(FakeSecureStorage()),
         authProvider.overrideWith(() => _StubAuth(personUlid)),
       ],
-      child: const MaterialApp(home: MyGenerationScreen()),
+      child: MaterialApp(
+        home: MediaQuery(
+          // What the shell hands the body when the bar sits over the chart.
+          data: MediaQueryData(
+            size: const Size(402, 900),
+            padding: EdgeInsets.only(bottom: bottomInset),
+          ),
+          child: const MyLineageScreen(),
+        ),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -133,6 +143,55 @@ void main() {
     await pumpLine(tester);
 
     expect(find.text("I'M HERE"), findsOneWidget);
+  });
+
+  testWidgets('the headings stay put while the line scrolls', (tester) async {
+    // A long line: thirty generations is not unusual and the columns are two
+    // generation counts and a name. A number in an unlabelled column is a
+    // number nobody can read.
+    await pumpLine(
+      tester,
+      line: [
+        for (var i = 1; i <= 30; i++)
+          _person(
+            '01P$i',
+            'ANCESTOR $i',
+            outer: i,
+            inner: i > 10 ? i - 10 : null,
+          ),
+      ],
+    );
+
+    expect(find.text('From Pu Zo'), findsOneWidget);
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ANCESTOR 1'), findsNothing, reason: 'it did not scroll');
+    expect(find.text('From Pu Zo'), findsOneWidget);
+    expect(find.text('From JASUAN'), findsOneWidget);
+  });
+
+  testWidgets('the last row clears the bottom bar', (tester) async {
+    // 80 points of it, which is what the bar occupies. The chart's tab draws
+    // underneath it and this screen lives in that tab, so the last row — the
+    // person who opened the screen — sat behind the bar.
+    await pumpLine(
+      tester,
+      bottomInset: 80,
+      // Long enough that the end of the line is genuinely at the bottom of
+      // the screen. Four rows never reach it, and a test that cannot reach
+      // the bottom cannot find something hidden there.
+      line: [
+        for (var i = 1; i <= 30; i++) _person('01P$i', 'ANCESTOR $i', outer: i),
+        _person(_me, 'NANG LAM THANG', outer: 31),
+      ],
+    );
+
+    await tester.scrollUntilVisible(find.text("I'M HERE"), 300);
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(find.text("I'M HERE")).bottom, lessThan(900 - 80));
   });
 
   testWidgets('an account with no record of its own is told what to do', (

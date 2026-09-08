@@ -39,11 +39,11 @@ class TreeMenuDrawer extends StatelessWidget {
             ),
             ListTile(
               leading: const Icon(Icons.format_list_numbered),
-              title: const Text('My generation'),
+              title: const Text('My lineage'),
               subtitle: const Text('The line from the top of the clan to you'),
               onTap: () {
                 Navigator.of(context).pop();
-                context.push(Routes.myGeneration);
+                context.push(Routes.myLineage);
               },
             ),
             ListTile(

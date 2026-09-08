@@ -23,7 +23,7 @@ import '../features/review/view/review_queue_screen.dart';
 import '../features/search/view/person_search_screen.dart';
 import '../features/shell/view/app_shell.dart';
 import '../features/sync/view/pending_changes_screen.dart';
-import '../features/tree/view/my_generation_screen.dart';
+import '../features/tree/view/my_lineage_screen.dart';
 import '../features/tree/view/tree_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
@@ -54,7 +54,10 @@ class Routes {
   static const String personSearch = '/tree/search';
 
   /// The line from the top of the clan down to the signed-in person.
-  static const String myGeneration = '/tree/my-generation';
+  ///
+  /// Not "my generation": that is the name of the application, and a menu
+  /// entry that reads like the app you are already in tells nobody anything.
+  static const String myLineage = '/tree/my-lineage';
 
   /// Running a family: asking to start a clan, and appointing the people who
   /// run one. Children of the profile branch, because they are things this
@@ -188,8 +191,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                     builder: (_, _) => const PersonSearchScreen(),
                   ),
                   GoRoute(
-                    path: 'my-generation',
-                    builder: (_, _) => const MyGenerationScreen(),
+                    path: 'my-lineage',
+                    builder: (_, _) => const MyLineageScreen(),
                   ),
                 ],
               ),
