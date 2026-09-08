@@ -53,6 +53,25 @@ class RepairTribeLinksTest extends TestCase
     }
 
     #[Test]
+    public function it_leaves_deleted_people_alone(): void
+    {
+        $tribe = Tribe::factory()->create();
+        $clan = Clan::factory()->create(['tribe_id' => $tribe->id]);
+
+        $person = Person::factory()->create(['clan_id' => $clan->id]);
+        Person::withoutEvents(fn () => $person->forceFill(['tribe_id' => null])->save());
+        $person->delete();
+
+        $before = $tribe->refresh()->people_count;
+
+        $this->artisan('archive:repair-tribe-links', ['--force' => true]);
+
+        // A deleted person needs no tribe, and counting them into one leaves
+        // the tribe reporting more people than the archive holds.
+        $this->assertSame($before, $tribe->refresh()->people_count);
+    }
+
+    #[Test]
     public function it_changes_nothing_without_force(): void
     {
         $tribe = Tribe::factory()->create();

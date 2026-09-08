@@ -31,7 +31,7 @@ class RepairTribeLinks extends Command
 
     public function handle(): int
     {
-        $orphans = Person::withTrashed()
+        $orphans = Person::query()
             ->whereNull('tribe_id')
             ->whereNotNull('clan_id')
             ->whereHas('clan')
@@ -52,7 +52,10 @@ class RepairTribeLinks extends Command
         $bar = $this->output->createProgressBar($orphans);
         $fixed = 0;
 
-        Person::withTrashed()
+        // Living records only. A deleted person needs no tribe, and the
+        // observer would count them into the tribe's total on the way past —
+        // leaving it reading one more than the archive holds.
+        Person::query()
             ->whereNull('tribe_id')
             ->whereNotNull('clan_id')
             ->with('clan:id,tribe_id')
