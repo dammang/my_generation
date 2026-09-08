@@ -160,6 +160,21 @@ class TreeController extends Controller
         ]);
     }
 
+    /**
+     * The line from the top of the clan down to one person, as a list.
+     *
+     * What a family recites: one name per generation, in the order they are
+     * said, each carrying both of the numbers the clan counts by.
+     */
+    public function directLine(Person $person, LineageDepthService $lineage): JsonResponse
+    {
+        $this->authorize('view', $person);
+
+        return ApiResponse::success(
+            PersonResource::collection(collect($lineage->directLine($person))),
+        );
+    }
+
     /** "How am I related to this person?" */
     public function pathTo(
         Request $request,

@@ -2,6 +2,7 @@ import '../core/constants/api_paths.dart';
 import '../core/errors/api_exception.dart';
 import '../core/network/api_client.dart';
 import '../database/tree_cache_dao.dart';
+import '../models/person_summary.dart';
 import '../models/tree_graph.dart';
 import '../models/tree_summary.dart';
 
@@ -16,6 +17,18 @@ class TreeRepository {
   /// Depth is always bounded — the server refuses anything past its cap rather
   /// than silently clamping — and expansion is asking for a deeper slice
   /// around a new focus, not fetching "the rest".
+  /// The line from the top of the clan down to one person, oldest first.
+  Future<List<PersonSummary>> directLine(String ulid) async {
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.treeLine(ulid),
+      parse: (data) => data as List<dynamic>,
+    );
+
+    return (envelope.data ?? const [])
+        .map((p) => PersonSummary.fromJson((p as Map).cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
   /// Counted from the graph rather than from what was fetched: a tree drawn
   /// three generations deep would otherwise caption itself as a family three
   /// generations large.

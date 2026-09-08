@@ -158,6 +158,9 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             // What a chart's caption says about somebody: both generation
             // scales, and how many descend from them at each remove.
             Route::get('tree/{person}/summary', [TreeController::class, 'summary'])->name('tree.summary');
+
+            // One name per generation, from the top of the clan down to them.
+            Route::get('tree/{person}/line', [TreeController::class, 'directLine'])->name('tree.line');
             Route::get('tree/{person}/path-to/{other}', [TreeController::class, 'pathTo'])->name('tree.path');
         });
 

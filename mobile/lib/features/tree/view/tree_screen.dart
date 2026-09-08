@@ -17,6 +17,7 @@ import '../layout/tree_layout_engine.dart';
 import '../export/tree_exporter.dart';
 import '../layout/tree_metrics.dart';
 import 'other_family_sheet.dart';
+import 'tree_menu_drawer.dart';
 import 'tree_canvas.dart';
 
 /// The family tree.
@@ -240,6 +241,23 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     final hidden = ref.watch(treeChromeHiddenProvider);
 
     return Scaffold(
+      drawer: TreeMenuDrawer(
+        onGoToMe: _goToMe,
+        // Null where there is no chart to export: on the empty and error
+        // states the entry would do nothing, and an entry that does nothing is
+        // read as a broken one.
+        onExport: switch (tree.value) {
+          final graph? when !graph.isEmpty => () => _export(
+            graph,
+            _engineFor(context).layout(graph),
+          ),
+          _ => null,
+        },
+        exporting: _exporting,
+      ),
+      // Dragging from the left edge is how somebody pans a chart that runs off
+      // the screen, and it would open the menu instead. The button opens it.
+      drawerEnableOpenDragGesture: false,
       // No app bar slot: the bar is part of the chart's own stack so it can
       // leave without the chart changing height underneath the finger moving
       // it. A layout that reflows mid-drag makes the tree slide out from
@@ -325,40 +343,23 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   AppBar(
+                    centerTitle: true,
                     title: const Text('Family tree'),
+                    // Everything but finding somebody lives behind the menu.
+                    // Four icons across the top of a chart is four things
+                    // competing with the thing they are on top of.
+                    leading: Builder(
+                      builder: (context) => IconButton(
+                        tooltip: 'Menu',
+                        icon: const Icon(Icons.menu),
+                        onPressed: Scaffold.of(context).openDrawer,
+                      ),
+                    ),
                     actions: [
-                      // Only where there is a chart to export. On the empty
-                      // and error states the button would do nothing, and a
-                      // button that does nothing is read as a broken one.
-                      if (tree.value case final graph?
-                          when graph.isEmpty == false)
-                        IconButton(
-                          tooltip: 'Export as a picture',
-                          onPressed: _exporting
-                              ? null
-                              : () => _export(
-                                  graph,
-                                  _engineFor(context).layout(graph),
-                                ),
-                          icon: _exporting
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.ios_share),
-                        ),
                       IconButton(
                         tooltip: 'Find someone',
                         onPressed: () => context.push(Routes.personSearch),
                         icon: const Icon(Icons.search),
-                      ),
-                      IconButton(
-                        tooltip: 'Go to me',
-                        onPressed: _goToMe,
-                        icon: const Icon(Icons.my_location),
                       ),
                     ],
                   ),

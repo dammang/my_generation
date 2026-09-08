@@ -116,6 +116,93 @@ class LineageDepthService
      *
      * @return array<int, Person>
      */
+    /**
+     * The single line from the top of the clan down to one person.
+     *
+     * lineage() returns every ancestor, which is a tree: two parents, four
+     * grandparents, and no way to read it as a list. A family reciting itself
+     * recites one chain, so this picks one parent at each step — the one the
+     * clan's own descent runs through, then the father, then whoever is there.
+     *
+     * Ordered from the oldest down, because that is the direction it is said
+     * in and the direction the generations count.
+     *
+     * @return array<int, Person>
+     */
+    public function directLine(Person $person, int $maxDepth = 40): array
+    {
+        $clanRoot = $person->clan?->counting_origin_person_id
+            ?? $person->clan?->ancestor_person_id;
+
+        $inTheLine = $clanRoot === null
+            ? []
+            : DB::table('lineage_depths')
+                ->where('root_person_id', $clanRoot)
+                ->pluck('person_id')
+                ->flip()
+                ->all();
+
+        $chain = [$person->getKey()];
+        $seen = [$person->getKey() => true];
+        $at = $person->getKey();
+
+        for ($step = 0; $step < $maxDepth; $step++) {
+            $parents = DB::table('family_edges')
+                ->join('people', 'people.id', '=', 'family_edges.parent_id')
+                ->where('family_edges.child_id', $at)
+                ->whereNull('people.deleted_at')
+                ->orderByRaw("people.gender = 'male' desc")
+                ->pluck('people.id')
+                ->all();
+
+            if ($parents === []) {
+                break;
+            }
+
+            $next = null;
+
+            foreach ($parents as $parent) {
+                if (isset($inTheLine[$parent]) && ! isset($seen[$parent])) {
+                    $next = $parent;
+                    break;
+                }
+            }
+
+            // Nobody in the clan's own descent: the father, then whoever is
+            // recorded. A chain that stops early says less than a chain that
+            // guesses, but it never says something untrue.
+            $next ??= collect($parents)->first(fn (int $id) => ! isset($seen[$id]));
+
+            if ($next === null) {
+                break;
+            }
+
+            $chain[] = $next;
+            $seen[$next] = true;
+            $at = $next;
+        }
+
+        $people = Person::whereIn('id', $chain)
+            ->with([
+                'profileMedia:id,path,conversions',
+                'clan:id,ulid,name,ancestor_person_id,counting_origin_person_id,generation_offset',
+                'clan.ancestor:id,display_name',
+                'clan.countingOrigin:id,display_name',
+                'familyBranch:id,ulid,name,ancestor_person_id,generation_offset',
+                'familyBranch.ancestor:id,display_name',
+                'lineageDepths:person_id,root_person_id,depth',
+                'generation',
+            ])
+            ->get()
+            ->keyBy('id');
+
+        return collect(array_reverse($chain))
+            ->map(fn (int $id) => $people[$id] ?? null)
+            ->filter()
+            ->values()
+            ->all();
+    }
+
     public function lineage(Person $person, int $maxDepth = 30): array
     {
         $depths = $this->walker->ascend($person->getKey(), $maxDepth);

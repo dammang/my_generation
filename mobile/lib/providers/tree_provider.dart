@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/errors/api_exception.dart';
+import '../models/person_summary.dart';
 import '../models/tree_graph.dart';
 import '../models/tree_summary.dart';
 import '../repositories/tree_repository.dart';
@@ -159,6 +160,11 @@ final treeProvider = FutureProvider<TreeGraph>((ref) async {
 /// person, so moving around a family and coming back does not ask again.
 final treeSummaryProvider = FutureProvider.family<TreeSummary, String>(
   (ref, ulid) => ref.watch(treeRepositoryProvider).summary(ulid),
+);
+
+/// The line a family recites, from the top of the clan down to one person.
+final directLineProvider = FutureProvider.family<List<PersonSummary>, String>(
+  (ref, ulid) => ref.watch(treeRepositoryProvider).directLine(ulid),
 );
 
 class TreeChromeNotifier extends Notifier<bool> {

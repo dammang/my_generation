@@ -23,6 +23,7 @@ import '../features/review/view/review_queue_screen.dart';
 import '../features/search/view/person_search_screen.dart';
 import '../features/shell/view/app_shell.dart';
 import '../features/sync/view/pending_changes_screen.dart';
+import '../features/tree/view/my_generation_screen.dart';
 import '../features/tree/view/tree_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
@@ -51,6 +52,9 @@ class Routes {
   /// A child of the tree branch, so finding somebody keeps the bottom bar
   /// and returns to the tree rather than to wherever you came from.
   static const String personSearch = '/tree/search';
+
+  /// The line from the top of the clan down to the signed-in person.
+  static const String myGeneration = '/tree/my-generation';
 
   /// Running a family: asking to start a clan, and appointing the people who
   /// run one. Children of the profile branch, because they are things this
@@ -182,6 +186,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'search',
                     builder: (_, _) => const PersonSearchScreen(),
+                  ),
+                  GoRoute(
+                    path: 'my-generation',
+                    builder: (_, _) => const MyGenerationScreen(),
                   ),
                 ],
               ),
