@@ -29,6 +29,12 @@ class UpdatePersonRequest extends FormRequest
             'last_name' => ['sometimes', 'nullable', 'string', 'max:120'],
             'native_name' => ['sometimes', 'nullable', 'string', 'max:191'],
             'nickname' => ['sometimes', 'nullable', 'string', 'max:120'],
+
+            // The name as the family writes it. Names here do not split into a
+            // first and a last — "PAU KHUA NEM (KHUPMU)" is one name — so the
+            // whole thing has to be correctable, and it was not accepted at
+            // all: every screen reads this column and nothing could change it.
+            'display_name' => ['sometimes', 'string', 'max:255'],
             'gender' => ['sometimes', Rule::enum(Gender::class)],
             'birth' => ['sometimes', 'nullable', 'string', 'max:120'],
             'death' => ['sometimes', 'nullable', 'string', 'max:120'],

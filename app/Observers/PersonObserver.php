@@ -31,9 +31,25 @@ class PersonObserver
 
     public function __construct(private readonly GraphVersion $graphVersion) {}
 
+    /** The name parts the displayed name is built from. */
+    private const NAME_PARTS = ['first_name', 'middle_name', 'last_name'];
+
     public function saving(Person $person): void
     {
-        if (blank($person->display_name)) {
+        // Rebuilt when a name part changes, not only when the display name is
+        // empty. Correcting somebody's first name used to write the column and
+        // change nothing anybody could see — every screen reads display_name —
+        // so the edit saved, reported success, and looked like it had failed.
+        //
+        // Unless the caller set the display name itself in the same save: a
+        // name written out in full is a deliberate answer, and rebuilding it
+        // from the parts would overwrite it with a worse one.
+        $renaming = collect(self::NAME_PARTS)->contains(
+            fn (string $part) => $person->isDirty($part)
+        );
+
+        if (blank($person->display_name)
+            || ($renaming && ! $person->isDirty('display_name'))) {
             $person->display_name = $this->composeDisplayName($person);
         }
 

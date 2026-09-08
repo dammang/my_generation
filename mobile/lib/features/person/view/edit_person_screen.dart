@@ -27,10 +27,16 @@ class EditPersonScreen extends ConsumerStatefulWidget {
 
 class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final _firstName = TextEditingController(
-    text: widget.detail.summary.displayName.split(' ').first,
+
+  /// The whole name, not a first and a last.
+  ///
+  /// Names here do not split — "CING ZA MAN" is three words and one name, and
+  /// "PAU KHUA NEM (KHUPMU)" is a name with a house in it. The form took the
+  /// first word as a first name and dropped the rest, so correcting anybody
+  /// quietly proposed shortening them.
+  late final _name = TextEditingController(
+    text: widget.detail.summary.displayName,
   );
-  late final _lastName = TextEditingController();
   late final _nativeName = TextEditingController(
     text: widget.detail.summary.nativeName ?? '',
   );
@@ -55,6 +61,10 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
 
   static const String _noGeneration = 'none';
 
+  /// Unset on most imported records, and it decides whether the chart calls
+  /// somebody a son or a daughter.
+  late String _gender = widget.detail.summary.gender;
+
   /// "They have died, nobody knows when."
   ///
   /// Started from the record's own answer so turning it off is possible, and
@@ -64,8 +74,7 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
 
   @override
   void dispose() {
-    _firstName.dispose();
-    _lastName.dispose();
+    _name.dispose();
     _nativeName.dispose();
     _birth.dispose();
     _death.dispose();
@@ -80,6 +89,15 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    final changes = _changes();
+
+    // Nothing to send. Reporting "saved" for a request that carried no change
+    // is how an edit that never happened looks exactly like one that did.
+    if (changes.isEmpty) {
+      setState(() => _error = 'Nothing has been changed yet.');
+      return;
+    }
+
     setState(() {
       _saving = true;
       _error = null;
@@ -91,21 +109,7 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
           .editPerson(
             ulid: widget.detail.ulid,
             reason: _reason.text.trim().isEmpty ? null : _reason.text.trim(),
-            changes: {
-              'first_name': _firstName.text.trim(),
-              if (_lastName.text.trim().isNotEmpty)
-                'last_name': _lastName.text.trim(),
-              if (_nativeName.text.trim().isNotEmpty)
-                'native_name': _nativeName.text.trim(),
-              if (_birth.text.trim().isNotEmpty) 'birth': _birth.text.trim(),
-              if (_death.text.trim().isNotEmpty) 'death': _death.text.trim(),
-              if (_deceased != widget.detail.summary.deceasedDeclared)
-                'deceased_declared': _deceased,
-              if (_generationTouched)
-                'generation_ulid': _generationUlid == _noGeneration
-                    ? null
-                    : _generationUlid,
-            },
+            changes: changes,
           );
 
       invalidatePerson(ref, widget.detail.ulid);
@@ -118,6 +122,35 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
         _error = error.message;
       });
     }
+  }
+
+  /// Only what actually changed, and everything that did.
+  ///
+  /// Compared against what the record holds rather than sent when filled in:
+  /// a form that omits its empty fields cannot undo its own typo, so clearing
+  /// a date left the old one in place and reported that it had saved.
+  Map<String, dynamic> _changes() {
+    final person = widget.detail.summary;
+
+    String? emptyToNull(String value) =>
+        value.trim().isEmpty ? null : value.trim();
+
+    return {
+      if (_name.text.trim() != person.displayName)
+        'display_name': _name.text.trim(),
+      if (emptyToNull(_nativeName.text) != person.nativeName)
+        'native_name': emptyToNull(_nativeName.text),
+      if (_gender != person.gender) 'gender': _gender,
+      if (emptyToNull(_birth.text) != person.birthDisplay)
+        'birth': emptyToNull(_birth.text),
+      if (emptyToNull(_death.text) != person.deathDisplay)
+        'death': emptyToNull(_death.text),
+      if (_deceased != person.deceasedDeclared) 'deceased_declared': _deceased,
+      if (_generationTouched)
+        'generation_ulid': _generationUlid == _noGeneration
+            ? null
+            : _generationUlid,
+    };
   }
 
   @override
@@ -150,18 +183,14 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
               ),
             const SizedBox(height: 18),
             TextFormField(
-              controller: _firstName,
+              controller: _name,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'First name'),
-              validator: (value) => (value?.trim().isEmpty ?? true)
-                  ? 'A first name is needed'
-                  : null,
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _lastName,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Last name'),
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                helperText: 'The whole name, as the family writes it',
+              ),
+              validator: (value) =>
+                  (value?.trim().isEmpty ?? true) ? 'A name is needed' : null,
             ),
             const SizedBox(height: 14),
             TextFormField(
@@ -169,6 +198,20 @@ class _EditPersonScreenState extends ConsumerState<EditPersonScreen> {
               decoration: const InputDecoration(
                 labelText: 'Name in your own script',
               ),
+            ),
+            const SizedBox(height: 18),
+            Text('Gender', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 6),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'male', label: Text('Male')),
+                ButtonSegment(value: 'female', label: Text('Female')),
+                ButtonSegment(value: 'unknown', label: Text('Not known')),
+              ],
+              selected: {_gender},
+              onSelectionChanged: _saving
+                  ? null
+                  : (choice) => setState(() => _gender = choice.first),
             ),
             const SizedBox(height: 14),
             TextFormField(
