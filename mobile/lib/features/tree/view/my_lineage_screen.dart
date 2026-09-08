@@ -7,6 +7,7 @@ import '../../../models/person_summary.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/tree_provider.dart';
 import '../../../routing/app_router.dart';
+import '../export/lineage_export.dart';
 
 /// The line, said the way a family says it.
 ///
@@ -27,11 +28,122 @@ class MyLineageScreen extends ConsumerWidget {
     final ulid = personUlid ?? mine;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My lineage'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('My lineage'),
+        centerTitle: true,
+        actions: [
+          if (ulid != null)
+            _ExportButton(
+              ulid: ulid,
+              // Whose lineage, for the title on the page and the file name.
+              fallbackTitle: auth is AuthSignedIn ? auth.user.name : 'Lineage',
+            ),
+        ],
+      ),
       body: ulid == null
           ? const _NotLinked()
           : _Line(ulid: ulid, isMe: personUlid == null || personUlid == mine),
     );
+  }
+}
+
+/// Two formats, because they answer different questions: one to read and
+/// print, one to send to somebody who will look at it on a phone.
+class _ExportButton extends ConsumerStatefulWidget {
+  const _ExportButton({required this.ulid, required this.fallbackTitle});
+
+  final String ulid;
+  final String fallbackTitle;
+
+  @override
+  ConsumerState<_ExportButton> createState() => _ExportButtonState();
+}
+
+class _ExportButtonState extends ConsumerState<_ExportButton> {
+  bool _working = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final people = ref.watch(directLineProvider(widget.ulid)).value;
+
+    // Nothing to export until the line has arrived, and a button that does
+    // nothing is read as a broken one.
+    if (people == null || people.isEmpty) return const SizedBox.shrink();
+
+    if (_working) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    return PopupMenuButton<String>(
+      tooltip: 'Export',
+      icon: const Icon(Icons.ios_share),
+      onSelected: (choice) => _export(people, asDocument: choice == 'pdf'),
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: 'pdf',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            leading: Icon(Icons.picture_as_pdf_outlined),
+            title: Text('PDF'),
+            subtitle: Text('To read and print'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'jpeg',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            leading: Icon(Icons.image_outlined),
+            title: Text('JPEG'),
+            subtitle: Text('To send as a picture'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _export(
+    List<PersonSummary> people, {
+    required bool asDocument,
+  }) async {
+    setState(() => _working = true);
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    final export = LineageExport(
+      people: people,
+      title: people.last.displayName.isEmpty
+          ? widget.fallbackTitle
+          : '${people.last.displayName} — lineage',
+      outerOrigin: people
+          .map((p) => p.generation?.outerOrigin)
+          .firstWhere((name) => name != null, orElse: () => null),
+      origin: people
+          .map((p) => p.generation?.origin)
+          .firstWhere((name) => name != null, orElse: () => null),
+    );
+
+    try {
+      if (asDocument) {
+        await export.shareDocument();
+      } else {
+        await export.sharePicture(context);
+      }
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not export the lineage. $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
   }
 }
 
@@ -181,6 +293,8 @@ class _Header extends StatelessWidget {
       fontWeight: FontWeight.w700,
     );
 
+    // The list's own padding (12) plus the row's (10), so a heading sits over
+    // the column it names rather than near it.
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 12, 22, 8),
       child: Row(
@@ -192,10 +306,13 @@ class _Header extends StatelessWidget {
               style: style,
             ),
           ),
+          // A gap, or "From JASUAN" and "Name" touch and read as one label.
+          const SizedBox(width: 10),
           Expanded(
             flex: 3,
             child: Text(origin == null ? '' : 'From $origin', style: style),
           ),
+          const SizedBox(width: 10),
           Expanded(flex: 4, child: Text('Name', style: style)),
         ],
       ),
@@ -238,6 +355,7 @@ class _Row extends StatelessWidget {
                   style: theme.textTheme.bodyMedium,
                 ),
               ),
+              const SizedBox(width: 10),
               Expanded(
                 flex: 3,
                 child: Text(
@@ -247,6 +365,7 @@ class _Row extends StatelessWidget {
                   style: theme.textTheme.bodyMedium,
                 ),
               ),
+              const SizedBox(width: 10),
               Expanded(
                 flex: 4,
                 child: Column(

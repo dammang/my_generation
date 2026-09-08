@@ -72,6 +72,10 @@ dependencies:
   # The system share sheet, so an exported chart can go to Photos, a message
   # or Files without the app inventing its own file browser.
   share_plus: ^13.3.0
+  # A lineage exported as a document rather than a picture: real text, so it
+  # stays sharp at any zoom and a thirty-generation line breaks across pages
+  # instead of becoming one very tall image.
+  pdf: ^3.13.0
 
 dev_dependencies:
   flutter_test:
