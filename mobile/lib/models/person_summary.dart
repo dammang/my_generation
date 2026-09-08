@@ -164,21 +164,38 @@ class GenerationStanding {
         beforeOrigin: json['before_origin'] as int?,
       );
 
-  /// "11th generation from Pu Zo · 1st generation of Jasuan", dropping
-  /// whichever half is not known rather than printing a blank.
-  String? get summary {
-    final parts = [
-      if (outerNumber != null && outerOrigin != null)
-        '${_ordinal(outerNumber!)} generation from $outerOrigin',
-      if (number != null && origin != null)
-        '${_ordinal(number!)} generation of $origin',
-      if (beforeOrigin != null && origin != null)
-        beforeOrigin == 1
-            ? '1 generation before $origin'
-            : '$beforeOrigin generations before $origin',
-    ];
+  /// Both reckonings, one per line, dropping whichever half is not known
+  /// rather than printing a blank.
+  ///
+  /// A family uses both at once and neither means anything without the name
+  /// attached: "11th generation" alone does not say counted from whom, and
+  /// the two scales are ten generations apart.
+  List<String> get lines => [
+    if (outerNumber != null && outerOrigin != null)
+      '${_ordinal(outerNumber!)} generation from $outerOrigin',
+    if (number != null && origin != null)
+      '${_ordinal(number!)} generation of $origin',
+    if (beforeOrigin != null && origin != null)
+      beforeOrigin == 1
+          ? '1 generation before $origin'
+          : '$beforeOrigin generations before $origin',
+  ];
 
-    return parts.isEmpty ? null : parts.join(' · ');
+  /// "11th generation from Pu Zo · 1st generation of Jasuan"
+  String? get summary => lines.isEmpty ? null : lines.join(' · ');
+
+  /// "11th of Jasuan" — for a badge, where there is room for a number and the
+  /// name it is counted from, and no room to say it twice.
+  String? get short {
+    if (number != null && origin != null) {
+      return '${_ordinal(number!)} of $origin';
+    }
+
+    if (outerNumber != null && outerOrigin != null) {
+      return '${_ordinal(outerNumber!)} of $outerOrigin';
+    }
+
+    return null;
   }
 
   static String _ordinal(int n) => switch (n % 100) {

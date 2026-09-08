@@ -6,9 +6,12 @@ namespace Tests\Feature;
 
 use App\Actions\Clans\DecideClanRegistration;
 use App\Actions\Clans\SubmitClanRegistration;
+use App\Enums\MembershipStatus;
 use App\Models\Clan;
 use App\Models\FamilyBranch;
+use App\Models\Membership;
 use App\Models\Person;
+use App\Models\Scope;
 use App\Models\Tribe;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -127,6 +130,43 @@ class FamilyBranchMembershipTest extends TestCase
         $this->assertContains($son->id, $held);
     }
 
+    public function test_letting_somebody_go_does_not_cost_them_their_generation(): void
+    {
+        // The risk in releasing people: the generation label used to be read
+        // through a person's own branch, so emptying a branch they should
+        // never have been in could have taken their number with it. It is read
+        // from the clan's counting origin, and this is what says so.
+        $puZo = $this->firstPerson('Pu Zo');
+        $jasuan = $this->addChild($puZo, 'Jasuan');
+        $kipTun = $this->addChild($jasuan, 'Kip Tun');
+        $thawngDam = $this->addChild($jasuan, 'Thawng Dam');
+
+        $this->countFrom(ancestor: $puZo, origin: $jasuan);
+
+        $branch = $this->branchDescendingFrom($puZo, 'Thawng Dam');
+        $this->reanchor($branch, $thawngDam);
+
+        $this->assertNull($kipTun->fresh()->family_branch_id);
+
+        $this->actingAs($this->founder)
+            ->getJson(route('api.v1.people.show', $kipTun))
+            ->assertOk()
+            ->assertJsonPath('data.generation.number', 2)
+            ->assertJsonPath('data.generation.origin', 'Jasuan')
+            ->assertJsonPath('data.generation.outer_number', 3)
+            ->assertJsonPath('data.generation.outer_origin', 'Pu Zo');
+    }
+
+    private function countFrom(Person $ancestor, Person $origin): void
+    {
+        $this->actingAs($this->founder)
+            ->patchJson(route('api.v1.clans.update', $this->clan->ulid), [
+                'ancestor_person_ulid' => $ancestor->ulid,
+                'counting_origin_person_ulid' => $origin->ulid,
+            ])
+            ->assertOk();
+    }
+
     /** @return list<int> */
     private function peopleIn(FamilyBranch $branch): array
     {
@@ -191,6 +231,17 @@ class FamilyBranchMembershipTest extends TestCase
     private function member(?string $role = null): User
     {
         $user = User::factory()->create();
+
+        // Scoped to the tribe: without it every request is answered as though
+        // the archive did not exist, which is what a reader outside a scope is
+        // meant to see.
+        Membership::create([
+            'user_id' => $user->id,
+            'scope_id' => Scope::where('scopeable_type', 'tribe')
+                ->where('scopeable_id', $this->tribe->id)
+                ->value('id'),
+            'status' => MembershipStatus::Active,
+        ]);
 
         if ($role !== null) {
             $user->assignRole($role);

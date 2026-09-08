@@ -89,7 +89,12 @@ class PersonHeader extends StatelessWidget {
                 ),
               if (person.isLiving)
                 const _Badge(icon: Icons.person_outline, label: 'Living'),
-              if (person.generationLabel != null)
+              // The number with the name it is counted from: "11th
+              // Generation" alone does not say from whom, and this archive
+              // keeps two scales ten generations apart.
+              if (person.generation?.short != null)
+                _Badge(icon: Icons.timeline, label: person.generation!.short!)
+              else if (person.generationLabel != null)
                 _Badge(
                   icon: Icons.stairs_outlined,
                   label: person.generationLabel!,

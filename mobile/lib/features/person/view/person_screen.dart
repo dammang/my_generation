@@ -562,15 +562,18 @@ class _HistoryPane extends ConsumerWidget {
   }
 }
 
-class _OverviewTab extends StatelessWidget {
+class _OverviewTab extends ConsumerWidget {
   const _OverviewTab({required this.detail});
 
   final PersonDetail detail;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final person = detail.summary;
+
+    // Both scales, each on its own line and each saying who it counts from.
+    final standing = person.generation?.lines ?? const <String>[];
 
     final facts = <(String, String)>[
       if (person.birthDisplay != null) ('Born', person.birthDisplay!),
@@ -580,7 +583,9 @@ class _OverviewTab extends StatelessWidget {
       if (detail.tribeName != null) ('Tribe', detail.tribeName!),
       if (detail.clanName != null) ('Clan', detail.clanName!),
       if (detail.branchName != null) ('Family branch', detail.branchName!),
-      if (person.generationLabel != null)
+      if (standing.isNotEmpty)
+        ('Generation', standing.join('\n'))
+      else if (person.generationLabel != null)
         ('Generation', person.generationLabel!),
     ];
 
@@ -621,12 +626,74 @@ class _OverviewTab extends StatelessWidget {
               ],
             ),
           ),
+        _Descendants(ulid: person.ulid),
+
         if (detail.biography != null) ...[
           const SizedBox(height: 10),
           Text('Biography', style: theme.textTheme.labelLarge),
           const SizedBox(height: 8),
           Text(detail.biography!, style: theme.textTheme.bodyMedium),
         ],
+      ],
+    );
+  }
+}
+
+/// How large a family somebody left, counted at each remove.
+///
+/// The census is counted over the whole archive rather than over the chart
+/// that happens to be loaded, so it does not change when somebody pans. It is
+/// fetched separately and shows nothing at all until it arrives: a family that
+/// briefly reports no children is worse than one that is briefly silent.
+class _Descendants extends ConsumerWidget {
+  const _Descendants({required this.ulid});
+
+  final String ulid;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final summary = ref.watch(treeSummaryProvider(ulid)).value;
+
+    if (summary == null || summary.generations.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final rows = <(String, String)>[
+      for (final generation in summary.generations)
+        (generation.remove, generation.describe),
+      ('In all', summary.total == 1 ? '1 person' : '${summary.total} people'),
+      if (summary.hidden > 0)
+        // Said rather than silently subtracted: a count that quietly leaves
+        // people out disagrees with the one their cousin is shown.
+        ('Not shown to you', '${summary.hidden}'),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 6),
+        Text('Descendants', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 12),
+        for (final (label, value) in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 118,
+                  child: Text(
+                    label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Expanded(child: Text(value, style: theme.textTheme.bodyLarge)),
+              ],
+            ),
+          ),
       ],
     );
   }

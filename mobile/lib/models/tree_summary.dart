@@ -38,6 +38,16 @@ class Descendants {
     ].join(', ');
   }
 
+  /// "Children", "Grandchildren", "Great-grandchildren" — the remove itself,
+  /// for a list that puts the label beside the count.
+  String get remove => switch (depth) {
+    1 => 'Children',
+    2 => 'Grandchildren',
+    3 => 'Great-grandchildren',
+    4 => 'Great-great-grandchildren',
+    _ => '$depth generations down',
+  };
+
   /// "7 sons, 2 daughters", then "31 grandchildren" — the card has one line
   /// where the exported picture has five, so past the children the sexes are
   /// added together rather than dropped.
