@@ -26,6 +26,8 @@ class AnchorFamilyBranch
     public function __construct(
         private readonly LineageDepthService $depths,
         private readonly PlaceDescendantsInBranch $place,
+        private readonly ReleaseOutsidersFromBranch $release,
+        private readonly RecountBranch $recount,
     ) {}
 
     /** @return int how many people the branch gained */
@@ -46,7 +48,18 @@ class AnchorFamilyBranch
 
         $branch->forceFill(['generation_offset' => $this->offsetFor($branch)])->save();
 
-        return $this->place->handle($branch);
+        // Released before placing, and in that order: a branch given a new
+        // founder keeps whoever the old one swept in, and they are not this
+        // family. Placing alone only ever filled empty branches.
+        $this->release->handle($branch);
+
+        $placed = $this->place->handle($branch);
+
+        // Both of those are mass updates, which fire no observer, so the
+        // branch's own counter is the last thing left saying the old number.
+        $this->recount->handle($branch);
+
+        return $placed;
     }
 
     /**
