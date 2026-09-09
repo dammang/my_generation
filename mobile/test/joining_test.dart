@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_generation/features/onboarding/join_clan_screen.dart';
-import 'package:my_generation/features/onboarding/join_tribe_screen.dart';
+import 'package:my_generation/features/onboarding/join_screen.dart';
 import 'package:my_generation/models/clan_summary.dart';
 import 'package:my_generation/providers/app_providers.dart';
 
@@ -180,6 +180,48 @@ void main() {
     expect(find.textContaining('Ask whoever set up'), findsOneWidget);
   });
 
+  testWidgets('a new account is offered its clan on the first screen', (
+    tester,
+  ) async {
+    // The screen every new account is held on. It listed only tribes, which
+    // is why joining a clan could not be found from a fresh account at all.
+    await tester.binding.setSurfaceSize(const Size(402, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final adapter = FakeAdapter({
+      'GET /api/v1/clans': [
+        FakeReply(200, {
+          'success': true,
+          'data': [_clan()],
+        }),
+      ],
+      'GET /api/v1/tribes': [
+        FakeReply(200, {'success': true, 'data': <dynamic>[]}),
+      ],
+      'GET /api/v1/memberships': [
+        FakeReply(200, {'success': true, 'data': <dynamic>[]}),
+      ],
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          apiClientProvider.overrideWithValue(fakeApiClient(adapter)),
+          secureStorageProvider.overrideWithValue(FakeSecureStorage()),
+        ],
+        child: const MaterialApp(home: JoinScreen()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Clans first, because it is the answer most people have ready.
+    expect(find.text('Clans'), findsOneWidget);
+    expect(find.text('Tribes'), findsOneWidget);
+    expect(find.text('JK'), findsOneWidget);
+    expect(find.text('Ask to join'), findsOneWidget);
+  });
+
   testWidgets('a tribe is still asked for as a tribe', (tester) async {
     // Both screens are the same screen underneath. Sending the wrong scope
     // type would grant nothing while appearing to succeed, and it is the one
@@ -188,6 +230,9 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final adapter = FakeAdapter({
+      'GET /api/v1/clans': [
+        FakeReply(200, {'success': true, 'data': <dynamic>[]}),
+      ],
       'GET /api/v1/tribes': [
         FakeReply(200, {
           'success': true,
@@ -217,11 +262,15 @@ void main() {
           apiClientProvider.overrideWithValue(fakeApiClient(adapter)),
           secureStorageProvider.overrideWithValue(FakeSecureStorage()),
         ],
-        child: const MaterialApp(home: JoinTribeScreen()),
+        child: const MaterialApp(home: JoinScreen()),
       ),
     );
 
     await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tribes'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Ask to join'));
     await tester.pumpAndSettle();
 

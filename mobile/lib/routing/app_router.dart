@@ -18,7 +18,7 @@ import '../features/home/home_screen.dart';
 import '../features/onboarding/claim_profile_screen.dart';
 import '../features/clans/view/membership_requests_screen.dart';
 import '../features/onboarding/join_clan_screen.dart';
-import '../features/onboarding/join_tribe_screen.dart';
+import '../features/onboarding/join_screen.dart';
 import '../features/person/view/person_screen.dart';
 import '../features/profile/view/profile_screen.dart';
 import '../features/review/view/review_queue_screen.dart';
@@ -151,10 +151,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.forgotPassword,
         builder: (_, _) => const ForgotPasswordScreen(),
       ),
-      GoRoute(
-        path: Routes.joinTribe,
-        builder: (_, _) => const JoinTribeScreen(),
-      ),
+      GoRoute(path: Routes.joinTribe, builder: (_, _) => const JoinScreen()),
       GoRoute(path: Routes.joinClan, builder: (_, _) => const JoinClanScreen()),
       GoRoute(
         path: Routes.joinRequests,

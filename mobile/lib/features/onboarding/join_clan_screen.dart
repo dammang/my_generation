@@ -6,27 +6,28 @@ import '../../providers/onboarding_provider.dart';
 import 'join_clan_form_screen.dart';
 import 'join_scope_screen.dart';
 
-/// Asking to join a clan.
+/// Asking to join a clan, reached on its own.
 ///
 /// Being in the tribe is not the same as being in the clan: somebody who has
-/// chosen "my clan" is shown to clan members and to nobody else, so without
-/// this a reader saw blank cards and had no way to ask.
-class JoinClanScreen extends ConsumerWidget {
+/// chosen "my clan" is shown to clan members and to nobody else.
+class JoinClanScreen extends StatelessWidget {
   const JoinClanScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => JoinScopeScreen(
+  Widget build(BuildContext context) => JoinScopeScreen(
     title: 'Join a clan',
-    intro:
-        'Ask to join the clan your family belongs to. Members see records '
-        'that are kept within the clan; until you are approved you will only '
-        'see what is public.',
-    searchLabel: 'Search clans',
-    emptyHint: 'No clans have been created yet.',
-    watch: _watch,
-    refresh: _refresh,
-    onAsk: (context, clan) => Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => JoinClanFormScreen(clan: clan)),
+    list: JoinScopeList(
+      intro:
+          'Ask to join the clan your family belongs to. Members see records '
+          'kept within the clan; until you are approved you will only see '
+          'what is public.',
+      searchLabel: 'Search clans',
+      emptyHint: 'No clans have been created yet.',
+      watch: _watch,
+      refresh: _refresh,
+      onAsk: (context, clan) => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => JoinClanFormScreen(clan: clan)),
+      ),
     ),
   );
 }

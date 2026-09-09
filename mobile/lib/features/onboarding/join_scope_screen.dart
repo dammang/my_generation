@@ -14,21 +14,23 @@ import '../../widgets/form_banner.dart';
 /// reviewed by the same people. Asking is all it does: approval belongs to
 /// whoever administers the scope, and the screen says so plainly rather than
 /// implying the request was enough.
-class JoinScopeScreen extends ConsumerStatefulWidget {
-  const JoinScopeScreen({
+/// One scope's list, with its own search and its own asking.
+///
+/// Separate from the Scaffold so the onboarding screen can show tribes and
+/// clans as two tabs: a new account is looking for its clan, and being made to
+/// find the tribe first is how the clan came to be unreachable.
+class JoinScopeList extends ConsumerStatefulWidget {
+  const JoinScopeList({
     super.key,
-    required this.title,
     required this.intro,
     required this.searchLabel,
     required this.emptyHint,
     required this.watch,
     required this.refresh,
-    this.actions,
     this.onAsk,
     this.footer,
   });
 
-  final String title;
   final String intro;
   final String searchLabel;
 
@@ -42,8 +44,6 @@ class JoinScopeScreen extends ConsumerStatefulWidget {
   final AsyncValue<List<JoinableScope>> Function(WidgetRef, String) watch;
   final void Function(WidgetRef, String) refresh;
 
-  final List<Widget>? actions;
-
   /// Given, asking is handed over rather than posted from here: a clan asks
   /// who your parents were before it takes the request.
   final void Function(BuildContext, JoinableScope)? onAsk;
@@ -53,10 +53,10 @@ class JoinScopeScreen extends ConsumerStatefulWidget {
   final Widget? footer;
 
   @override
-  ConsumerState<JoinScopeScreen> createState() => _JoinScopeScreenState();
+  ConsumerState<JoinScopeList> createState() => _JoinScopeListState();
 }
 
-class _JoinScopeScreenState extends ConsumerState<JoinScopeScreen> {
+class _JoinScopeListState extends ConsumerState<JoinScopeList> {
   final _search = TextEditingController();
   Timer? _debounce;
   String _query = '';
@@ -125,80 +125,97 @@ class _JoinScopeScreenState extends ConsumerState<JoinScopeScreen> {
       orElse: () => <String>{},
     );
 
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.title), actions: widget.actions),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  widget.intro,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.intro,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _search,
-                  onChanged: _onSearchChanged,
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    labelText: widget.searchLabel,
-                    prefixIcon: const Icon(Icons.search),
-                  ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _search,
+                onChanged: _onSearchChanged,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  labelText: widget.searchLabel,
+                  prefixIcon: const Icon(Icons.search),
                 ),
-                if (_error != null) ...[
-                  const SizedBox(height: 14),
-                  FormBanner(message: _error!, tone: theme.colorScheme.error),
-                ],
-                const SizedBox(height: 8),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 14),
+                FormBanner(message: _error!, tone: theme.colorScheme.error),
               ],
-            ),
+              const SizedBox(height: 8),
+            ],
           ),
-          Expanded(
-            child: scopes.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => _Retry(
-                message: error is ApiException
-                    ? error.message
-                    : 'Could not load the list.',
-                onRetry: () => widget.refresh(ref, _query),
-              ),
-              data: (list) => list.isEmpty
-                  ? _Empty(query: _query, hint: widget.emptyHint)
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-                      itemCount: list.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final scope = list[index];
-                        final asked = requested.contains(scope.ulid);
+        ),
+        Expanded(
+          child: scopes.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => _Retry(
+              message: error is ApiException
+                  ? error.message
+                  : 'Could not load the list.',
+              onRetry: () => widget.refresh(ref, _query),
+            ),
+            data: (list) => list.isEmpty
+                ? _Empty(query: _query, hint: widget.emptyHint)
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+                    itemCount: list.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final scope = list[index];
+                      final asked = requested.contains(scope.ulid);
 
-                        return _ScopeCard(
-                          scope: scope,
-                          alreadyRequested: asked,
-                          busy: _requestingUlid == scope.ulid,
-                          onRequest: asked ? null : () => _request(scope),
-                        );
-                      },
-                    ),
+                      return _ScopeCard(
+                        scope: scope,
+                        alreadyRequested: asked,
+                        busy: _requestingUlid == scope.ulid,
+                        onRequest: asked ? null : () => _request(scope),
+                      );
+                    },
+                  ),
+          ),
+        ),
+        if (widget.footer case final footer?)
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: footer,
             ),
           ),
-          if (widget.footer case final footer?)
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: footer,
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
+}
+
+/// One scope's list on a screen of its own, for reaching it directly.
+class JoinScopeScreen extends StatelessWidget {
+  const JoinScopeScreen({
+    super.key,
+    required this.title,
+    required this.list,
+    this.actions,
+  });
+
+  final String title;
+  final JoinScopeList list;
+  final List<Widget>? actions;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(title), actions: actions),
+    body: list,
+  );
 }
 
 class _ScopeCard extends StatelessWidget {
