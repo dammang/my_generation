@@ -28,7 +28,8 @@ class HistoryTab extends StatelessWidget {
       return _Message(
         icon: Icons.cloud_off,
         title: 'Not saved on this device',
-        message: 'The record of changes is not kept offline. Connect to see it.',
+        message:
+            'The record of changes is not kept offline. Connect to see it.',
       );
     }
 
@@ -36,7 +37,8 @@ class HistoryTab extends StatelessWidget {
       return _Message(
         icon: Icons.lock_outline,
         title: 'History is private',
-        message: 'You do not have permission to see how this record has '
+        message:
+            'You do not have permission to see how this record has '
             'changed.',
       );
     }
@@ -51,7 +53,8 @@ class HistoryTab extends StatelessWidget {
           _Message(
             icon: Icons.history,
             title: 'No changes recorded',
-            message: 'Nothing about this record has been corrected since it '
+            message:
+                'Nothing about this record has been corrected since it '
                 'was added.',
           )
         else ...[
@@ -92,7 +95,9 @@ class _RevisionRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(entry.label, style: theme.textTheme.titleSmall)),
+              Expanded(
+                child: Text(entry.label, style: theme.textTheme.titleSmall),
+              ),
               if (entry.viaChangeRequest)
                 Tooltip(
                   // Worth distinguishing: the value was agreed, not just typed.
@@ -124,7 +129,10 @@ class _RevisionRow extends StatelessWidget {
                     child: Icon(Icons.arrow_forward, size: 14),
                   ),
                   Flexible(
-                    child: Text(entry.afterText, style: theme.textTheme.bodyMedium),
+                    child: Text(
+                      entry.afterText,
+                      style: theme.textTheme.bodyMedium,
+                    ),
                   ),
                 ],
               ),
@@ -186,7 +194,11 @@ class _DisputeCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.help_outline, size: 18, color: theme.colorScheme.error),
+                Icon(
+                  Icons.help_outline,
+                  size: 18,
+                  color: theme.colorScheme.error,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   '${dispute.label} is disputed',
@@ -204,7 +216,9 @@ class _DisputeCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      claim.accepted ? Icons.check_circle : Icons.circle_outlined,
+                      claim.accepted
+                          ? Icons.check_circle
+                          : Icons.circle_outlined,
                       size: 16,
                       color: claim.accepted
                           ? theme.colorScheme.primary
@@ -244,7 +258,11 @@ class _DisputeCard extends StatelessWidget {
 }
 
 class _Message extends StatelessWidget {
-  const _Message({required this.icon, required this.title, required this.message});
+  const _Message({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
 
   final IconData icon;
   final String title;

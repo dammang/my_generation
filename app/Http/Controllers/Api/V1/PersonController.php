@@ -17,6 +17,7 @@ use App\Http\Requests\V1\AddRelativeRequest;
 use App\Http\Requests\V1\IndexPeopleRequest;
 use App\Http\Requests\V1\StorePersonRequest;
 use App\Http\Requests\V1\UpdatePersonRequest;
+use App\Http\Requests\V1\UpdateVisibilityRequest;
 use App\Http\Resources\V1\PersonNameResource;
 use App\Http\Resources\V1\PersonResource;
 use App\Http\Resources\V1\UnionResource;
@@ -33,6 +34,7 @@ use App\Policies\ResolvesScopePath;
 use App\Services\Integrity\GenealogyWarnings;
 use App\Services\Permissions\PermissionResolver;
 use App\Services\Privacy\ViewerScope;
+use App\Services\Privacy\ViewerScopeResolver;
 use App\Services\Verification\WriteGate;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -325,6 +327,30 @@ class PersonController extends Controller
             ],
             warnings: $outcome->warningPayload(),
             status: $outcome->status(),
+        );
+    }
+
+    /**
+     * Who may see this person.
+     *
+     * Its own endpoint rather than a field on update, for two reasons: the
+     * general update needs people.update in scope, which the person whose
+     * record it is usually does not hold; and an edit to a verified record
+     * becomes a change request, which would leave somebody's privacy waiting
+     * in a reviewer's queue. A decision about being seen takes effect now.
+     */
+    public function visibility(UpdateVisibilityRequest $request, Person $person): JsonResponse
+    {
+        $person->forceFill([
+            'privacy_level' => $request->validated('privacy_level'),
+        ])->save();
+
+        // Their entitlements did not change, but what this record shows did,
+        // and the cached trees were built under the old answer.
+        app(ViewerScopeResolver::class)->forget($request->user());
+
+        return ApiResponse::success(
+            PersonResource::make($person->fresh()),
         );
     }
 

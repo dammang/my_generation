@@ -8,7 +8,12 @@ import '../../../models/story.dart';
 /// somebody opens the story, so a list of twenty is twenty summaries rather
 /// than twenty essays pulled over a phone connection.
 class StoriesTab extends StatelessWidget {
-  const StoriesTab({super.key, required this.stories, required this.onOpen, required this.onWrite});
+  const StoriesTab({
+    super.key,
+    required this.stories,
+    required this.onOpen,
+    required this.onWrite,
+  });
 
   final List<Story> stories;
   final void Function(Story story) onOpen;
@@ -57,8 +62,10 @@ class StoriesTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       itemCount: stories.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) =>
-          _StoryCard(story: stories[index], onTap: () => onOpen(stories[index])),
+      itemBuilder: (context, index) => _StoryCard(
+        story: stories[index],
+        onTap: () => onOpen(stories[index]),
+      ),
     );
   }
 }
@@ -106,7 +113,8 @@ class _StoryCard extends StatelessWidget {
                   // Who may read it, shown because somebody writing about
                   // living relatives should be able to see at a glance that
                   // they did not accidentally publish it.
-                  if (audience != null) _Chip(label: audience, icon: Icons.lock_outline),
+                  if (audience != null)
+                    _Chip(label: audience, icon: Icons.lock_outline),
                   if (story.authorName != null)
                     Text(
                       'by ${story.authorName}',

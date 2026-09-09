@@ -21,8 +21,10 @@ class StoryScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Story')),
       body: story.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) =>
-            _Failure(message: '$error', onRetry: () => ref.invalidate(storyProvider(ulid))),
+        error: (error, _) => _Failure(
+          message: '$error',
+          onRetry: () => ref.invalidate(storyProvider(ulid)),
+        ),
         data: (story) => _Body(story: story),
       ),
     );
@@ -52,17 +54,24 @@ class _Body extends StatelessWidget {
             ?era,
             ?audience,
           ].join(' · '),
-          style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         const Divider(height: 32),
         if (story.hasBody)
           // Long-form prose: taller line spacing, because a paragraph set at
           // list density is unpleasant to read for more than a sentence.
-          Text(story.body!, style: theme.textTheme.bodyLarge?.copyWith(height: 1.6))
+          Text(
+            story.body!,
+            style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
+          )
         else
           Text(
             'This story has no text yet.',
-            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
       ],
     );

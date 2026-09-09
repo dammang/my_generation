@@ -12,7 +12,11 @@ import '../../../widgets/form_banner.dart';
 /// between "Family" and "Public" is the difference between a private
 /// recollection and publishing it.
 class WriteStoryScreen extends ConsumerStatefulWidget {
-  const WriteStoryScreen({super.key, required this.personUlid, required this.personName});
+  const WriteStoryScreen({
+    super.key,
+    required this.personUlid,
+    required this.personName,
+  });
 
   final String personUlid;
   final String personName;
@@ -97,8 +101,9 @@ class _WriteStoryScreenState extends ConsumerState<WriteStoryScreen> {
               controller: _title,
               decoration: const InputDecoration(labelText: 'Title'),
               textCapitalization: TextCapitalization.sentences,
-              validator: (value) =>
-                  (value?.trim().isEmpty ?? true) ? 'Give the story a title.' : null,
+              validator: (value) => (value?.trim().isEmpty ?? true)
+                  ? 'Give the story a title.'
+                  : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -113,12 +118,16 @@ class _WriteStoryScreenState extends ConsumerState<WriteStoryScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _body,
-              decoration: const InputDecoration(labelText: 'The story', alignLabelWithHint: true),
+              decoration: const InputDecoration(
+                labelText: 'The story',
+                alignLabelWithHint: true,
+              ),
               textCapitalization: TextCapitalization.sentences,
               maxLines: 12,
               minLines: 6,
-              validator: (value) =>
-                  (value?.trim().isEmpty ?? true) ? 'Write something before saving.' : null,
+              validator: (value) => (value?.trim().isEmpty ?? true)
+                  ? 'Write something before saving.'
+                  : null,
             ),
             const SizedBox(height: 20),
             DropdownButtonFormField<String>(
@@ -128,10 +137,14 @@ class _WriteStoryScreenState extends ConsumerState<WriteStoryScreen> {
                 DropdownMenuItem(value: 'private', child: Text('Only me')),
                 DropdownMenuItem(value: 'family', child: Text('This family')),
                 DropdownMenuItem(value: 'clan', child: Text('This clan')),
-                DropdownMenuItem(value: 'tribe', child: Text('The whole tribe')),
+                DropdownMenuItem(
+                  value: 'tribe',
+                  child: Text('The whole tribe'),
+                ),
                 DropdownMenuItem(value: 'public', child: Text('Anyone')),
               ],
-              onChanged: (value) => setState(() => _visibility = value ?? 'family'),
+              onChanged: (value) =>
+                  setState(() => _visibility = value ?? 'family'),
             ),
             const SizedBox(height: 28),
             FilledButton(

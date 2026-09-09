@@ -125,6 +125,18 @@ class PersonRepository {
 
   /// Removes a record from the archive.
   ///
+  /// Who may see this person.
+  ///
+  /// Its own endpoint on the server, so it applies at once rather than
+  /// becoming a change request somebody has to approve. Nobody should have to
+  /// wait for a reviewer to stop being visible.
+  Future<void> setVisibility(String ulid, String level) =>
+      _api.patch<Map<String, dynamic>>(
+        ApiPaths.personVisibility(ulid),
+        body: {'privacy_level': level},
+        parse: (data) => (data as Map).cast<String, dynamic>(),
+      );
+
   /// A soft delete on the server: the person leaves the graph, the history of
   /// what was recorded about them does not.
   Future<void> deletePerson(String ulid) => _api.delete(ApiPaths.person(ulid));

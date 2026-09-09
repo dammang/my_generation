@@ -13,8 +13,22 @@ gatekeeper. If Flutter ever hides a field, the server has already failed.
 | `family` | Members of the person's family branch, plus close kin (§4) |
 | `private` | Only the record's contributors, the linked user, and scope admins |
 
-Default on a new person: `family`. Default on a deceased person with a death year more
-than 100 years ago: `tribe` (configurable per tribe via `tribes.default_privacy_level`).
+Default on a new person: `family`.
+
+**A recorded death lifts the level.** A living person's own choice governs; once
+`is_living` is false the record answers to `tribes.default_privacy_level` instead. A
+genealogy is read generations after it is written, and a permanent lock would fill the
+tree with nodes nobody could ever read. Lifting never *tightens*: somebody who chose
+`public` stays public, so it relaxes a restriction and never imposes one.
+
+This rule lives in two places that must agree — `PersonVisibilityResolver::levelFor`
+and `Person::applyDeathLift` (the SQL half). A disagreement means a person listed by the
+query and then refused by the policy, or worse, the other way round.
+
+A person may set their own level through `PATCH /people/{person}/visibility`, which needs
+no `people.update` permission and never becomes a change request: nobody should wait in a
+reviewer's queue to stop being visible. The app offers four of the five levels — `tribe`
+is omitted as a rung most people cannot tell apart from `clan`.
 
 ## 2. Living vs deceased
 
@@ -95,10 +109,20 @@ final class ViewerScope {
 }
 ```
 
-`kinPersonIds` is computed from the viewer's claimed person: 2 generations up,
-2 down, plus spouses and siblings — capped at a few hundred ids. This is what makes
+`kinPersonIds` is computed from the viewer's claimed person: everybody within
+`privacy.kin_cousin_degree` cousins (default 3), plus their own line down and spouses,
+capped at a few hundred ids. Nth cousins are the people descended from an ancestor N+1
+generations up, by no more generations than it took to climb to them. This is what makes
 "family" a *relational* scope rather than merely a branch label, so an uncle who was
 never assigned to the right family branch still sees his nephew.
+
+Everybody in a clan is a cousin at some degree, so this number is what decides whether
+"close family" means anything different from "the clan". Measured against the JK clan of
+327 people, third cousins reaches 30 for the widest-connected person and 10 for the
+narrowest — a real circle, not the whole archive.
+
+An earlier version descended only one generation from the direct line, which reached
+every aunt and uncle and not one first cousin, while its own comment said otherwise.
 
 `hash` is appended to every cached tree/person key. A cached payload therefore cannot be
 served to a viewer with a different entitlement set.

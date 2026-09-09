@@ -51,7 +51,9 @@ class _AddPhotoScreenState extends ConsumerState<AddPhotoScreen> {
     });
 
     try {
-      await ref.read(personRepositoryProvider).uploadPhoto(
+      await ref
+          .read(personRepositoryProvider)
+          .uploadPhoto(
             personUlid: widget.personUlid,
             filePath: widget.filePath,
             caption: _caption.text,
@@ -110,7 +112,7 @@ class _AddPhotoScreenState extends ConsumerState<AddPhotoScreen> {
               _isPrivate
                   ? 'Only people who can see this person will see it.'
                   : 'This will be readable by anyone with the link, and that '
-                      'link does not expire.',
+                        'link does not expire.',
               style: theme.textTheme.bodySmall,
             ),
             contentPadding: EdgeInsets.zero,

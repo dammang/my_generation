@@ -189,6 +189,7 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             // "This spouse is already in the archive." Always a proposal: it
             // is a claim about who somebody is, and it merges two records.
             Route::post('people/{person}/identity', [PersonController::class, 'claimIdentity'])->name('people.identity');
+            Route::patch('people/{person}/visibility', [PersonController::class, 'visibility'])->name('people.visibility');
 
             Route::post('people/{person}/names', [PersonController::class, 'storeName'])->name('people.names.store');
             Route::delete('people/{person}/names/{person_name}', [PersonController::class, 'destroyName'])->name('people.names.destroy');

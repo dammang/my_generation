@@ -59,11 +59,15 @@ class _RaiseDisputeScreenState extends ConsumerState<RaiseDisputeScreen> {
     });
 
     try {
-      await ref.read(reviewRepositoryProvider).raiseDispute(
+      await ref
+          .read(reviewRepositoryProvider)
+          .raiseDispute(
             personUlid: widget.personUlid,
             field: _field,
             claimedValue: _value.text.trim(),
-            rationale: _rationale.text.trim().isEmpty ? null : _rationale.text.trim(),
+            rationale: _rationale.text.trim().isEmpty
+                ? null
+                : _rationale.text.trim(),
           );
 
       ref.invalidate(disputesProvider(widget.personUlid));
@@ -116,7 +120,9 @@ class _RaiseDisputeScreenState extends ConsumerState<RaiseDisputeScreen> {
                   ChoiceChip(
                     label: Text(entry.value),
                     selected: _field == entry.key,
-                    onSelected: _saving ? null : (_) => setState(() => _field = entry.key),
+                    onSelected: _saving
+                        ? null
+                        : (_) => setState(() => _field = entry.key),
                   ),
               ],
             ),
@@ -126,8 +132,9 @@ class _RaiseDisputeScreenState extends ConsumerState<RaiseDisputeScreen> {
               decoration: const InputDecoration(
                 labelText: 'What should it say?',
               ),
-              validator: (value) =>
-                  (value?.trim().isEmpty ?? true) ? 'Say what you believe is right' : null,
+              validator: (value) => (value?.trim().isEmpty ?? true)
+                  ? 'Say what you believe is right'
+                  : null,
             ),
             const SizedBox(height: 14),
             TextFormField(

@@ -122,13 +122,21 @@ class ViewerScopeResolver
     }
 
     /**
-     * Close kin of the viewer's own claimed person: two generations up, two
-     * down, plus spouses and siblings.
+     * Close kin of the viewer's own claimed person: everybody within a set
+     * number of cousins, plus the direct line down, plus spouses.
      *
      * This is what makes "family" a *relational* scope rather than merely a
-     * branch label — an uncle who was never assigned to the right family branch
-     * still sees his nephew. Bounded by config so a well-connected person in a
-     * large clan cannot blow up the request.
+     * branch label — an uncle who was never assigned to the right family
+     * branch still sees his nephew.
+     *
+     * Nth cousins are the people descended from an ancestor N+1 generations
+     * up, by no more generations than it took to climb to them. The old query
+     * descended only one generation from the direct line, which reached every
+     * aunt and uncle and not one first cousin — while its own comment claimed
+     * otherwise, so nothing about it looked wrong.
+     *
+     * Bounded by config so a well-connected person in a large clan cannot blow
+     * up the request.
      *
      * @return array<int, int>
      */
@@ -138,35 +146,41 @@ class ViewerScopeResolver
             return [];
         }
 
-        $up = (int) config('genealogy.privacy.kin_generations_up');
+        $climb = ((int) config('genealogy.privacy.kin_cousin_degree')) + 1;
         $down = (int) config('genealogy.privacy.kin_generations_down');
         $cap = (int) config('genealogy.privacy.kin_max_people');
 
         $rows = DB::select(<<<'SQL'
-            WITH RECURSIVE up (person_id, depth) AS (
+            WITH RECURSIVE up (person_id, climbed) AS (
                 SELECT ?, 0
                 UNION ALL
-                SELECT fe.parent_id, u.depth + 1
+                SELECT fe.parent_id, u.climbed + 1
                 FROM up u JOIN family_edges fe ON fe.child_id = u.person_id
-                WHERE u.depth < ?
+                WHERE u.climbed < ?
             ),
-            down (person_id, depth) AS (
+            -- Back down from each ancestor by as far as we climbed to reach
+            -- them: siblings, cousins, and their children.
+            cousins (person_id, budget) AS (
+                SELECT person_id, climbed FROM up
+                UNION ALL
+                SELECT fe.child_id, c.budget - 1
+                FROM cousins c JOIN family_edges fe ON fe.parent_id = c.person_id
+                WHERE c.budget > 0
+            ),
+            -- The viewer's own line down, which the climb does not cover.
+            issue (person_id, depth) AS (
                 SELECT ?, 0
                 UNION ALL
-                SELECT fe.child_id, d.depth + 1
-                FROM down d JOIN family_edges fe ON fe.parent_id = d.person_id
-                WHERE d.depth < ?
+                SELECT fe.child_id, i.depth + 1
+                FROM issue i JOIN family_edges fe ON fe.parent_id = i.person_id
+                WHERE i.depth < ?
             ),
             bloodline AS (
                 SELECT person_id FROM up
                 UNION
-                SELECT person_id FROM down
-            ),
-            -- Everyone descending from an ancestor within reach: siblings,
-            -- nieces and nephews, first cousins.
-            collateral AS (
-                SELECT fe.child_id AS person_id
-                FROM bloodline b JOIN family_edges fe ON fe.parent_id = b.person_id
+                SELECT person_id FROM cousins
+                UNION
+                SELECT person_id FROM issue
             ),
             spouses AS (
                 SELECT CASE WHEN u.partner_1_id = b.person_id THEN u.partner_2_id
@@ -177,12 +191,11 @@ class ViewerScopeResolver
             )
             SELECT DISTINCT person_id FROM (
                 SELECT person_id FROM bloodline
-                UNION SELECT person_id FROM collateral
                 UNION SELECT person_id FROM spouses
             ) kin
             WHERE person_id IS NOT NULL
             LIMIT ?
-        SQL, [$personId, $up, $personId, $down, $cap]);
+        SQL, [$personId, $climb, $personId, $down, $cap]);
 
         return array_map(static fn ($row) => (int) $row->person_id, $rows);
     }

@@ -30,6 +30,8 @@ class ApiPaths {
   static const String people = '$prefix/people';
   static String person(String ulid) => '$prefix/people/$ulid';
   static String personFamily(String ulid) => '$prefix/people/$ulid/family';
+  static String personVisibility(String ulid) =>
+      '$prefix/people/$ulid/visibility';
   static String personRelatives(String ulid) =>
       '$prefix/people/$ulid/relatives';
   static String personTimeline(String ulid) => '$prefix/people/$ulid/timeline';

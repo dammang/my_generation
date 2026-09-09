@@ -1,3 +1,4 @@
+import 'visibility_choice.dart';
 import 'person_summary.dart';
 
 /// One person's full record, as far as this viewer is permitted to see it.
@@ -16,6 +17,7 @@ class PersonDetail {
     this.clanName,
     this.branchName,
     this.mergedIntoUlid,
+    this.visibility,
     this.fromCache = false,
   });
 
@@ -35,6 +37,10 @@ class PersonDetail {
   /// shared link should not rot because two records turned out to be one
   /// person — but the profile says where the person actually lives now.
   final String? mergedIntoUlid;
+
+  /// Who may see this record. Null where the server did not say — an older
+  /// build, or a level this app does not offer.
+  final VisibilityChoice? visibility;
 
   /// Rebuilt from the device. Only what a tree response carried is stored, so
   /// the biography and places are absent rather than empty — the screen says
@@ -59,6 +65,7 @@ class PersonDetail {
       clanName: (json['clan'] as Map?)?['name'] as String?,
       branchName: (json['family_branch'] as Map?)?['name'] as String?,
       mergedIntoUlid: (json['merged_into'] as Map?)?['ulid'] as String?,
+      visibility: VisibilityChoice.fromWire(json['privacy_level'] as String?),
     );
   }
 }

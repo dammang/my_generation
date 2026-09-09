@@ -43,7 +43,10 @@ return [
         // Deceased longer than this many years relax to the tribe default.
         'historical_after_years' => 100,
         // How far kinship extends when resolving the "family" scope.
-        'kin_generations_up' => 2,
+        // How far sideways "close family" reaches: 3 means third cousins and
+        // nearer. Everybody in a clan is a cousin at some degree, so this is
+        // the number that decides whether the setting means anything.
+        'kin_cousin_degree' => 3,
         'kin_generations_down' => 2,
         'kin_max_people' => 400,
     ],

@@ -13,7 +13,9 @@ import '../../../models/story.dart';
 import '../../../providers/person_provider.dart';
 import '../../../providers/review_provider.dart';
 import '../../../providers/story_provider.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/tree_provider.dart';
+import '../widgets/visibility_setting.dart';
 import '../../../repositories/person_repository.dart';
 import '../../../routing/app_router.dart';
 import '../widgets/family_tab.dart';
@@ -626,6 +628,13 @@ class _OverviewTab extends ConsumerWidget {
               ],
             ),
           ),
+        // Only on your own record: a decision about being seen belongs to
+        // the person seen.
+        if (ref.watch(authProvider) case AuthSignedIn(
+          :final user,
+        ) when user.personUlid == person.ulid)
+          VisibilitySetting(detail: detail),
+
         _Descendants(ulid: person.ulid),
 
         if (detail.biography != null) ...[

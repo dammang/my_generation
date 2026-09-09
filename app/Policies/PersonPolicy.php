@@ -76,6 +76,26 @@ class PersonPolicy
         return $this->verify($user, $person);
     }
 
+    /**
+     * Who may decide how visible a record is.
+     *
+     * The person themselves, whatever permissions they hold: a decision about
+     * being seen belongs to the person seen, and routing it through
+     * people.update would put somebody's privacy behind a reviewer's queue.
+     *
+     * Scope admins too, because a record of somebody who has never claimed it
+     * still needs a hand on it.
+     */
+    public function setVisibility(User $user, Person $person): bool
+    {
+        if ($user->person_id !== null && $user->person_id === $person->getKey()) {
+            return true;
+        }
+
+        return $this->view($user, $person)
+            && $this->permissions->can($user, 'people.update', $this->scopePathFor($person));
+    }
+
     public function delete(User $user, Person $person): bool
     {
         return $this->view($user, $person)

@@ -69,8 +69,9 @@ class PhotosTab extends StatelessWidget {
                 CachedNetworkImage(
                   imageUrl: item.url,
                   fit: BoxFit.cover,
-                  placeholder: (context, _) =>
-                      ColoredBox(color: theme.colorScheme.surfaceContainerHighest),
+                  placeholder: (context, _) => ColoredBox(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                  ),
                   // A signed URL expires. When one does, the honest thing is a
                   // broken-image placeholder rather than a spinner that never
                   // resolves.
@@ -88,13 +89,18 @@ class PhotosTab extends StatelessWidget {
                     right: 0,
                     bottom: 0,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       color: Colors.black.withValues(alpha: 0.55),
                       child: Text(
                         item.caption!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(color: Colors.white),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),

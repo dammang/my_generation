@@ -6,6 +6,7 @@ namespace App\Services\Privacy;
 
 use App\Enums\PrivacyLevel;
 use App\Models\Person;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Decides what a viewer may see of a person.
@@ -25,6 +26,9 @@ class PersonVisibilityResolver
 {
     /** @var array<string, FieldMask> */
     private array $memo = [];
+
+    /** @var array<int, PrivacyLevel> */
+    private array $tribeDefaults = [];
 
     public function mask(ViewerScope $viewer, Person $person): FieldMask
     {
@@ -84,13 +88,54 @@ class PersonVisibilityResolver
         };
     }
 
+    /**
+     * Which level actually applies to this record now.
+     *
+     * A person's own choice governs while they are living. Once a death is
+     * recorded it lifts to the archive's default, because a genealogy is read
+     * generations after it is written and a permanent lock would leave the
+     * tree full of nodes nobody will ever be able to read.
+     *
+     * Lifting never tightens: somebody who chose to be public stays public
+     * after they die. It relaxes a restriction, it does not impose one.
+     */
+    private function levelFor(Person $person): PrivacyLevel
+    {
+        $own = $person->privacyLevel();
+
+        if (! $person->isDeceased()) {
+            return $own;
+        }
+
+        $default = $this->tribeDefault($person->tribe_id);
+
+        return $own->isAtLeastAsStrictAs($default) ? $default : $own;
+    }
+
+    /**
+     * Read once per tribe per request. The resolver runs for every node of a
+     * tree, and a relation touched per node is a query per node.
+     */
+    private function tribeDefault(?int $tribeId): PrivacyLevel
+    {
+        $fallback = PrivacyLevel::from(config('genealogy.privacy.default_person_level'));
+
+        if ($tribeId === null) {
+            return $fallback;
+        }
+
+        return $this->tribeDefaults[$tribeId] ??= PrivacyLevel::tryFrom(
+            (string) DB::table('tribes')->where('id', $tribeId)->value('default_privacy_level')
+        ) ?? $fallback;
+    }
+
     private function passesLevel(
         ViewerScope $viewer,
         Person $person,
         bool $isFamily,
         bool $isContributor,
     ): bool {
-        return match ($person->privacyLevel()) {
+        return match ($this->levelFor($person)) {
             PrivacyLevel::Public => true,
 
             PrivacyLevel::Tribe => $viewer->belongsToTribe($person->tribe_id)

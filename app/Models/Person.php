@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The person node.
@@ -542,8 +543,73 @@ class Person extends Model
                 $query->orWhereIn('tribe_id', $viewer->adminTribeIds);
                 $query->orWhereIn('clan_id', $viewer->adminClanIds);
                 $query->orWhereIn('family_branch_id', $viewer->adminBranchIds);
+
+                // A recorded death lifts the person's own choice to the
+                // archive's default. Added beside the clauses above rather
+                // than replacing them, so the more permissive of the two wins
+                // and lifting can never tighten what somebody chose.
+                $query->orWhere(fn (Builder $q) => $q
+                    ->where('is_living', false)
+                    ->where(fn (Builder $q) => $this->applyDeathLift($q, $viewer)));
             })
             ->where(fn (Builder $query) => $this->applyMinorGuard($query, $viewer));
+    }
+
+    /**
+     * What a deceased person's record answers to instead of their own level.
+     *
+     * Per tribe, because each sets its own default. This is the SQL half of
+     * PersonVisibilityResolver::levelFor — the two must agree, or a person is
+     * listed by the query and then refused by the policy, or worse, the other
+     * way round.
+     */
+    private function applyDeathLift(Builder $query, ViewerScope $viewer): Builder
+    {
+        $matched = false;
+
+        foreach ($this->tribeDefaults() as $tribeId => $level) {
+            $reach = match ($level) {
+                PrivacyLevel::Public => static fn (Builder $q) => $q,
+                PrivacyLevel::Tribe => static fn (Builder $q) => $q->whereIn('tribe_id', $viewer->tribeIds),
+                PrivacyLevel::Clan => static fn (Builder $q) => $q->whereIn('clan_id', $viewer->clanIds),
+                PrivacyLevel::Family => fn (Builder $q) => $q->where(fn (Builder $q) => $this->applyFamilyReach($q, $viewer)),
+                PrivacyLevel::Private => null,
+            };
+
+            if ($reach === null) {
+                continue;
+            }
+
+            $matched = true;
+
+            $query->orWhere(function (Builder $q) use ($tribeId, $reach): void {
+                $q->where('tribe_id', $tribeId);
+                $reach($q);
+            });
+        }
+
+        // An empty nested where constrains nothing, which here would publish
+        // every deceased person in the archive. Say no explicitly.
+        return $matched ? $query : $query->whereRaw('1 = 0');
+    }
+
+    /**
+     * Read fresh, not memoised.
+     *
+     * It is one small table read once per query — not once per row — and a
+     * static memo here outlives the request that filled it. A tribe that
+     * changed its default would go on being read at the old one for as long
+     * as the process lived, and the answer it gives is who may see somebody.
+     *
+     * @return array<int, PrivacyLevel>
+     */
+    private function tribeDefaults(): array
+    {
+        return DB::table('tribes')
+            ->pluck('default_privacy_level', 'id')
+            ->map(fn ($value) => PrivacyLevel::tryFrom((string) $value)
+                ?? PrivacyLevel::from(config('genealogy.privacy.default_person_level')))
+            ->all();
     }
 
     /** Branch membership, close kin, or having contributed the record. */

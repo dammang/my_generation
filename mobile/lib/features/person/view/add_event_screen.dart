@@ -103,7 +103,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen> {
       if (mounted) Navigator.of(context).pop(true);
     } on ApiException catch (error) {
       if (error.isOffline) {
-        await ref.read(syncControllerProvider.notifier).enqueue(
+        await ref
+            .read(syncControllerProvider.notifier)
+            .enqueue(
               kind: 'add_event',
               subjectUlid: widget.personUlid,
               subjectLabel: widget.personName,
@@ -111,8 +113,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen> {
                 'person_ulid': widget.personUlid,
                 'event_type': _type,
                 'title': _title.text.trim().isEmpty ? null : _title.text.trim(),
-                'description':
-                    _description.text.trim().isEmpty ? null : _description.text.trim(),
+                'description': _description.text.trim().isEmpty
+                    ? null
+                    : _description.text.trim(),
                 'date': _date.text.trim().isEmpty ? null : _date.text.trim(),
               },
             );
@@ -121,7 +124,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Saved on this device. It will be sent when you are back online.'),
+            content: Text(
+              'Saved on this device. It will be sent when you are back online.',
+            ),
           ),
         );
 

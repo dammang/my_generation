@@ -31,7 +31,8 @@ class PhotoScreen extends StatelessWidget {
                 child: CachedNetworkImage(
                   imageUrl: item.url,
                   fit: BoxFit.contain,
-                  placeholder: (context, _) => const Center(child: CircularProgressIndicator()),
+                  placeholder: (context, _) =>
+                      const Center(child: CircularProgressIndicator()),
                   errorWidget: (context, _, _) => const Padding(
                     padding: EdgeInsets.all(32),
                     child: Text(
