@@ -8,6 +8,7 @@ import 'package:my_generation/features/onboarding/join_clan_screen.dart';
 import 'package:my_generation/features/onboarding/join_screen.dart';
 import 'package:my_generation/widgets/form_banner.dart';
 import 'package:my_generation/models/clan_summary.dart';
+import 'package:my_generation/models/membership.dart';
 import 'package:my_generation/repositories/onboarding_repository.dart';
 import 'package:my_generation/providers/app_providers.dart';
 
@@ -347,6 +348,28 @@ void main() {
     expect(file.key, 'photo');
     expect(file.value.filename, 'selfie.jpg');
     expect(body.fields.map((f) => f.key), contains('applicant_name'));
+  });
+
+  test('a membership with nothing to say still reads', () {
+    // A tribe asks nothing, so its membership carries no answers. That came
+    // back as a JSON array rather than an object, and casting it threw —
+    // taking the whole list down because one row was empty.
+    for (final applicant in [null, <dynamic>[], <String, dynamic>{}]) {
+      final membership = Membership.fromJson({
+        'ulid': '01MEMBERSHIPMEMBERSHIPMEMB',
+        'status': 'active',
+        'scope': {
+          'type': 'tribe',
+          'ulid': '01TRIBETRIBETRIBETRIBETRIB',
+          'name': 'ZOMI',
+        },
+        'applicant': applicant,
+      });
+
+      expect(membership.answers, isEmpty);
+      expect(membership.photoUrl, isNull);
+      expect(membership.scopeName, 'ZOMI');
+    }
   });
 
   test('a clan says which tribe and how large it is', () {

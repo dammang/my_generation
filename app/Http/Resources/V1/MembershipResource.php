@@ -40,21 +40,35 @@ class MembershipResource extends JsonResource
             // country and a photograph of their face.
             ...$this->when(
                 $this->mayReadAnswers($request),
-                fn () => [
-                    'applicant' => array_filter([
-                        'name' => $this->applicant_name,
-                        'father' => $this->father_name,
-                        'mother' => $this->mother_name,
-                        'grandfather' => $this->grandfather_name,
-                        'grandmother' => $this->grandmother_name,
-                        'country' => $this->country,
-                        'contact' => $this->contact,
-                        'photo_url' => $this->selfieUrl(),
-                    ], fn ($value) => $value !== null),
-                ],
+                fn () => $this->answers(),
                 [],
             ),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     *
+     * Omitted entirely when nothing was asked — a tribe asks nothing, so its
+     * memberships have no answers. An empty PHP array serialises as a JSON
+     * *array*, not an object, and a client reading it as one crashed on every
+     * membership that had no answers: the whole list failed to load because
+     * one row had nothing to say.
+     */
+    private function answers(): array
+    {
+        $answers = array_filter([
+            'name' => $this->applicant_name,
+            'father' => $this->father_name,
+            'mother' => $this->mother_name,
+            'grandfather' => $this->grandfather_name,
+            'grandmother' => $this->grandmother_name,
+            'country' => $this->country,
+            'contact' => $this->contact,
+            'photo_url' => $this->selfieUrl(),
+        ], fn ($value) => $value !== null);
+
+        return $answers === [] ? [] : ['applicant' => $answers];
     }
 
     /**

@@ -163,6 +163,27 @@ class JoiningAClanTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_a_request_with_nothing_to_say_carries_no_empty_answer(): void
+    {
+        // A tribe asks nothing, so its memberships have no answers. An empty
+        // PHP array serialises as a JSON array rather than an object, and a
+        // client reading it as an object crashed on the whole list because one
+        // row had nothing in it.
+        $applicant = User::factory()->create();
+
+        $this->actingAs($applicant)
+            ->postJson(route('api.v1.memberships.store'), [
+                'scope_type' => 'tribe',
+                'scope_ulid' => $this->tribe->ulid,
+            ])
+            ->assertCreated();
+
+        $this->actingAs($applicant)
+            ->getJson(route('api.v1.memberships.index'))
+            ->assertOk()
+            ->assertJsonMissingPath('data.0.applicant');
+    }
+
     /** @return array<string, string> */
     private function answers(): array
     {

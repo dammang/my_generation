@@ -13,6 +13,12 @@ const _labels = {
   'contact': 'Contact',
 };
 
+/// Read defensively. An empty answer set arrives as a JSON array rather than
+/// an object, and casting it to a Map threw — which failed the parse of every
+/// membership in the list because one of them had nothing to say.
+String? _photoUrl(Object? raw) =>
+    raw is Map ? raw['photo_url'] as String? : null;
+
 Map<String, String> _answers(Object? raw) {
   if (raw is! Map) return const {};
 
@@ -71,7 +77,7 @@ class Membership {
       userName: (json['user'] as Map?)?['name'] as String?,
       requestedAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
       answers: _answers(json['applicant']),
-      photoUrl: (json['applicant'] as Map?)?['photo_url'] as String?,
+      photoUrl: _photoUrl(json['applicant']),
     );
   }
 }
