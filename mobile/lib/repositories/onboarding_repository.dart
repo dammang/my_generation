@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import '../core/constants/api_paths.dart';
 import '../core/network/api_client.dart';
@@ -96,7 +98,8 @@ class OnboardingRepository {
     required String scopeType,
     required String scopeUlid,
     Map<String, String?> answers = const {},
-    String? photoPath,
+    Uint8List? photoBytes,
+    String? photoName,
   }) async {
     final fields = {
       'scope_type': scopeType,
@@ -106,13 +109,20 @@ class OnboardingRepository {
           entry.key: entry.value!.trim(),
     };
 
-    // Multipart only when there is a file: a plain map is easier to read in a
-    // log and is what the tribe flow has always sent.
-    final body = photoPath == null
+    // Bytes, not a path. On the web there is no filesystem to read a path
+    // from — MultipartFile.fromFile throws there — and the form went quiet
+    // rather than sending anything. Bytes work on both.
+    //
+    // Multipart only when there is a photograph: a plain map is easier to read
+    // in a log and is what the tribe flow has always sent.
+    final body = photoBytes == null
         ? fields
         : FormData.fromMap({
             ...fields,
-            'photo': await MultipartFile.fromFile(photoPath),
+            'photo': MultipartFile.fromBytes(
+              photoBytes,
+              filename: photoName ?? 'selfie.jpg',
+            ),
           });
 
     final envelope = await _api.post<Map<String, dynamic>>(

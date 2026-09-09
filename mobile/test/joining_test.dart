@@ -1,9 +1,14 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_generation/features/onboarding/join_clan_screen.dart';
 import 'package:my_generation/features/onboarding/join_screen.dart';
+import 'package:my_generation/widgets/form_banner.dart';
 import 'package:my_generation/models/clan_summary.dart';
+import 'package:my_generation/repositories/onboarding_repository.dart';
 import 'package:my_generation/providers/app_providers.dart';
 
 import 'support/fake_api.dart';
@@ -22,6 +27,7 @@ Future<FakeAdapter> _pump(
   WidgetTester tester, {
   List<Map<String, dynamic>>? clans,
   List<Map<String, dynamic>> memberships = const [],
+  FakeReply? reply,
 }) async {
   await tester.binding.setSurfaceSize(const Size(402, 1400));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -37,10 +43,11 @@ Future<FakeAdapter> _pump(
       FakeReply(200, {'success': true, 'data': memberships}),
     ],
     'POST /api/v1/memberships': [
-      FakeReply(201, {
-        'success': true,
-        'data': {'ulid': '01MEMBERSHIPMEMBERSHIPMEMB', 'status': 'pending'},
-      }),
+      reply ??
+          FakeReply(201, {
+            'success': true,
+            'data': {'ulid': '01MEMBERSHIPMEMBERSHIPMEMB', 'status': 'pending'},
+          }),
     ],
   });
 
@@ -151,6 +158,33 @@ void main() {
 
     expect(sent.containsKey('grandfather_name'), isFalse);
     expect(sent.containsKey('grandmother_name'), isFalse);
+  });
+
+  testWidgets('a request that fails says so instead of going quiet', (
+    tester,
+  ) async {
+    // The button did nothing at all: the upload threw something that was not
+    // an ApiException, the catch did not cover it, and the form went silent.
+    // Anything that stops a submission has to reach the person who pressed it.
+    await _pump(
+      tester,
+      reply: FakeReply(500, {'success': false, 'message': 'Server fell over.'}),
+    );
+
+    await tester.tap(find.text('Ask to join'));
+    await tester.pumpAndSettle();
+    await _answer(tester);
+    await tester.tap(find.text('Send request'));
+    await tester.pumpAndSettle();
+
+    // The app's own wording for a server fault, not the raw message — what
+    // matters is that something reaches the person who pressed the button.
+    expect(find.byType(FormBanner), findsOneWidget);
+    expect(find.textContaining('Something went wrong'), findsOneWidget);
+
+    // Still on the form, with the answers intact, rather than dropped back to
+    // the list having lost them.
+    expect(find.text('Send request'), findsOneWidget);
   });
 
   testWidgets('a clan already asked for is not offered again', (tester) async {
@@ -282,6 +316,37 @@ void main() {
       'scope_type': 'tribe',
       'scope_ulid': '01TRIBETRIBETRIBETRIBETRIB',
     });
+  });
+
+  test('the photograph is sent as bytes, not as a path', () async {
+    // The bug this replaces: MultipartFile.fromFile reads a path, and on the
+    // web a picked file is a blob with no path behind it. It threw, the catch
+    // did not cover it, and the button did nothing. These tests run on the VM
+    // where a path would have worked, so what is asserted is the shape that
+    // works everywhere.
+    final adapter = FakeAdapter({
+      'POST /api/v1/memberships': [
+        FakeReply(201, {
+          'success': true,
+          'data': {'ulid': '01MEMBERSHIPMEMBERSHIPMEMB', 'status': 'pending'},
+        }),
+      ],
+    });
+
+    await OnboardingRepository(fakeApiClient(adapter)).requestMembership(
+      scopeType: 'clan',
+      scopeUlid: _clanUlid,
+      answers: const {'applicant_name': 'Cing Za Man'},
+      photoBytes: Uint8List.fromList([1, 2, 3, 4]),
+      photoName: 'selfie.jpg',
+    );
+
+    final body = adapter.received.single.data as FormData;
+    final file = body.files.single;
+
+    expect(file.key, 'photo');
+    expect(file.value.filename, 'selfie.jpg');
+    expect(body.fields.map((f) => f.key), contains('applicant_name'));
   });
 
   test('a clan says which tribe and how large it is', () {

@@ -83,6 +83,12 @@ class _JoinClanFormScreenState extends ConsumerState<JoinClanFormScreen> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
+      // Read here rather than in the repository: on the web a picked file is
+      // a blob with no path behind it, and reading it is the only way to get
+      // at the bytes.
+      final photo = _selfie;
+      final bytes = photo == null ? null : await photo.readAsBytes();
+
       await ref
           .read(onboardingRepositoryProvider)
           .requestMembership(
@@ -91,7 +97,8 @@ class _JoinClanFormScreenState extends ConsumerState<JoinClanFormScreen> {
             answers: {
               for (final entry in _fields.entries) entry.key: entry.value.text,
             },
-            photoPath: _selfie?.path,
+            photoBytes: bytes,
+            photoName: photo?.name,
           );
 
       ref.invalidate(myMembershipsProvider);
@@ -106,8 +113,17 @@ class _JoinClanFormScreenState extends ConsumerState<JoinClanFormScreen> {
           ),
         ),
       );
-    } on ApiException catch (error) {
-      if (mounted) setState(() => _error = error.message);
+    } catch (error) {
+      // Everything, not just ApiException. A narrower catch let an unsupported
+      // upload escape unhandled, and the button did nothing and said nothing —
+      // which is worse than any error message.
+      if (mounted) {
+        setState(
+          () => _error = error is ApiException
+              ? error.message
+              : 'Could not send the request. $error',
+        );
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
