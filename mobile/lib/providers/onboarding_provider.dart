@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/clan_summary.dart';
+import '../models/committee.dart';
 import '../models/membership.dart';
 import '../models/profile_claim.dart';
 import '../models/tribe_summary.dart';
 import '../repositories/onboarding_repository.dart';
 import 'app_providers.dart';
 import 'auth_provider.dart';
+import 'clan_provider.dart';
 
 final onboardingRepositoryProvider = Provider<OnboardingRepository>(
   (ref) => OnboardingRepository(ref.watch(apiClientProvider)),
@@ -27,6 +29,39 @@ final joinableClansProvider = FutureProvider.family<List<ClanSummary>, String>(
 final myMembershipsProvider = FutureProvider<List<Membership>>(
   (ref) => ref.watch(onboardingRepositoryProvider).myMemberships(),
 );
+
+/// Everybody waiting to be let into a family this account runs.
+///
+/// Gathered across the scopes rather than asked for one at a time: somebody
+/// who runs two clans should see one queue, not have to remember to check the
+/// second. Failures on one scope are dropped rather than emptying the list —
+/// a queue that vanishes because one request timed out reads as "nobody is
+/// waiting", which is the one answer it must never give by accident.
+final pendingMembershipsProvider =
+    FutureProvider<List<({AdministeredScope scope, Membership membership})>>((
+      ref,
+    ) async {
+      final scopes = await ref.watch(administeredScopesProvider.future);
+
+      final queues = await Future.wait(
+        scopes.map((scope) async {
+          try {
+            final rows = await ref
+                .watch(onboardingRepositoryProvider)
+                .pendingFor(
+                  scopeType: scope.scopeType,
+                  scopeUlid: scope.scopeUlid,
+                );
+
+            return rows.map((m) => (scope: scope, membership: m)).toList();
+          } catch (_) {
+            return <({AdministeredScope scope, Membership membership})>[];
+          }
+        }),
+      );
+
+      return queues.expand((queue) => queue).toList(growable: false);
+    });
 
 final myClaimsProvider = FutureProvider<List<ProfileClaim>>(
   (ref) => ref.watch(onboardingRepositoryProvider).myClaims(),

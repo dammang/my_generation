@@ -104,6 +104,9 @@ class ApiPaths {
   // Organisation
   static const String tribes = '$prefix/tribes';
   static const String memberships = '$prefix/memberships';
+  static const String scopeMembers = '$prefix/scope-members';
+  static String approveMembership(String ulid) => '$memberships/$ulid/approve';
+  static String rejectMembership(String ulid) => '$memberships/$ulid/reject';
   static const String profileClaims = '$prefix/profile-claims';
 
   // Starting a clan, and running one once it exists.

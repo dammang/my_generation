@@ -10,6 +10,8 @@ class Membership {
     this.scopeType,
     this.scopeUlid,
     this.scopeName,
+    this.userName,
+    this.requestedAt,
   });
 
   final String ulid;
@@ -17,6 +19,11 @@ class Membership {
   final String? scopeType;
   final String? scopeUlid;
   final String? scopeName;
+
+  /// Who asked. Only ever sent to somebody who administers the scope.
+  final String? userName;
+
+  final DateTime? requestedAt;
 
   bool get isActive => status == 'active';
   bool get isPending => status == 'pending';
@@ -30,6 +37,8 @@ class Membership {
       scopeType: scope?['type'] as String?,
       scopeUlid: scope?['ulid'] as String?,
       scopeName: scope?['name'] as String?,
+      userName: (json['user'] as Map?)?['name'] as String?,
+      requestedAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
     );
   }
 }

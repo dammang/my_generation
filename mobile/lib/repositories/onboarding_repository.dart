@@ -43,6 +43,38 @@ class OnboardingRepository {
         .toList(growable: false);
   }
 
+  /// Who is waiting to be let into one scope.
+  ///
+  /// Asked for per scope because that is what the server authorises against:
+  /// a reviewer sees the queue for the families they run and nothing else.
+  Future<List<Membership>> pendingFor({
+    required String scopeType,
+    required String scopeUlid,
+  }) async {
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.scopeMembers,
+      query: {
+        'scope_type': scopeType,
+        'scope_ulid': scopeUlid,
+        'status': 'pending',
+      },
+      parse: (data) => data as List<dynamic>,
+    );
+
+    return (envelope.data ?? const [])
+        .map((m) => Membership.fromJson((m as Map).cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
+  Future<void> decideMembership(String ulid, {required bool approve}) =>
+      _api.post<void>(
+        approve
+            ? ApiPaths.approveMembership(ulid)
+            : ApiPaths.rejectMembership(ulid),
+        body: const {},
+        parse: (_) {},
+      );
+
   Future<List<Membership>> myMemberships() async {
     final envelope = await _api.get<List<dynamic>>(
       ApiPaths.memberships,

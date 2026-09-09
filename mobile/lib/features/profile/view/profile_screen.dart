@@ -443,6 +443,25 @@ class _RunningAFamily extends ConsumerWidget {
             if (committees.isNotEmpty)
               ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.how_to_reg_outlined),
+                title: const Text('Join requests'),
+                subtitle: Text(switch (ref
+                    .watch(pendingMembershipsProvider)
+                    .value
+                    ?.length) {
+                  // Silent about a number it does not have yet, rather than
+                  // showing a zero that might be wrong.
+                  null => 'People asking to join a family you run',
+                  0 => 'Nobody is waiting',
+                  1 => '1 person is waiting',
+                  final n => '$n people are waiting',
+                }),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(Routes.joinRequests),
+              ),
+            if (committees.isNotEmpty)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.shield_outlined),
                 title: const Text('Families you run'),
                 subtitle: Text(
