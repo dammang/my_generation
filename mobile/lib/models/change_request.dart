@@ -20,11 +20,11 @@ class DiffEntry {
   String get afterText => RevisionEntry.readable(after);
 
   factory DiffEntry.fromJson(Map<String, dynamic> json) => DiffEntry(
-        field: json['field'] as String? ?? '',
-        label: json['label'] as String? ?? '',
-        before: json['before']?.toString(),
-        after: json['after']?.toString(),
-      );
+    field: json['field'] as String? ?? '',
+    label: json['label'] as String? ?? '',
+    before: json['before']?.toString(),
+    after: json['after']?.toString(),
+  );
 }
 
 /// A proposed change, as it appears in a queue.
@@ -61,14 +61,14 @@ class ChangeRequestSummary {
   bool get isSuperseded => status == 'superseded';
 
   String get statusLabel => switch (status) {
-        'pending' => 'Waiting for review',
-        'approved' => 'Approved',
-        'rejected' => 'Not accepted',
-        'withdrawn' => 'Withdrawn',
-        'superseded' => 'The record changed first',
-        'needs_info' => 'More detail needed',
-        _ => status,
-      };
+    'pending' => 'Waiting for review',
+    'approved' => 'Approved',
+    'rejected' => 'Not accepted',
+    'withdrawn' => 'Withdrawn',
+    'superseded' => 'The record changed first',
+    'needs_info' => 'More detail needed',
+    _ => status,
+  };
 
   factory ChangeRequestSummary.fromJson(Map<String, dynamic> json) {
     final target = (json['target'] as Map?)?.cast<String, dynamic>();

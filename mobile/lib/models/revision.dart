@@ -55,18 +55,18 @@ class RevisionEntry {
       word.isEmpty ? word : word[0].toUpperCase() + word.substring(1);
 
   factory RevisionEntry.fromJson(Map<String, dynamic> json) => RevisionEntry(
-        id: json['id'] as int? ?? 0,
-        label: json['label'] as String? ?? '',
-        action: json['action'] as String? ?? 'updated',
-        field: json['field'] as String?,
-        before: json['before']?.toString(),
-        after: json['after']?.toString(),
-        reason: json['reason'] as String?,
-        at: json['at'] == null ? null : DateTime.tryParse(json['at'] as String),
-        changedByName: (json['changed_by'] as Map?)?['name'] as String?,
-        viaChangeRequest: json['via_change_request'] as bool? ?? false,
-        sourceTitle: (json['source'] as Map?)?['title'] as String?,
-      );
+    id: json['id'] as int? ?? 0,
+    label: json['label'] as String? ?? '',
+    action: json['action'] as String? ?? 'updated',
+    field: json['field'] as String?,
+    before: json['before']?.toString(),
+    after: json['after']?.toString(),
+    reason: json['reason'] as String?,
+    at: json['at'] == null ? null : DateTime.tryParse(json['at'] as String),
+    changedByName: (json['changed_by'] as Map?)?['name'] as String?,
+    viaChangeRequest: json['via_change_request'] as bool? ?? false,
+    sourceTitle: (json['source'] as Map?)?['title'] as String?,
+  );
 }
 
 /// A record's history, or the fact that it is not being shown.
@@ -78,17 +78,17 @@ class History {
   });
 
   const History.withheldFrom()
-      : entries = const [],
-        withheld = true,
-        unavailableOffline = false;
+    : entries = const [],
+      withheld = true,
+      unavailableOffline = false;
 
   /// History is never cached: it is large, it changes, and it is the least
   /// useful thing to read on a plane. Saying so is better than an empty list
   /// that reads as "nothing has ever been corrected".
   const History.notOnDevice()
-      : entries = const [],
-        withheld = false,
-        unavailableOffline = true;
+    : entries = const [],
+      withheld = false,
+      unavailableOffline = true;
 
   final List<RevisionEntry> entries;
   final bool withheld;

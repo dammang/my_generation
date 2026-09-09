@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/clan_summary.dart';
 import '../models/membership.dart';
 import '../models/profile_claim.dart';
 import '../models/tribe_summary.dart';
@@ -13,7 +14,14 @@ final onboardingRepositoryProvider = Provider<OnboardingRepository>(
 
 /// Tribes matching a search, or the first page when the search is empty.
 final tribesProvider = FutureProvider.family<List<TribeSummary>, String>(
-  (ref, search) => ref.watch(onboardingRepositoryProvider).tribes(search: search),
+  (ref, search) =>
+      ref.watch(onboardingRepositoryProvider).tribes(search: search),
+);
+
+/// Clans matching a search, or the first page when the search is empty.
+final joinableClansProvider = FutureProvider.family<List<ClanSummary>, String>(
+  (ref, search) =>
+      ref.watch(onboardingRepositoryProvider).clans(search: search),
 );
 
 final myMembershipsProvider = FutureProvider<List<Membership>>(

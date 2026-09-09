@@ -23,7 +23,8 @@ class FamilyBranchSummary {
     final parts = [
       if (clanName != null && clanName!.isNotEmpty) clanName,
       if (tribeName != null && tribeName!.isNotEmpty) tribeName,
-      if (ancestorName != null && ancestorName!.isNotEmpty) 'from $ancestorName',
+      if (ancestorName != null && ancestorName!.isNotEmpty)
+        'from $ancestorName',
     ];
 
     return parts.join(' · ');

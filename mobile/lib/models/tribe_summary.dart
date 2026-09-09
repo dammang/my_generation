@@ -1,3 +1,5 @@
+import 'joinable_scope.dart';
+
 /// A tribe as the onboarding list shows it.
 class TribeSummary {
   const TribeSummary({
@@ -25,14 +27,27 @@ class TribeSummary {
   /// "Chin State, MM · 217 people" — enough to tell two similarly named tribes
   /// apart without opening either.
   String get subtitle {
-    final place = [region, countryCode].where((p) => p != null && p.isNotEmpty).join(', ');
+    final place = [
+      region,
+      countryCode,
+    ].where((p) => p != null && p.isNotEmpty).join(', ');
     final size = peopleCount == 1 ? '1 person' : '$peopleCount people';
 
     return place.isEmpty ? size : '$place · $size';
   }
 
+  JoinableScope get joinable => JoinableScope(
+    type: 'tribe',
+    ulid: ulid,
+    name: name,
+    subtitle: subtitle,
+    nativeName: nativeName,
+    description: description,
+  );
+
   factory TribeSummary.fromJson(Map<String, dynamic> json) {
-    final counts = (json['counts'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final counts =
+        (json['counts'] as Map?)?.cast<String, dynamic>() ?? const {};
 
     return TribeSummary(
       ulid: json['ulid'] as String,

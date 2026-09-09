@@ -25,8 +25,9 @@ class MediaItem {
   final String? uploadedBy;
 
   /// Used to lay a grid out without the images jumping as they load.
-  double? get aspectRatio =>
-      (width != null && height != null && height! > 0) ? width! / height! : null;
+  double? get aspectRatio => (width != null && height != null && height! > 0)
+      ? width! / height!
+      : null;
 
   factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
     ulid: json['ulid'] as String,

@@ -17,13 +17,13 @@ class DisputeClaim {
   final int supporters;
 
   factory DisputeClaim.fromJson(Map<String, dynamic> json) => DisputeClaim(
-        id: json['id'] as int? ?? 0,
-        value: json['value']?.toString() ?? '',
-        accepted: json['accepted'] as bool? ?? false,
-        rationale: json['rationale'] as String?,
-        claimedByName: (json['claimed_by'] as Map?)?['name'] as String?,
-        supporters: json['supporters'] as int? ?? 0,
-      );
+    id: json['id'] as int? ?? 0,
+    value: json['value']?.toString() ?? '',
+    accepted: json['accepted'] as bool? ?? false,
+    rationale: json['rationale'] as String?,
+    claimedByName: (json['claimed_by'] as Map?)?['name'] as String?,
+    supporters: json['supporters'] as int? ?? 0,
+  );
 }
 
 /// An open disagreement about one field.
@@ -55,24 +55,24 @@ class Dispute {
   bool get isOpen => status == 'open';
 
   String? get resolutionLabel => switch (resolution) {
-        'claim_accepted' => 'One version was accepted',
-        'both_recorded' => 'Both versions are recorded',
-        'insufficient_evidence' => 'Not enough evidence either way',
-        'withdrawn' => 'Withdrawn',
-        _ => null,
-      };
+    'claim_accepted' => 'One version was accepted',
+    'both_recorded' => 'Both versions are recorded',
+    'insufficient_evidence' => 'Not enough evidence either way',
+    'withdrawn' => 'Withdrawn',
+    _ => null,
+  };
 
   factory Dispute.fromJson(Map<String, dynamic> json) => Dispute(
-        ulid: json['ulid'] as String,
-        field: json['field'] as String? ?? '',
-        label: json['label'] as String? ?? '',
-        status: json['status'] as String? ?? 'open',
-        claims: ((json['claims'] as List?) ?? const [])
-            .whereType<Map>()
-            .map((e) => DisputeClaim.fromJson(e.cast<String, dynamic>()))
-            .toList(growable: false),
-        resolution: json['resolution'] as String?,
-        resolutionNote: json['resolution_note'] as String?,
-        openedByName: (json['opened_by'] as Map?)?['name'] as String?,
-      );
+    ulid: json['ulid'] as String,
+    field: json['field'] as String? ?? '',
+    label: json['label'] as String? ?? '',
+    status: json['status'] as String? ?? 'open',
+    claims: ((json['claims'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => DisputeClaim.fromJson(e.cast<String, dynamic>()))
+        .toList(growable: false),
+    resolution: json['resolution'] as String?,
+    resolutionNote: json['resolution_note'] as String?,
+    openedByName: (json['opened_by'] as Map?)?['name'] as String?,
+  );
 }

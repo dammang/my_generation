@@ -1,5 +1,6 @@
 import '../core/constants/api_paths.dart';
 import '../core/network/api_client.dart';
+import '../models/clan_summary.dart';
 import '../models/membership.dart';
 import '../models/person_summary.dart';
 import '../models/profile_claim.dart';
@@ -15,12 +16,30 @@ class OnboardingRepository {
   Future<List<TribeSummary>> tribes({String? search}) async {
     final envelope = await _api.get<List<dynamic>>(
       ApiPaths.tribes,
-      query: {if (search != null && search.isNotEmpty) 'q': search, 'per_page': 50},
+      query: {
+        if (search != null && search.isNotEmpty) 'q': search,
+        'per_page': 50,
+      },
       parse: (data) => data as List<dynamic>,
     );
 
     return (envelope.data ?? const [])
         .map((t) => TribeSummary.fromJson((t as Map).cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
+  /// Clans to ask to join. Filtered by the server to what this account may
+  /// know exists, so an unapproved reader sees the public ones and no more.
+  Future<List<ClanSummary>> clans({String? search}) async {
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.clans,
+      query: {if (search != null && search.isNotEmpty) 'q': search},
+      parse: (data) => (data as List),
+    );
+
+    return envelope.data!
+        .whereType<Map>()
+        .map((row) => ClanSummary.fromJson(row.cast<String, dynamic>()))
         .toList(growable: false);
   }
 
@@ -86,7 +105,8 @@ class OnboardingRepository {
       ApiPaths.profileClaims,
       body: {
         'person_ulid': personUlid,
-        if (statement != null && statement.isNotEmpty) 'relationship_statement': statement,
+        if (statement != null && statement.isNotEmpty)
+          'relationship_statement': statement,
         if (evidence != null && evidence.isNotEmpty) 'evidence': evidence,
       },
       parse: (data) => (data as Map).cast<String, dynamic>(),

@@ -38,10 +38,12 @@ class ApiUser {
 
   bool get hasClaimedPerson => personUlid != null;
 
-  bool can(String permission) => isSuperAdmin || permissions.contains(permission);
+  bool can(String permission) =>
+      isSuperAdmin || permissions.contains(permission);
 
   factory ApiUser.fromJson(Map<String, dynamic> json) {
-    final scopes = (json['scopes'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final scopes =
+        (json['scopes'] as Map?)?.cast<String, dynamic>() ?? const {};
     final person = (json['person'] as Map?)?.cast<String, dynamic>();
 
     return ApiUser(
@@ -64,27 +66,31 @@ class ApiUser {
   /// The same shape the server sends, so the cached copy and a fresh response
   /// go through one parser and cannot drift apart.
   Map<String, dynamic> toJson() => {
-        'ulid': ulid,
-        'name': name,
-        'email': email,
-        'locale': locale,
-        'status': status,
-        'email_verified': emailVerified,
-        'is_super_admin': isSuperAdmin,
-        'permissions': permissions,
-        'scopes': {
-          'tribe_ids': tribeIds,
-          'clan_ids': clanIds,
-          'branch_ids': branchIds,
-        },
-        'person': personUlid == null
-            ? null
-            : {'ulid': personUlid, 'display_name': personName},
-      };
+    'ulid': ulid,
+    'name': name,
+    'email': email,
+    'locale': locale,
+    'status': status,
+    'email_verified': emailVerified,
+    'is_super_admin': isSuperAdmin,
+    'permissions': permissions,
+    'scopes': {
+      'tribe_ids': tribeIds,
+      'clan_ids': clanIds,
+      'branch_ids': branchIds,
+    },
+    'person': personUlid == null
+        ? null
+        : {'ulid': personUlid, 'display_name': personName},
+  };
 
   static List<String> _strings(dynamic raw) =>
-      (raw as List?)?.map((e) => e.toString()).toList(growable: false) ?? const [];
+      (raw as List?)?.map((e) => e.toString()).toList(growable: false) ??
+      const [];
 
   static List<int> _ints(dynamic raw) =>
-      (raw as List?)?.map((e) => int.tryParse(e.toString()) ?? 0).toList(growable: false) ?? const [];
+      (raw as List?)
+          ?.map((e) => int.tryParse(e.toString()) ?? 0)
+          .toList(growable: false) ??
+      const [];
 }

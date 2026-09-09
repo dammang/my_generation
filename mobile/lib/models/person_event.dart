@@ -59,6 +59,7 @@ class PersonEvent {
     if (display == null || display.isEmpty) return null;
     return display == year?.toString() ? null : display;
   }
+
   bool get isVerified => verificationStatus == 'verified';
   bool get isMigration => fromPlace != null || toPlace != null;
 
@@ -112,15 +113,18 @@ class Timeline {
     this.unavailableOffline = false,
   });
 
-  const Timeline.withheldFrom() : events = const [], withheld = true, unavailableOffline = false;
+  const Timeline.withheldFrom()
+    : events = const [],
+      withheld = true,
+      unavailableOffline = false;
 
   /// Not withheld and not empty — simply not saved on this device. Three
   /// different facts, and telling somebody a life is "private" when the phone
   /// merely has no copy would be a lie about their own family.
   const Timeline.notOnDevice()
-      : events = const [],
-        withheld = false,
-        unavailableOffline = true;
+    : events = const [],
+      withheld = false,
+      unavailableOffline = true;
 
   final List<PersonEvent> events;
   final bool withheld;

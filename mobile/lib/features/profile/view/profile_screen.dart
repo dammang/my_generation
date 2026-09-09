@@ -275,6 +275,24 @@ class ProfileScreen extends ConsumerWidget {
                                     color: theme.colorScheme.tertiary,
                                   ),
                           ),
+                      const SizedBox(height: 8),
+
+                      // Offered here because this is where somebody looks
+                      // when they cannot see what a relative can: being in
+                      // the tribe is not the same as being in the clan.
+                      FilledButton.tonal(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          context.push(
+                            type == 'tribe'
+                                ? Routes.joinTribe
+                                : Routes.joinClan,
+                          );
+                        },
+                        child: Text(
+                          type == 'tribe' ? 'Join a tribe' : 'Join a clan',
+                        ),
+                      ),
                     ],
                   );
                 },
