@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 /// Three linked generations, drawn rather than shipped as an asset.
 ///
-/// A placeholder mark: it says what the app is about without pretending to be
-/// finished branding.
+/// Drawn, so the launcher icon is generated from this same painter rather than
+/// hand-cut beside it: a mark that lives in two places drifts, and nothing
+/// about a stale icon ever reports itself.
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key, this.size = 48});
 
@@ -14,13 +15,16 @@ class AppLogo extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(painter: _LogoPainter(Theme.of(context).colorScheme.primary)),
+      child: CustomPaint(
+        painter: AppLogoPainter(Theme.of(context).colorScheme.primary),
+      ),
     );
   }
 }
 
-class _LogoPainter extends CustomPainter {
-  const _LogoPainter(this.color);
+/// The mark itself. Public because the app icon is rendered from it.
+class AppLogoPainter extends CustomPainter {
+  const AppLogoPainter(this.color);
 
   final Color color;
 
@@ -59,5 +63,5 @@ class _LogoPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_LogoPainter oldDelegate) => oldDelegate.color != color;
+  bool shouldRepaint(AppLogoPainter oldDelegate) => oldDelegate.color != color;
 }
