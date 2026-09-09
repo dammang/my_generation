@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Enums\RelationshipType;
+use App\Models\Person;
 use App\Models\Relationship;
 use App\Services\Graph\FamilyEdgeProjector;
 use App\Services\Graph\GraphSideEffects;
 use App\Services\Graph\GraphVersion;
+use App\Services\Tree\LineageDepthService;
 
 /**
  * Keeps the derived traversal table and the tree cache honest.
@@ -31,6 +34,7 @@ class RelationshipObserver
         }
 
         $this->projector->project($relationship);
+        $this->refreshDepths($relationship);
         $this->bump($relationship);
     }
 
@@ -45,6 +49,7 @@ class RelationshipObserver
 
         if ($relationship->wasChanged($projected)) {
             $this->projector->project($relationship);
+            $this->refreshDepths($relationship);
         }
 
         $this->bump($relationship);
@@ -59,6 +64,7 @@ class RelationshipObserver
         // The row survives soft-deleted for the audit trail, but it must leave
         // the graph immediately.
         $this->projector->retract($relationship);
+        $this->refreshDepths($relationship);
         $this->bump($relationship);
     }
 
@@ -70,6 +76,27 @@ class RelationshipObserver
 
         $this->projector->project($relationship);
         $this->bump($relationship);
+    }
+
+    /**
+     * Generations are counted from a handful of named ancestors, and nothing
+     * updated those counts when the graph grew: depths were written only when
+     * somebody anchored a branch or ran the command by hand. A person added
+     * afterwards had no depth row and their profile showed no generation at
+     * all, which reads as a gap in the record rather than a stale table.
+     *
+     * Only descent moves them. A marriage changes who somebody is beside, not
+     * how far down they stand.
+     */
+    private function refreshDepths(Relationship $relationship): void
+    {
+        if ($relationship->relationship_type !== RelationshipType::ParentChild) {
+            return;
+        }
+
+        app(LineageDepthService::class)->refreshKnownRoots(
+            Person::whereKey($relationship->person_id)->value('tribe_id'),
+        );
     }
 
     private function bump(Relationship $relationship): void

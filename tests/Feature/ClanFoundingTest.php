@@ -309,6 +309,60 @@ class ClanFoundingTest extends TestCase
         $this->assertGeneration($puZo, 'Pre-generation 1', ['before_origin' => 1]);
     }
 
+    #[Test]
+    public function somebody_added_after_the_counting_was_set_still_has_a_generation(): void
+    {
+        // The bug: depths were written only when a branch was anchored or the
+        // command was run, so every person added afterwards had no depth row
+        // and their profile showed no generation at all. Seventy-seven of them
+        // by the time anybody noticed, each looking like a one-off.
+        $puZo = $this->founding('Pu Zo');
+        $jasuan = $this->addChild($puZo, 'Jasuan');
+
+        $this->setScale(ancestor: $puZo, origin: $jasuan);
+
+        // Added after the scale was set, which is every person from now on.
+        $son = $this->addChild($jasuan, 'Kip Tun');
+        $grandson = $this->addChild($son, 'Langh Sian');
+
+        $this->assertGeneration($grandson, '3rd Generation', [
+            'number' => 3,
+            'origin' => 'Jasuan',
+            'outer_number' => 4,
+            'outer_origin' => 'Pu Zo',
+        ]);
+    }
+
+    #[Test]
+    public function a_generation_survives_a_parent_being_added_above(): void
+    {
+        $jasuan = $this->founding('Jasuan');
+        $son = $this->addChild($jasuan, 'Kip Tun');
+
+        $this->setScale(ancestor: $jasuan, origin: $jasuan);
+        $this->assertGeneration($son, '2nd Generation', ['number' => 2]);
+
+        // A generation deeper than anybody thought: the counting moves with it
+        // rather than leaving the son as the second generation of a man who
+        // now has a father on the same screen.
+        $this->addParent($jasuan, 'Pu Zo');
+
+        $this->assertGeneration($son, '2nd Generation', ['number' => 2]);
+    }
+
+    private function addParent(Person $child, string $name): Person
+    {
+        $ulid = $this->actingAs($this->founder)
+            ->postJson(route('api.v1.people.relatives', $child), [
+                'relation' => 'father',
+                'person' => ['display_name' => $name],
+            ])
+            ->assertCreated()
+            ->json('data.person.ulid');
+
+        return Person::where('ulid', $ulid)->firstOrFail();
+    }
+
     private function setScale(Person $ancestor, Person $origin): void
     {
         $this->actingAs($this->founder)

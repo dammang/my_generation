@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Tree;
 
 use App\Models\Person;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -79,6 +80,52 @@ class LineageDepthService
      *
      * @return array{root: string, depth: int, min_depth: int, max_depth: int, collapsed: bool}|null
      */
+    /**
+     * Every ancestor the archive actually counts from.
+     *
+     * Three sources, because a generation is read from all three: the clan's
+     * own ancestor, the person it counts from (which may be somebody ten
+     * generations below that), and each family branch's founder. Anything
+     * already in lineage_depths is kept too, so a root somebody computed by
+     * hand does not silently stop being maintained.
+     *
+     * @return Collection<int, Person>
+     */
+    public function knownRoots(?int $tribeId = null): Collection
+    {
+        $ids = collect(DB::table('lineage_depths')->distinct()->pluck('root_person_id'))
+            ->merge(DB::table('clans')->whereNull('deleted_at')->pluck('ancestor_person_id'))
+            ->merge(DB::table('clans')->whereNull('deleted_at')->pluck('counting_origin_person_id'))
+            ->merge(DB::table('family_branches')->whereNull('deleted_at')->pluck('ancestor_person_id'))
+            ->filter()
+            ->unique();
+
+        return Person::whereIn('id', $ids)
+            ->when($tribeId !== null, fn ($q) => $q->where('tribe_id', $tribeId))
+            ->get();
+    }
+
+    /**
+     * Brings every one of those up to date.
+     *
+     * Called whenever descent changes. Depths were computed only when somebody
+     * anchored a branch or ran the command, so a person added afterwards had
+     * no row at all and their profile showed no generation — 77 of them, by
+     * the time anybody noticed, each looking like a one-off.
+     *
+     * @return int how many depths were written
+     */
+    public function refreshKnownRoots(?int $tribeId = null): int
+    {
+        $total = 0;
+
+        foreach ($this->knownRoots($tribeId) as $root) {
+            $total += $this->recomputeFor($root);
+        }
+
+        return $total;
+    }
+
     public function forPerson(Person $person): ?array
     {
         $rootId = DB::table('family_branches')

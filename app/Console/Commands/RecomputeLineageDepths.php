@@ -23,10 +23,14 @@ class RecomputeLineageDepths extends Command
                             {--root= : Limit to one apical ancestor (person ULID)}
                             {--tribe= : Limit to the branches of one tribe id}';
 
-    protected $description = 'Recompute lineage depths from family branch apical ancestors';
+    protected $description = 'Recompute lineage depths from every ancestor a generation is counted from';
+
+    private LineageDepthService $service;
 
     public function handle(LineageDepthService $service): int
     {
+        $this->service = $service;
+
         $roots = $this->roots();
 
         if ($roots->isEmpty()) {
@@ -62,24 +66,20 @@ class RecomputeLineageDepths extends Command
             ->when($this->option('tribe'), fn ($q, $tribe) => $q->where('tribe_id', $tribe))
             ->get(['id', 'ancestor_person_id']);
 
-        $ids = $branches
-            ->map(fn ($branch) => $this->topmostAncestorOf($branch))
-            ->unique();
+        $promoted = $branches->map(fn ($branch) => $this->topmostAncestorOf($branch));
 
-        return Person::whereIn('id', $ids)->get();
+        // Plus every ancestor a generation is actually read from. A clan
+        // counts from two — the one it descends from and the one it counts
+        // out loud from — and neither is a branch founder, so a repair that
+        // only walked branches left both of them stale.
+        return Person::whereIn(
+            'id',
+            $promoted->merge($this->service->knownRoots(
+                $this->option('tribe') === null ? null : (int) $this->option('tribe'),
+            )->modelKeys())->unique(),
+        )->get();
     }
 
-    /**
-     * The highest ancestor actually recorded, promoting the branch if it has
-     * fallen behind.
-     *
-     * Generations are counted from the branch's founder, and adding somebody
-     * above that founder used to leave the count where it was — a person
-     * labelled the first generation with their own grandfather above them on
-     * the same screen. AddRelative moves it as it goes; this catches the rest:
-     * a parent added through the admin panel, an import, or anything written
-     * before that existed.
-     */
     private function topmostAncestorOf(object $branch): int
     {
         $id = (int) $branch->ancestor_person_id;
