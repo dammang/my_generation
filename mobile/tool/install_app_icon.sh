@@ -57,7 +57,7 @@ for icon in sorted(Path(sys.argv[1]).glob('*.png')):
         if image.mode == 'RGB':
             continue
 
-        flat = Image.new('RGB', image.size, (247, 248, 245))
+        flat = Image.new('RGB', image.size, (31, 74, 61))
         flat.paste(image, mask=image.convert('RGBA').split()[3])
         flat.save(icon)
 

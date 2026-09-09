@@ -14,8 +14,10 @@ import 'package:my_generation/widgets/app_logo.dart';
 /// A test rather than a script because painting needs the engine, and this is
 /// the only way to get a real canvas without shipping a second copy of the
 /// mark as an asset that nothing keeps in step with the first.
-const _ground = Color(0xFFF7F8F5);
-const _mark = Color(0xFF1F4A3D);
+/// Pale on green rather than green on pale: a near-white icon reads as a gap
+/// on a light home screen, next to apps that all hold their own square.
+const _ground = Color(0xFF1F4A3D);
+const _mark = Color(0xFFF7F8F5);
 
 /// Apple applies its own rounded mask, so the art is inset rather than bled to
 /// the edge; the maskable variant leaves the wider margin Android crops into.
@@ -50,18 +52,17 @@ void main() {
       await _write('tool/app_icon.png', 1024, 0.86);
       await _write('tool/app_icon_maskable.png', 1024, 0.62);
 
-      // The same mark the other way up, for comparison: a pale icon can read
-      // as a gap on a light home screen.
+      // The other way up, kept for comparison rather than shipped.
       await _write(
-        'tool/app_icon_inverse.png',
+        'tool/app_icon_pale.png',
         1024,
         0.86,
         ground: _mark,
-        mark: const Color(0xFFF7F8F5),
+        mark: _ground,
       );
     });
 
-    for (final name in ['app_icon', 'app_icon_maskable', 'app_icon_inverse']) {
+    for (final name in ['app_icon', 'app_icon_maskable', 'app_icon_pale']) {
       expect(File('tool/$name.png').lengthSync(), greaterThan(1000));
     }
   });
