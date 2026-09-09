@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Enums\PrivacyLevel;
 use App\Models\Person;
 use App\Models\Relationship;
 use App\Services\Graph\FamilyEdgeProjector;
@@ -58,6 +59,30 @@ class PersonObserver
         // Authoritative, so the flag cannot drift from the dates it summarises.
         // isDeceased() treats a person with no dates at all as living.
         $person->is_living = ! $person->isDeceased();
+    }
+
+    /**
+     * The level a new record starts at, taken from its tribe.
+     *
+     * The tribe carries a default_privacy_level and nothing consulted it when
+     * a person was created: every new record got `family` whatever the tribe
+     * said, so opening a clan lasted exactly as long as nobody added anybody.
+     *
+     * Only when the caller said nothing. An explicit level is an answer, and
+     * a default that overrode it would not be a default.
+     */
+    public function creating(Person $person): void
+    {
+        if (filled($person->getAttribute('privacy_level'))) {
+            return;
+        }
+
+        $fromTribe = $person->tribe_id === null
+            ? null
+            : DB::table('tribes')->where('id', $person->tribe_id)->value('default_privacy_level');
+
+        $person->privacy_level = PrivacyLevel::tryFrom((string) $fromTribe)
+            ?? PrivacyLevel::from(config('genealogy.privacy.default_person_level'));
     }
 
     public function created(Person $person): void

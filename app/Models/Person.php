@@ -55,9 +55,14 @@ class Person extends Model
      *
      * @var array<string, mixed>
      */
+    /**
+     * privacy_level is deliberately absent: PersonObserver sets it from the
+     * tribe's own default when the caller did not say. A constant here would
+     * mean every tribe got the same answer whatever it had configured, which
+     * is what it used to do.
+     */
     protected $attributes = [
         'gender' => Gender::Unknown->value,
-        'privacy_level' => PrivacyLevel::Family->value,
         'verification_status' => VerificationStatus::Unverified->value,
         'is_living' => true,
         'has_open_dispute' => false,
