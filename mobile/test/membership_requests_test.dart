@@ -15,6 +15,13 @@ Map<String, dynamic> _pending({String name = 'Cing Za Man'}) => {
   'created_at': '2026-09-06T10:00:00+00:00',
   'scope': {'type': 'clan', 'ulid': _clan, 'name': 'JK'},
   'user': {'ulid': '01USERUSERUSERUSERUSERUSER', 'name': name},
+  'applicant': {
+    'name': name,
+    'father': 'Thawng Dam',
+    'mother': 'Niang Za Dim',
+    'country': 'MM',
+    'contact': 'cing@example.com',
+  },
 };
 
 Future<FakeAdapter> _pump(
@@ -80,6 +87,23 @@ void main() {
     expect(find.textContaining('Asked '), findsWidgets);
     expect(find.text('Approve'), findsOneWidget);
     expect(find.text('Decline'), findsOneWidget);
+  });
+
+  testWidgets('the reviewer reads what the applicant said', (tester) async {
+    // The whole reason for asking: deciding whether a stranger belongs to a
+    // family on nothing but an account name is not a decision.
+    await _pump(tester);
+
+    expect(find.text('Father'), findsOneWidget);
+    expect(find.text('Thawng Dam'), findsOneWidget);
+    expect(find.text('Mother'), findsOneWidget);
+    expect(find.text('Niang Za Dim'), findsOneWidget);
+    expect(find.text('MM'), findsOneWidget);
+    expect(find.text('cing@example.com'), findsOneWidget);
+
+    // Not asked for, not shown — rather than an empty row implying it was
+    // refused.
+    expect(find.text('Grandfather'), findsNothing);
   });
 
   testWidgets('approving sends the approval', (tester) async {

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../routing/app_router.dart';
 import '../../providers/onboarding_provider.dart';
 import 'join_scope_screen.dart';
 
@@ -24,6 +26,14 @@ class JoinTribeScreen extends ConsumerWidget {
         .watch(tribesProvider(query))
         .whenData((list) => list.map((t) => t.joinable).toList()),
     refresh: (ref, query) => ref.invalidate(tribesProvider(query)),
+    // Offered once they have asked for a tribe: a clan is the next question
+    // and there was previously nowhere to be asked it.
+    footer: ref.watch(myMembershipsProvider).value?.isEmpty ?? true
+        ? null
+        : FilledButton.tonal(
+            onPressed: () => context.push(Routes.joinClan),
+            child: const Text('Next — join a clan'),
+          ),
     actions: [
       TextButton(
         onPressed: () => ref.read(authProvider.notifier).signOut(),

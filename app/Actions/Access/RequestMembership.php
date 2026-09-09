@@ -18,7 +18,11 @@ class RequestMembership
 {
     public function __construct(private readonly ViewerScopeResolver $scopes) {}
 
-    public function handle(User $user, Scope $scope): Membership
+    /**
+     * @param  array<string, mixed>  $answers  what the applicant said about
+     *                                         themselves, already validated
+     */
+    public function handle(User $user, Scope $scope, array $answers = []): Membership
     {
         $membership = Membership::firstOrNew([
             'user_id' => $user->getKey(),
@@ -34,6 +38,15 @@ class RequestMembership
         $membership->status = MembershipStatus::Pending;
         $membership->approved_by = null;
         $membership->approved_at = null;
+
+        // Only what was given. A second attempt after a rejection reuses the
+        // row, and blanking a previous answer because this form omitted it
+        // would quietly destroy what the applicant had already said.
+        $membership->fill(array_filter(
+            $answers,
+            static fn ($value) => $value !== null,
+        ));
+
         $membership->save();
 
         // A pending membership grants nothing, but the cached scope was built

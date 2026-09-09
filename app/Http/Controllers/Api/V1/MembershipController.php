@@ -13,6 +13,7 @@ use App\Http\Requests\V1\StoreMembershipRequest;
 use App\Http\Resources\V1\MembershipResource;
 use App\Models\Membership;
 use App\Notifications\MembershipDecided;
+use App\Services\Media\LocationMetadataStripper;
 use App\Services\Permissions\PermissionResolver;
 use App\Services\Permissions\ScopeLocator;
 use App\Services\Privacy\ViewerScopeResolver;
@@ -51,7 +52,14 @@ class MembershipController extends Controller
             $request->string('scope_ulid')->toString(),
         );
 
-        $membership = $action->handle($request->user(), $scope);
+        $membership = $action->handle(
+            $request->user(),
+            $scope,
+            [
+                ...$request->safe()->except(['scope_type', 'scope_ulid', 'photo']),
+                'photo_path' => $this->storeSelfie($request, $scope),
+            ],
+        );
 
         if ($membership->status === MembershipStatus::Pending) {
             // Not fired when RequestMembership found the person already
@@ -124,6 +132,35 @@ class MembershipController extends Controller
         app(ViewerScopeResolver::class)->forget($membership->user);
 
         return ApiResponse::noContent();
+    }
+
+    /**
+     * The applicant's selfie.
+     *
+     * Kept apart from the media library on purpose: this is identification
+     * shown to a reviewer, not a family photograph, and it must never appear
+     * in anybody's album or in an export. Location metadata is stripped before
+     * it is stored — somebody proving who they are should not also be handing
+     * over where they were standing.
+     */
+    private function storeSelfie(StoreMembershipRequest $request, $scope): ?string
+    {
+        $file = $request->file('photo');
+
+        if ($file === null) {
+            return null;
+        }
+
+        app(LocationMetadataStripper::class)->strip($file->getRealPath());
+
+        $checksum = hash_file('sha256', $file->getRealPath());
+        $extension = $file->extension() ?: 'jpg';
+
+        return $file->storeAs(
+            'join-requests/'.$scope->getKey(),
+            "{$checksum}.{$extension}",
+            ['disk' => config('filesystems.disks.r2') !== null ? 'r2' : 'local'],
+        ) ?: null;
     }
 
     private function assertAdministers(Request $request, string $scopePath): void

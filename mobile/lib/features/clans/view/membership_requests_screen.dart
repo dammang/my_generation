@@ -126,7 +126,7 @@ class _RequestCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              membership.userName ?? 'Someone',
+              membership.answers['Name'] ?? membership.userName ?? 'Someone',
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 2),
@@ -136,6 +136,73 @@ class _RequestCard extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+
+            // Worth a reviewer's attention rather than hidden: somebody
+            // asking under a name their account does not use may have a
+            // perfectly good reason, and it is still the thing to ask about.
+            if (membership.userName != null &&
+                membership.answers['Name'] != null &&
+                membership.userName != membership.answers['Name'])
+              Text(
+                'Signed in as ${membership.userName}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            // What they said about themselves. Without it a reviewer is being
+            // asked whether a stranger belongs to their family on nothing but
+            // an account name.
+            if (membership.answers.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              // The name is the card's own heading; repeating it as a row
+              // reads as two different facts.
+              for (final entry in membership.answers.entries)
+                if (entry.key != 'Name')
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 104,
+                          child: Text(
+                            entry.key,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            entry.value,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+            ],
+
+            if (membership.photoUrl case final url?) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  url,
+                  height: 160,
+                  fit: BoxFit.cover,
+                  // A face that will not load must not become a blank space
+                  // that reads as "no photograph was sent".
+                  errorBuilder: (context, _, _) => Container(
+                    height: 60,
+                    alignment: Alignment.center,
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    child: const Text('Photograph could not be loaded'),
+                  ),
+                ),
+              ),
+            ],
+
             if (membership.requestedAt != null) ...[
               const SizedBox(height: 2),
               Text(

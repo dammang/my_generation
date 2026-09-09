@@ -24,6 +24,8 @@ class JoinScopeScreen extends ConsumerStatefulWidget {
     required this.watch,
     required this.refresh,
     this.actions,
+    this.onAsk,
+    this.footer,
   });
 
   final String title;
@@ -41,6 +43,14 @@ class JoinScopeScreen extends ConsumerStatefulWidget {
   final void Function(WidgetRef, String) refresh;
 
   final List<Widget>? actions;
+
+  /// Given, asking is handed over rather than posted from here: a clan asks
+  /// who your parents were before it takes the request.
+  final void Function(BuildContext, JoinableScope)? onAsk;
+
+  /// Shown under the list. The tribe step uses it to offer the clan step,
+  /// which is the moment somebody is actually looking for it.
+  final Widget? footer;
 
   @override
   ConsumerState<JoinScopeScreen> createState() => _JoinScopeScreenState();
@@ -69,6 +79,12 @@ class _JoinScopeScreenState extends ConsumerState<JoinScopeScreen> {
   }
 
   Future<void> _request(JoinableScope scope) async {
+    if (widget.onAsk case final ask?) {
+      ask(context, scope);
+
+      return;
+    }
+
     setState(() {
       _requestingUlid = scope.ulid;
       _error = null;
@@ -171,6 +187,14 @@ class _JoinScopeScreenState extends ConsumerState<JoinScopeScreen> {
                     ),
             ),
           ),
+          if (widget.footer case final footer?)
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: footer,
+              ),
+            ),
         ],
       ),
     );

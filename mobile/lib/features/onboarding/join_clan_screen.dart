@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/joinable_scope.dart';
 import '../../providers/onboarding_provider.dart';
+import 'join_clan_form_screen.dart';
 import 'join_scope_screen.dart';
 
 /// Asking to join a clan.
@@ -14,7 +15,7 @@ class JoinClanScreen extends ConsumerWidget {
   const JoinClanScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => const JoinScopeScreen(
+  Widget build(BuildContext context, WidgetRef ref) => JoinScopeScreen(
     title: 'Join a clan',
     intro:
         'Ask to join the clan your family belongs to. Members see records '
@@ -24,6 +25,9 @@ class JoinClanScreen extends ConsumerWidget {
     emptyHint: 'No clans have been created yet.',
     watch: _watch,
     refresh: _refresh,
+    onAsk: (context, clan) => Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => JoinClanFormScreen(clan: clan)),
+    ),
   );
 }
 

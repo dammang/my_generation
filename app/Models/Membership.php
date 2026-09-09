@@ -40,6 +40,25 @@ class Membership extends Model
         'status',
         'approved_by',
         'approved_at',
+        'applicant_name',
+        'father_name',
+        'mother_name',
+        'grandfather_name',
+        'grandmother_name',
+        'country',
+        'contact',
+        'photo_path',
+    ];
+
+    /** What the applicant said about themselves, in the order it is read. */
+    public const APPLICANT_FIELDS = [
+        'applicant_name' => 'Name',
+        'father_name' => 'Father',
+        'mother_name' => 'Mother',
+        'grandfather_name' => 'Grandfather',
+        'grandmother_name' => 'Grandmother',
+        'country' => 'Country',
+        'contact' => 'Contact',
     ];
 
     /** @return array<string, string> */

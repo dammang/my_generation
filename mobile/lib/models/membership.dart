@@ -3,6 +3,26 @@
 /// Pending grants nothing at all — the applicant sees exactly what a stranger
 /// sees until somebody approves it, and the UI says so rather than implying
 /// the request was enough.
+const _labels = {
+  'name': 'Name',
+  'father': 'Father',
+  'mother': 'Mother',
+  'grandfather': 'Grandfather',
+  'grandmother': 'Grandmother',
+  'country': 'Country',
+  'contact': 'Contact',
+};
+
+Map<String, String> _answers(Object? raw) {
+  if (raw is! Map) return const {};
+
+  return {
+    for (final entry in _labels.entries)
+      if (raw[entry.key] case final String value when value.isNotEmpty)
+        entry.value: value,
+  };
+}
+
 class Membership {
   const Membership({
     required this.ulid,
@@ -12,6 +32,8 @@ class Membership {
     this.scopeName,
     this.userName,
     this.requestedAt,
+    this.answers = const {},
+    this.photoUrl,
   });
 
   final String ulid;
@@ -24,6 +46,15 @@ class Membership {
   final String? userName;
 
   final DateTime? requestedAt;
+
+  /// What the applicant said about themselves, label to answer, in the order
+  /// a reviewer reads them. Sent only to the applicant and to whoever
+  /// administers the scope.
+  final Map<String, String> answers;
+
+  /// Signed and short-lived. Identification for the reviewer, never a family
+  /// photograph.
+  final String? photoUrl;
 
   bool get isActive => status == 'active';
   bool get isPending => status == 'pending';
@@ -39,6 +70,8 @@ class Membership {
       scopeName: scope?['name'] as String?,
       userName: (json['user'] as Map?)?['name'] as String?,
       requestedAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+      answers: _answers(json['applicant']),
+      photoUrl: (json['applicant'] as Map?)?['photo_url'] as String?,
     );
   }
 }

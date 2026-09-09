@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../core/constants/api_paths.dart';
 import '../core/network/api_client.dart';
 import '../models/clan_summary.dart';
@@ -86,13 +87,37 @@ class OnboardingRepository {
         .toList(growable: false);
   }
 
+  /// Asking to join.
+  ///
+  /// The answers are required for a clan and ignored for a tribe — a family
+  /// asks who your parents were, a tribe does not — but the decision is the
+  /// server's, not this method's.
   Future<Membership> requestMembership({
     required String scopeType,
     required String scopeUlid,
+    Map<String, String?> answers = const {},
+    String? photoPath,
   }) async {
+    final fields = {
+      'scope_type': scopeType,
+      'scope_ulid': scopeUlid,
+      for (final entry in answers.entries)
+        if (entry.value != null && entry.value!.trim().isNotEmpty)
+          entry.key: entry.value!.trim(),
+    };
+
+    // Multipart only when there is a file: a plain map is easier to read in a
+    // log and is what the tribe flow has always sent.
+    final body = photoPath == null
+        ? fields
+        : FormData.fromMap({
+            ...fields,
+            'photo': await MultipartFile.fromFile(photoPath),
+          });
+
     final envelope = await _api.post<Map<String, dynamic>>(
       ApiPaths.memberships,
-      body: {'scope_type': scopeType, 'scope_ulid': scopeUlid},
+      body: body,
       parse: (data) => (data as Map).cast<String, dynamic>(),
     );
 

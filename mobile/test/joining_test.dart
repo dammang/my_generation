@@ -59,6 +59,19 @@ Future<FakeAdapter> _pump(
   return adapter;
 }
 
+/// The questions a clan asks, answered.
+Future<void> _answer(WidgetTester tester) async {
+  for (final (label, answer) in [
+    ('Your name', 'Cing Za Man'),
+    ('Father', 'Thawng Dam'),
+    ('Mother', 'Niang Za Dim'),
+    ('Country', 'MM'),
+    ('Contact', 'cing@example.com'),
+  ]) {
+    await tester.enterText(find.widgetWithText(TextFormField, label), answer);
+  }
+}
+
 void main() {
   testWidgets('a clan can be asked to join', (tester) async {
     final adapter = await _pump(tester);
@@ -69,6 +82,19 @@ void main() {
     await tester.tap(find.text('Ask to join'));
     await tester.pumpAndSettle();
 
+    // Nothing sent yet: a clan asks who your parents were first.
+    expect(
+      adapter.received.where((r) => r.method == 'POST'),
+      isEmpty,
+      reason: 'the request went before the questions were answered',
+    );
+
+    expect(find.text('Join JK'), findsOneWidget);
+
+    await _answer(tester);
+    await tester.tap(find.text('Send request'));
+    await tester.pumpAndSettle();
+
     final asked = adapter.received.where(
       (r) => r.method == 'POST' && r.path == '/api/v1/memberships',
     );
@@ -77,9 +103,54 @@ void main() {
 
     // The clan, not the tribe: the endpoint takes either, and sending the
     // wrong one would grant nothing while appearing to succeed.
-    expect(asked.single.data, {'scope_type': 'clan', 'scope_ulid': _clanUlid});
+    expect(asked.single.data, {
+      'scope_type': 'clan',
+      'scope_ulid': _clanUlid,
+      'applicant_name': 'Cing Za Man',
+      'father_name': 'Thawng Dam',
+      'mother_name': 'Niang Za Dim',
+      'country': 'MM',
+      'contact': 'cing@example.com',
+    });
 
     expect(find.textContaining('Asked to join JK'), findsOneWidget);
+  });
+
+  testWidgets('the questions must be answered before it is sent', (
+    tester,
+  ) async {
+    final adapter = await _pump(tester);
+
+    await tester.tap(find.text('Ask to join'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Send request'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Please give Your name.'), findsOneWidget);
+    expect(adapter.received.where((r) => r.method == 'POST'), isEmpty);
+  });
+
+  testWidgets('grandparents may be left unknown', (tester) async {
+    // The ordinary state of an oral archive, not an evasion.
+    final adapter = await _pump(tester);
+
+    await tester.tap(find.text('Ask to join'));
+    await tester.pumpAndSettle();
+    await _answer(tester);
+    await tester.tap(find.text('Send request'));
+    await tester.pumpAndSettle();
+
+    final sent =
+        adapter.received
+                .singleWhere(
+                  (r) => r.method == 'POST' && r.path == '/api/v1/memberships',
+                )
+                .data
+            as Map;
+
+    expect(sent.containsKey('grandfather_name'), isFalse);
+    expect(sent.containsKey('grandmother_name'), isFalse);
   });
 
   testWidgets('a clan already asked for is not offered again', (tester) async {

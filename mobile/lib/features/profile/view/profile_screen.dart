@@ -129,23 +129,25 @@ class ProfileScreen extends ConsumerWidget {
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: 12),
+                    // Tappable even when empty, which is the whole point:
+                    // these rows are where joining is offered, and locking
+                    // them until somebody has already joined leaves exactly
+                    // the people who need them with nothing to tap.
                     _Fact(
                       label: 'Tribes',
                       value: user.tribeIds.isEmpty
-                          ? 'No memberships yet'
+                          ? 'Not in a tribe yet'
                           : '${user.tribeIds.length}',
                       icon: Icons.groups_outlined,
-                      onTap: user.tribeIds.isEmpty
-                          ? null
-                          : () => _showMemberships(context, ref, 'tribe'),
+                      onTap: () => _showMemberships(context, ref, 'tribe'),
                     ),
                     _Fact(
                       label: 'Clans',
-                      value: '${user.clanIds.length}',
+                      value: user.clanIds.isEmpty
+                          ? 'Not in a clan yet'
+                          : '${user.clanIds.length}',
                       icon: Icons.account_tree_outlined,
-                      onTap: user.clanIds.isEmpty
-                          ? null
-                          : () => _showMemberships(context, ref, 'clan'),
+                      onTap: () => _showMemberships(context, ref, 'clan'),
                     ),
                     _Fact(
                       label: 'Permissions',
