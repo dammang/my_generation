@@ -160,6 +160,34 @@ class ProfileScreen extends ConsumerWidget {
                       // actually arrives with.
                       onTap: () => _showPermissions(context, user),
                     ),
+
+                    // On the page, not inside the sheet behind a number. A
+                    // statistic is not where anybody looks for something to
+                    // do, and joining was reported missing twice while it sat
+                    // one tap under "Clans".
+                    if (user.clanIds.isEmpty || user.tribeIds.isEmpty) ...[
+                      const SizedBox(height: 12),
+                      if (user.clanIds.isEmpty)
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => context.push(Routes.joinClan),
+                            icon: const Icon(Icons.group_add_outlined),
+                            label: const Text('Join a clan'),
+                          ),
+                        ),
+                      if (user.tribeIds.isEmpty) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => context.push(Routes.joinTribe),
+                            icon: const Icon(Icons.groups_outlined),
+                            label: const Text('Join a tribe'),
+                          ),
+                        ),
+                      ],
+                    ],
                   ],
                 ),
               ),
