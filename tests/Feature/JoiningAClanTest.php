@@ -142,7 +142,10 @@ class JoiningAClanTest extends TestCase
                 'status' => 'pending',
             ]))
             ->assertOk()
-            ->assertJsonPath('data.0.applicant.father', 'Thawng Dam');
+            ->assertJsonPath('data.0.applicant.father', 'Thawng Dam')
+            // The reviewer needs a way to reach them, guarded by the same rule
+            // as everything else they wrote.
+            ->assertJsonPath('data.0.applicant.email', $applicant->email);
     }
 
     public function test_a_stranger_is_not_shown_somebodys_parents(): void

@@ -3,32 +3,6 @@
 /// Pending grants nothing at all — the applicant sees exactly what a stranger
 /// sees until somebody approves it, and the UI says so rather than implying
 /// the request was enough.
-const _labels = {
-  'name': 'Name',
-  'father': 'Father',
-  'mother': 'Mother',
-  'grandfather': 'Grandfather',
-  'grandmother': 'Grandmother',
-  'country': 'Country',
-  'contact': 'Contact',
-};
-
-/// Read defensively. An empty answer set arrives as a JSON array rather than
-/// an object, and casting it to a Map threw — which failed the parse of every
-/// membership in the list because one of them had nothing to say.
-String? _photoUrl(Object? raw) =>
-    raw is Map ? raw['photo_url'] as String? : null;
-
-Map<String, String> _answers(Object? raw) {
-  if (raw is! Map) return const {};
-
-  return {
-    for (final entry in _labels.entries)
-      if (raw[entry.key] case final String value when value.isNotEmpty)
-        entry.value: value,
-  };
-}
-
 class Membership {
   const Membership({
     required this.ulid,
@@ -38,7 +12,15 @@ class Membership {
     this.scopeName,
     this.userName,
     this.requestedAt,
-    this.answers = const {},
+    this.joinedAt,
+    this.applicantName,
+    this.email,
+    this.fatherName,
+    this.motherName,
+    this.grandfatherName,
+    this.grandmotherName,
+    this.country,
+    this.contact,
     this.photoUrl,
   });
 
@@ -48,25 +30,60 @@ class Membership {
   final String? scopeUlid;
   final String? scopeName;
 
-  /// Who asked. Only ever sent to somebody who administers the scope.
+  /// The account they signed up with.
   final String? userName;
 
   final DateTime? requestedAt;
+  final DateTime? joinedAt;
 
-  /// What the applicant said about themselves, label to answer, in the order
-  /// a reviewer reads them. Sent only to the applicant and to whoever
-  /// administers the scope.
-  final Map<String, String> answers;
+  /// What they told us about themselves. Sent only to the applicant and to
+  /// whoever administers the scope they asked to join.
+  final String? applicantName;
+  final String? email;
+  final String? fatherName;
+  final String? motherName;
+  final String? grandfatherName;
+  final String? grandmotherName;
+  final String? country;
+  final String? contact;
 
-  /// Signed and short-lived. Identification for the reviewer, never a family
+  /// Signed and short-lived. Identification for a reviewer, never a family
   /// photograph.
   final String? photoUrl;
 
   bool get isActive => status == 'active';
   bool get isPending => status == 'pending';
 
+  /// What they wrote, falling back to the account they signed up with — a
+  /// tribe membership carries no answers at all.
+  String get name => applicantName ?? userName ?? 'Someone';
+
+  /// Label to answer, in the order a reviewer reads them. Empty entries are
+  /// left out rather than shown blank.
+  Map<String, String> get answers => {
+    for (final entry in <String, String?>{
+      'Name': applicantName,
+      'Father': fatherName,
+      'Mother': motherName,
+      'Grandfather': grandfatherName,
+      'Grandmother': grandmotherName,
+      'Country': country,
+      'Contact': contact,
+    }.entries)
+      if (entry.value != null && entry.value!.isNotEmpty)
+        entry.key: entry.value!,
+  };
+
   factory Membership.fromJson(Map<String, dynamic> json) {
     final scope = (json['scope'] as Map?)?.cast<String, dynamic>();
+
+    // Read defensively: no answers at all arrives as a JSON array rather than
+    // an object, and casting that to a Map throws — which is how one empty row
+    // once failed the parse of an entire list.
+    final raw = json['applicant'];
+    final applicant = raw is Map ? raw.cast<String, dynamic>() : const {};
+
+    String? said(String key) => applicant[key] as String?;
 
     return Membership(
       ulid: json['ulid'] as String,
@@ -76,8 +93,16 @@ class Membership {
       scopeName: scope?['name'] as String?,
       userName: (json['user'] as Map?)?['name'] as String?,
       requestedAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
-      answers: _answers(json['applicant']),
-      photoUrl: _photoUrl(json['applicant']),
+      joinedAt: DateTime.tryParse(json['approved_at'] as String? ?? ''),
+      applicantName: said('name'),
+      email: said('email'),
+      fatherName: said('father'),
+      motherName: said('mother'),
+      grandfatherName: said('grandfather'),
+      grandmotherName: said('grandmother'),
+      country: said('country'),
+      contact: said('contact'),
+      photoUrl: said('photo_url'),
     );
   }
 }

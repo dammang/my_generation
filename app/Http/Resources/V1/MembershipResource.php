@@ -59,6 +59,10 @@ class MembershipResource extends JsonResource
     {
         $answers = array_filter([
             'name' => $this->applicant_name,
+            // Beside the answers rather than beside the account, because it is
+            // guarded by the same rule: a reviewer needs a way to reach
+            // somebody, and nobody else needs their address.
+            'email' => $this->relationLoaded('user') ? $this->user?->email : null,
             'father' => $this->father_name,
             'mother' => $this->mother_name,
             'grandfather' => $this->grandfather_name,

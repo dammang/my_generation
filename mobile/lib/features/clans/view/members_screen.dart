@@ -7,12 +7,14 @@ import '../../../models/committee.dart';
 import '../../../models/membership.dart';
 import '../../../providers/clan_provider.dart';
 import '../../../providers/onboarding_provider.dart';
+import '../export/member_roll.dart';
 
 /// Everybody in a family you run, and what they told us about themselves.
 ///
 /// A roll rather than a queue: the join requests page empties as it is worked
-/// through, this one stays. Filtered by clan because a clan is what a
-/// committee actually administers, and there will be more than one.
+/// through, this one stays. A table because it is read down a column — who is
+/// in Malaysia, whose father was Thawng Dam — and a list of cards cannot be
+/// read that way.
 class MembersScreen extends ConsumerStatefulWidget {
   const MembersScreen({super.key});
 
@@ -21,96 +23,279 @@ class MembersScreen extends ConsumerStatefulWidget {
 }
 
 class _MembersScreenState extends ConsumerState<MembersScreen> {
-  AdministeredScope? _chosen;
+  AdministeredScope? _clan;
+  String? _country;
+  bool _exporting = false;
+
+  Future<void> _export(
+    List<Membership> members,
+    String title, {
+    required bool asDocument,
+  }) async {
+    setState(() => _exporting = true);
+
+    final messenger = ScaffoldMessenger.of(context);
+    final roll = MemberRoll(members: members, title: title);
+
+    try {
+      if (asDocument) {
+        await roll.shareDocument();
+      } else {
+        await roll.shareSpreadsheet();
+      }
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            error is ApiException ? error.message : 'Could not export. $error',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scopes = ref.watch(administeredScopesProvider).value ?? const [];
-    final chosen = _chosen ?? (scopes.isEmpty ? null : scopes.first);
+    final clan = _clan ?? (scopes.isEmpty ? null : scopes.first);
+
+    if (scopes.isEmpty || clan == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Members')),
+        body: _Empty(
+          theme: theme,
+          message: 'You do not run a family yet.',
+          detail: 'Members appear here for the clans you administer.',
+        ),
+      );
+    }
+
+    final key = (type: clan.scopeType, ulid: clan.scopeUlid);
+    final all =
+        ref.watch(scopeMembersProvider(key)).value ?? const <Membership>[];
+
+    final shown = _country == null
+        ? all
+        : all.where((m) => m.country?.toUpperCase() == _country).toList();
+
+    final title = [
+      clan.name,
+      if (_country != null) Countries.nameOf(_country) ?? _country!,
+    ].join(' · ');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Members')),
-      body: scopes.isEmpty
-          ? _Empty(
-              theme: theme,
-              message: 'You do not run a family yet.',
-              detail: 'Members appear here for the clans you administer.',
+      appBar: AppBar(
+        title: const Text('Members'),
+        actions: [
+          if (_exporting)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 18),
+              child: Center(
+                child: SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
             )
-          : Column(
-              children: [
-                // Only worth showing once there is a choice to make.
-                if (scopes.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: SegmentedButton<String>(
-                        segments: [
-                          for (final scope in scopes)
-                            ButtonSegment(
-                              value: scope.scopeUlid,
-                              label: Text(scope.name),
-                            ),
-                        ],
-                        selected: {chosen!.scopeUlid},
-                        onSelectionChanged: (chosen) => setState(
-                          () => _chosen = scopes.firstWhere(
-                            (s) => s.scopeUlid == chosen.first,
-                          ),
-                        ),
-                      ),
-                    ),
+          else
+            PopupMenuButton<bool>(
+              icon: const Icon(Icons.ios_share),
+              tooltip: 'Export',
+              enabled: shown.isNotEmpty,
+              onSelected: (asDocument) =>
+                  _export(shown, title, asDocument: asDocument),
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: true,
+                  child: ListTile(
+                    leading: Icon(Icons.picture_as_pdf_outlined),
+                    title: Text('PDF'),
+                    subtitle: Text('To read and print'),
                   ),
-                Expanded(child: _Members(scope: chosen!)),
+                ),
+                PopupMenuItem(
+                  value: false,
+                  child: ListTile(
+                    leading: Icon(Icons.table_chart_outlined),
+                    title: Text('Spreadsheet'),
+                    subtitle: Text('Opens in Excel or Sheets'),
+                  ),
+                ),
               ],
             ),
+        ],
+      ),
+      body: Column(
+        children: [
+          _Filters(
+            scopes: scopes,
+            clan: clan,
+            country: _country,
+            // Only the countries these members are actually in. A list of two
+            // hundred and forty-nine of which four are used is one nobody
+            // scrolls to the bottom of.
+            countries: Countries.only(all.map((m) => m.country)),
+            onClan: (chosen) => setState(() {
+              _clan = chosen;
+              _country = null;
+            }),
+            onCountry: (chosen) => setState(() => _country = chosen),
+          ),
+          Expanded(
+            child: shown.isEmpty
+                ? _Empty(
+                    theme: theme,
+                    message: _country == null
+                        ? 'Nobody has joined ${clan.name} yet.'
+                        : 'Nobody here is in that country.',
+                    detail: 'Approved requests appear here.',
+                  )
+                : RefreshIndicator(
+                    onRefresh: () async =>
+                        ref.invalidate(scopeMembersProvider(key)),
+                    child: _Table(members: shown),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _Members extends ConsumerWidget {
-  const _Members({required this.scope});
+class _Filters extends StatelessWidget {
+  const _Filters({
+    required this.scopes,
+    required this.clan,
+    required this.country,
+    required this.countries,
+    required this.onClan,
+    required this.onCountry,
+  });
 
-  final AdministeredScope scope;
+  final List<AdministeredScope> scopes;
+  final AdministeredScope clan;
+  final String? country;
+  final Map<String, String> countries;
+  final ValueChanged<AdministeredScope> onClan;
+  final ValueChanged<String?> onCountry;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final key = (type: scope.scopeType, ulid: scope.scopeUlid);
-    final members = ref.watch(scopeMembersProvider(key));
-
-    return members.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _Empty(
-        theme: theme,
-        message: error is ApiException
-            ? error.message
-            : 'Could not read the members.',
-        detail: 'Pull down to try again.',
-      ),
-      data: (rows) => rows.isEmpty
-          ? _Empty(
-              theme: theme,
-              message: 'Nobody has joined ${scope.name} yet.',
-              detail: 'Approved requests appear here.',
-            )
-          : RefreshIndicator(
-              onRefresh: () async => ref.invalidate(scopeMembersProvider(key)),
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                itemCount: rows.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, index) =>
-                    _MemberCard(member: rows[index]),
-              ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+    child: Row(
+      children: [
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            initialValue: clan.scopeUlid,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Clan',
+              isDense: true,
+              border: OutlineInputBorder(),
             ),
-    );
-  }
+            items: [
+              for (final scope in scopes)
+                DropdownMenuItem(
+                  value: scope.scopeUlid,
+                  child: Text(scope.name, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: (ulid) =>
+                onClan(scopes.firstWhere((s) => s.scopeUlid == ulid)),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: DropdownButtonFormField<String?>(
+            initialValue: country,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Country',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('Anywhere')),
+              for (final entry in countries.entries)
+                DropdownMenuItem(
+                  value: entry.key,
+                  child: Text(entry.value, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: onCountry,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
-class _MemberCard extends StatelessWidget {
-  const _MemberCard({required this.member});
+/// The roll itself.
+///
+/// Scrolls both ways: nine columns will not fit the width of a phone, and
+/// squeezing them until they do makes every one unreadable.
+class _Table extends StatelessWidget {
+  const _Table({required this.members});
+
+  final List<Membership> members;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        headingRowHeight: 40,
+        dataRowMinHeight: 58,
+        dataRowMaxHeight: 72,
+        columnSpacing: 22,
+        columns: const [
+          DataColumn(label: Text('Photo')),
+          DataColumn(label: Text('Name')),
+          DataColumn(label: Text('Parents')),
+          DataColumn(label: Text('Grandparents')),
+          DataColumn(label: Text('Country')),
+          DataColumn(label: Text('Contact')),
+          DataColumn(label: Text('Joined')),
+        ],
+        rows: [
+          for (final member in members)
+            DataRow(
+              cells: [
+                DataCell(_Photo(member: member)),
+                DataCell(_TwoLines(first: member.name, second: member.email)),
+                DataCell(
+                  _TwoLines(
+                    first: member.fatherName,
+                    second: member.motherName,
+                  ),
+                ),
+                DataCell(
+                  _TwoLines(
+                    first: member.grandfatherName,
+                    second: member.grandmotherName,
+                  ),
+                ),
+                DataCell(
+                  Text(
+                    Countries.nameOf(member.country) ?? member.country ?? '—',
+                  ),
+                ),
+                DataCell(Text(member.contact ?? '—')),
+                DataCell(Text(MemberRoll.day(member.joinedAt))),
+              ],
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _Photo extends StatelessWidget {
+  const _Photo({required this.member});
 
   final Membership member;
 
@@ -118,88 +303,75 @@ class _MemberCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // What they wrote, falling back to the account they signed up with.
-    final name = member.answers['Name'] ?? member.userName ?? 'Someone';
+    if (member.photoUrl == null) {
+      return CircleAvatar(
+        radius: 25,
+        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+        child: Text(member.name.characters.take(1).toString().toUpperCase()),
+      );
+    }
 
-    final rows = <(String, String)>[
-      for (final entry in member.answers.entries)
-        if (entry.key != 'Name')
-          (
-            entry.key,
-            // The country was stored as a code; a reader wants the country.
-            entry.key == 'Country'
-                ? (Countries.nameOf(entry.value) ?? entry.value)
-                : entry.value,
-          ),
-    ];
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              backgroundImage: member.photoUrl == null
-                  ? null
-                  : NetworkImage(member.photoUrl!),
-              child: member.photoUrl != null
-                  ? null
-                  : Text(name.characters.take(1).toString().toUpperCase()),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: theme.textTheme.titleMedium),
-                  if (member.userName != null && member.userName != name)
-                    Text(
-                      'Signed in as ${member.userName}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  for (final (label, value) in rows)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 96,
-                            child: Text(
-                              label,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              value,
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (rows.isEmpty)
-                    Text(
-                      'Joined before the archive asked anything.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
+    return InkWell(
+      // A thumbnail of a face is not enough to recognise somebody by, which is
+      // the only reason it was asked for.
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (context) => Dialog(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InteractiveViewer(
+                child: Image.network(
+                  member.photoUrl!,
+                  errorBuilder: (context, _, _) => const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('The photograph could not be loaded.'),
+                  ),
+                ),
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Text(member.name, style: theme.textTheme.titleMedium),
+              ),
+            ],
+          ),
         ),
       ),
+      child: CircleAvatar(
+        radius: 25,
+        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+        backgroundImage: NetworkImage(member.photoUrl!),
+      ),
+    );
+  }
+}
+
+/// Two facts stacked, the second quieter than the first.
+class _TwoLines extends StatelessWidget {
+  const _TwoLines({required this.first, this.second});
+
+  final String? first;
+  final String? second;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(first ?? '—', maxLines: 1, overflow: TextOverflow.ellipsis),
+        if (second != null && second!.isNotEmpty)
+          Text(
+            second!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+      ],
     );
   }
 }

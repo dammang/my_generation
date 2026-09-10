@@ -91,7 +91,7 @@ class MembershipController extends Controller
                 isset($validated['status']),
                 fn ($q) => $q->where('status', $validated['status']),
             )
-            ->with(['user:id,ulid,name', 'scope.scopeable'])
+            ->with(['user:id,ulid,name,email', 'scope.scopeable'])
             ->orderBy('status')
             ->orderBy('id')
             ->get();

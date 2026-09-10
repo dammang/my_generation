@@ -7,6 +7,8 @@ namespace App\Filament\Resources\Members\Tables;
 use App\Models\Clan;
 use App\Models\Membership;
 use App\Services\Media\MediaUrlResolver;
+use App\Support\Countries;
+use Filament\Actions\Action;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -25,7 +27,20 @@ class MembersTable
                 ImageColumn::make('photo_path')
                     ->label('Photo')
                     ->circular()
-                    ->getStateUsing(fn (Membership $record): ?string => self::photo($record)),
+                    ->size(50)
+                    ->getStateUsing(fn (Membership $record): ?string => self::photo($record))
+                    // A thumbnail of a face is not enough to recognise
+                    // somebody by, which is the only reason it was asked for.
+                    ->action(
+                        Action::make('enlarge')
+                            ->label('Photograph')
+                            ->modalHeading(fn (Membership $r): string => $r->applicant_name ?? $r->user?->name ?? 'Photograph')
+                            ->modalSubmitAction(false)
+                            ->modalCancelActionLabel('Close')
+                            ->modalContent(fn (Membership $r) => view('filament.member-photo', [
+                                'url' => self::photo($r),
+                            ])),
+                    ),
 
                 TextColumn::make('applicant_name')
                     ->label('Name')
@@ -49,6 +64,15 @@ class MembersTable
                     ->searchable(['father_name', 'mother_name'])
                     ->wrap(),
 
+                TextColumn::make('grandfather_name')
+                    ->label('Grandparents')
+                    ->getStateUsing(fn (Membership $r): string => collect([
+                        $r->grandfather_name,
+                        $r->grandmother_name,
+                    ])->filter()->implode(' · ') ?: '—')
+                    ->searchable(['grandfather_name', 'grandmother_name'])
+                    ->wrap(),
+
                 TextColumn::make('contact')
                     ->label('Contact')
                     ->searchable()
@@ -56,7 +80,9 @@ class MembersTable
 
                 TextColumn::make('country')
                     ->label('Country')
-                    ->badge(),
+                    ->badge()
+                    // The name, not the code: a reader wants the country.
+                    ->formatStateUsing(fn (?string $state): string => Countries::name($state) ?? $state ?? '—'),
 
                 TextColumn::make('approved_at')
                     ->label('Joined')
@@ -78,6 +104,16 @@ class MembersTable
                                 ->where('scopeable_id', $clanId),
                         ),
                     )),
+
+                // Only the countries actually present. A filter offering two
+                // hundred and forty-nine of which four are used is a filter
+                // nobody scrolls to the bottom of.
+                SelectFilter::make('country')
+                    ->label('Country')
+                    ->options(fn (): array => Countries::only(
+                        Membership::query()->distinct()->pluck('country'),
+                    ))
+                    ->searchable(),
             ]);
     }
 

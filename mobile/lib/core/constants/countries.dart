@@ -283,6 +283,23 @@ class Countries {
         .toList();
   }
 
+  /// Only the countries actually present in a set of codes, named. A filter
+  /// offering all of them when four are used is one nobody scrolls through.
+  static Map<String, String> only(Iterable<String?> codes) {
+    final found = <String, String>{};
+
+    for (final code in codes) {
+      final name = nameOf(code);
+
+      if (name != null) found[code!.toUpperCase()] = name;
+    }
+
+    final sorted = found.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+
+    return Map.fromEntries(sorted);
+  }
+
   static String? nameOf(String? code) =>
       code == null ? null : byCode[code.toUpperCase()];
 }
