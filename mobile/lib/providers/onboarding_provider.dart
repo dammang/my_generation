@@ -63,6 +63,14 @@ final pendingMembershipsProvider =
       return queues.expand((queue) => queue).toList(growable: false);
     });
 
+/// The members of one scope, for whoever administers it.
+final scopeMembersProvider =
+    FutureProvider.family<List<Membership>, ({String type, String ulid})>(
+      (ref, scope) => ref
+          .watch(onboardingRepositoryProvider)
+          .membersOf(scopeType: scope.type, scopeUlid: scope.ulid),
+    );
+
 final myClaimsProvider = FutureProvider<List<ProfileClaim>>(
   (ref) => ref.watch(onboardingRepositoryProvider).myClaims(),
 );

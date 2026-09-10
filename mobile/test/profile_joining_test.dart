@@ -60,13 +60,6 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'Join a clan'), findsOneWidget);
   });
 
-  testWidgets('somebody with no tribe is offered that too', (tester) async {
-    await _pump(tester, _user(tribes: const []));
-
-    expect(find.widgetWithText(OutlinedButton, 'Join a tribe'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'Join a clan'), findsOneWidget);
-  });
-
   testWidgets('somebody already in a clan is not nagged', (tester) async {
     await _pump(tester, _user(clans: const [7]));
 

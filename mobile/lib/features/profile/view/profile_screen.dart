@@ -165,7 +165,7 @@ class ProfileScreen extends ConsumerWidget {
                     // statistic is not where anybody looks for something to
                     // do, and joining was reported missing twice while it sat
                     // one tap under "Clans".
-                    if (user.clanIds.isEmpty || user.tribeIds.isEmpty) ...[
+                    if (user.clanIds.isEmpty) ...[
                       const SizedBox(height: 12),
                       if (user.clanIds.isEmpty)
                         SizedBox(
@@ -176,17 +176,6 @@ class ProfileScreen extends ConsumerWidget {
                             label: const Text('Join a clan'),
                           ),
                         ),
-                      if (user.tribeIds.isEmpty) ...[
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () => context.push(Routes.joinTribe),
-                            icon: const Icon(Icons.groups_outlined),
-                            label: const Text('Join a tribe'),
-                          ),
-                        ),
-                      ],
                     ],
                   ],
                 ),
@@ -470,6 +459,15 @@ class _RunningAFamily extends ConsumerWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push(Routes.clanRegistrations),
             ),
+            if (committees.isNotEmpty)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.groups_outlined),
+                title: const Text('Members'),
+                subtitle: const Text('Everybody in a family you run'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push(Routes.members),
+              ),
             if (committees.isNotEmpty)
               ListTile(
                 contentPadding: EdgeInsets.zero,

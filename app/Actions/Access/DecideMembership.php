@@ -7,6 +7,7 @@ namespace App\Actions\Access;
 use App\Enums\MembershipStatus;
 use App\Models\AuditLog;
 use App\Models\Membership;
+use App\Models\Scope;
 use App\Models\User;
 use App\Services\Privacy\ViewerScopeResolver;
 use Illuminate\Support\Facades\DB;
@@ -39,9 +40,49 @@ class DecideMembership
                 ],
             ]);
 
+            if ($decision === MembershipStatus::Active) {
+                $this->carryTheTribe($membership);
+            }
+
             $this->scopes->forget($membership->loadMissing('user')->user);
 
             return $membership;
         });
+    }
+
+    /**
+     * A clan sits inside a tribe, so being let into one is being let into the
+     * other.
+     *
+     * Granted here rather than asked for separately: nobody joins the Zomi in
+     * order to join JK, and a member without the tribe was invisible to
+     * everything counted at tribe level while plainly belonging to it.
+     */
+    private function carryTheTribe(Membership $membership): void
+    {
+        $scope = $membership->loadMissing('scope.scopeable')->scope;
+
+        if ($scope?->scopeable_type !== 'clan') {
+            return;
+        }
+
+        $tribeId = $scope->scopeable?->tribe_id;
+
+        $tribeScope = $tribeId === null ? null : Scope::where('scopeable_type', 'tribe')
+            ->where('scopeable_id', $tribeId)
+            ->first();
+
+        if ($tribeScope === null) {
+            return;
+        }
+
+        Membership::updateOrCreate(
+            ['user_id' => $membership->user_id, 'scope_id' => $tribeScope->getKey()],
+            [
+                'status' => MembershipStatus::Active,
+                'approved_by' => $membership->approved_by,
+                'approved_at' => now(),
+            ],
+        );
     }
 }

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Genealogy\AnchorClanGenerations;
 use App\Actions\Genealogy\AnchorFamilyBranch;
+use App\Enums\RecordStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\StoreClanRequest;
 use App\Http\Requests\V1\UpdateClanRequest;
@@ -30,8 +31,15 @@ class ClanController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        // Asking to join needs a list to choose from, and somebody who belongs
+        // to nothing can see nothing — which left the joining screen empty for
+        // exactly the people it exists for. A clan's name and size is the
+        // least anybody needs to ask, and carries nothing about a person.
+        $joining = $request->boolean('joinable');
+
         $clans = Clan::query()
-            ->visibleTo($this->viewer)
+            ->when(! $joining, fn (Builder $q) => $q->visibleTo($this->viewer))
+            ->when($joining, fn (Builder $q) => $q->where('status', RecordStatus::Active))
             ->when($request->filled('tribe'), fn (Builder $q) => $q->where(
                 'tribe_id',
                 Tribe::where('ulid', $request->string('tribe'))->value('id')

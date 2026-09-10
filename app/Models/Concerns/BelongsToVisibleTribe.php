@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models\Concerns;
 
 use App\Enums\PrivacyLevel;
+use App\Models\Clan;
 use App\Services\Privacy\ViewerScope;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -38,10 +39,18 @@ trait BelongsToVisibleTribe
             $query->orWhereIn('tribe_id', $viewer->adminTribeIds);
 
             // A family branch also sits in a clan, so membership of that clan
-            // is enough. A clan itself has no clan_id.
+            // is enough.
             if (in_array('clan_id', $this->getFillable(), true)) {
                 $query->orWhereIn('clan_id', $viewer->clanIds);
                 $query->orWhereIn('clan_id', $viewer->adminClanIds);
+            }
+
+            // A clan has no clan_id — it *is* the clan — so belonging to one
+            // matched nothing and a member could not see the family they had
+            // been approved into. Being in it is the plainest reason there is.
+            if ($this instanceof Clan) {
+                $query->orWhereIn('id', $viewer->clanIds);
+                $query->orWhereIn('id', $viewer->adminClanIds);
             }
         });
     }

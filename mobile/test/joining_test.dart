@@ -73,11 +73,21 @@ Future<void> _answer(WidgetTester tester) async {
     ('Your name', 'Cing Za Man'),
     ('Father', 'Thawng Dam'),
     ('Mother', 'Niang Za Dim'),
-    ('Country', 'MM'),
     ('Contact', 'cing@example.com'),
   ]) {
     await tester.enterText(find.widgetWithText(TextFormField, label), answer);
   }
+
+  // The country is chosen from the list, not typed as a code.
+  await tester.tap(find.text('Choose a country'));
+  await tester.pumpAndSettle();
+  await tester.enterText(
+    find.widgetWithText(TextField, 'Search countries'),
+    'Myanmar',
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Myanmar (Burma)'));
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -250,73 +260,11 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Clans first, because it is the answer most people have ready.
-    expect(find.text('Clans'), findsOneWidget);
-    expect(find.text('Tribes'), findsOneWidget);
+    // The clan, and only the clan: joining a tribe gave a member nothing
+    // their clan did not, and a second door is one somebody takes by mistake.
+    expect(find.text('Tribes'), findsNothing);
     expect(find.text('JK'), findsOneWidget);
     expect(find.text('Ask to join'), findsOneWidget);
-  });
-
-  testWidgets('a tribe is still asked for as a tribe', (tester) async {
-    // Both screens are the same screen underneath. Sending the wrong scope
-    // type would grant nothing while appearing to succeed, and it is the one
-    // thing sharing an implementation could quietly break.
-    await tester.binding.setSurfaceSize(const Size(402, 1400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final adapter = FakeAdapter({
-      'GET /api/v1/clans': [
-        FakeReply(200, {'success': true, 'data': <dynamic>[]}),
-      ],
-      'GET /api/v1/tribes': [
-        FakeReply(200, {
-          'success': true,
-          'data': [
-            {
-              'ulid': '01TRIBETRIBETRIBETRIBETRIB',
-              'name': 'ZOMI',
-              'counts': {'people': 327, 'clans': 1},
-            },
-          ],
-        }),
-      ],
-      'GET /api/v1/memberships': [
-        FakeReply(200, {'success': true, 'data': <dynamic>[]}),
-      ],
-      'POST /api/v1/memberships': [
-        FakeReply(201, {
-          'success': true,
-          'data': {'ulid': '01MEMBERSHIPMEMBERSHIPMEMB', 'status': 'pending'},
-        }),
-      ],
-    });
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          apiClientProvider.overrideWithValue(fakeApiClient(adapter)),
-          secureStorageProvider.overrideWithValue(FakeSecureStorage()),
-        ],
-        child: const MaterialApp(home: JoinScreen()),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Tribes'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Ask to join'));
-    await tester.pumpAndSettle();
-
-    final asked = adapter.received.singleWhere(
-      (r) => r.method == 'POST' && r.path == '/api/v1/memberships',
-    );
-
-    expect(asked.data, {
-      'scope_type': 'tribe',
-      'scope_ulid': '01TRIBETRIBETRIBETRIBETRIB',
-    });
   });
 
   test('the photograph is sent as bytes, not as a path', () async {

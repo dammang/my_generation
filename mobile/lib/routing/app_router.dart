@@ -16,6 +16,7 @@ import '../features/clans/view/start_clan_screen.dart';
 import '../features/connection/startup_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/claim_profile_screen.dart';
+import '../features/clans/view/members_screen.dart';
 import '../features/clans/view/membership_requests_screen.dart';
 import '../features/onboarding/join_clan_screen.dart';
 import '../features/onboarding/join_screen.dart';
@@ -40,6 +41,7 @@ class Routes {
   static const String joinTribe = '/join';
   static const String joinClan = '/join-clan';
   static const String joinRequests = '/join-requests';
+  static const String members = '/members';
   static const String claimProfile = '/claim';
 
   /// The five sections of the bottom bar, in the order they appear there.
@@ -153,6 +155,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: Routes.joinTribe, builder: (_, _) => const JoinScreen()),
       GoRoute(path: Routes.joinClan, builder: (_, _) => const JoinClanScreen()),
+      GoRoute(path: Routes.members, builder: (_, _) => const MembersScreen()),
       GoRoute(
         path: Routes.joinRequests,
         builder: (_, _) => const MembershipRequestsScreen(),

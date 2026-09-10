@@ -36,7 +36,12 @@ class OnboardingRepository {
   Future<List<ClanSummary>> clans({String? search}) async {
     final envelope = await _api.get<List<dynamic>>(
       ApiPaths.clans,
-      query: {if (search != null && search.isNotEmpty) 'q': search},
+      // The joinable listing: somebody who belongs to nothing can see no clan
+      // at all, which left this screen empty for the people it exists for.
+      query: {
+        'joinable': 1,
+        if (search != null && search.isNotEmpty) 'q': search,
+      },
       parse: (data) => (data as List),
     );
 
@@ -60,6 +65,27 @@ class OnboardingRepository {
         'scope_type': scopeType,
         'scope_ulid': scopeUlid,
         'status': 'pending',
+      },
+      parse: (data) => data as List<dynamic>,
+    );
+
+    return (envelope.data ?? const [])
+        .map((m) => Membership.fromJson((m as Map).cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
+  /// Who belongs to one scope, with what they told us about themselves. The
+  /// server sends the answers only to whoever administers it.
+  Future<List<Membership>> membersOf({
+    required String scopeType,
+    required String scopeUlid,
+  }) async {
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.scopeMembers,
+      query: {
+        'scope_type': scopeType,
+        'scope_ulid': scopeUlid,
+        'status': 'active',
       },
       parse: (data) => data as List<dynamic>,
     );

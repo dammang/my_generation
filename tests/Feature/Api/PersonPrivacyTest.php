@@ -58,9 +58,17 @@ class PersonPrivacyTest extends TestCase
         return $user;
     }
 
+    /**
+     * Born in a fixed year, and therefore living.
+     *
+     * The factory draws a birth year anywhere back to 1900, and anybody born
+     * before the living-age cutoff counts as deceased — whose privacy lifts to
+     * the tribe's default. Left to chance, these tests asserted a living
+     * person's rules against a person the faker had decided was dead.
+     */
     private function personIn(PrivacyLevel $level, array $overrides = []): Person
     {
-        return Person::factory()->create([
+        return Person::factory()->bornExactly(1990)->create([
             'tribe_id' => $this->tribe->id,
             'clan_id' => $this->clan->id,
             'family_branch_id' => $this->branch->id,

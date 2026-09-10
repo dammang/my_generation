@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/errors/api_exception.dart';
+import '../../core/constants/countries.dart';
 import '../../models/joinable_scope.dart';
 import '../../providers/onboarding_provider.dart';
 import '../../widgets/form_banner.dart';
@@ -221,20 +222,62 @@ class _JoinClanFormScreenState extends ConsumerState<JoinClanFormScreen> {
 
   /// Country only. A family archive has no business holding the street
   /// address of somebody it has not let in yet.
+  ///
+  /// Chosen from a list rather than typed as a code: "give the country as its
+  /// two-letter code" asks somebody to know that Myanmar is MM, and the ones
+  /// who do not are simply stuck.
   Widget _country() => Padding(
     padding: const EdgeInsets.only(bottom: 14),
-    child: TextFormField(
-      controller: _fields['country'],
-      textCapitalization: TextCapitalization.characters,
-      maxLength: 2,
-      decoration: const InputDecoration(
-        labelText: 'Country',
-        helperText: 'Two-letter code — MM, IN, US, MY',
-        counterText: '',
-      ),
+    child: FormField<String>(
+      initialValue: _fields['country']!.text,
       validator: (value) => (value == null || value.trim().length != 2)
-          ? 'Give the country as its two-letter code.'
+          ? 'Choose your country.'
           : null,
+      builder: (field) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InputDecorator(
+            decoration: InputDecoration(
+              labelText: 'Country',
+              errorText: field.errorText,
+            ),
+            child: InkWell(
+              onTap: () async {
+                FocusScope.of(context).unfocus();
+
+                final picked = await showModalBottomSheet<String>(
+                  context: context,
+                  isScrollControlled: true,
+                  showDragHandle: true,
+                  builder: (_) => const _CountryPicker(),
+                );
+
+                if (picked != null) {
+                  _fields['country']!.text = picked;
+                  field.didChange(picked);
+                }
+              },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      Countries.nameOf(field.value) ?? 'Choose a country',
+                      style: field.value == null || field.value!.isEmpty
+                          ? TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            )
+                          : null,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -295,6 +338,57 @@ class _Selfie extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Every country, searchable.
+class _CountryPicker extends StatefulWidget {
+  const _CountryPicker();
+
+  @override
+  State<_CountryPicker> createState() => _CountryPickerState();
+}
+
+class _CountryPickerState extends State<_CountryPicker> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final matches = Countries.matching(_query);
+
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.75,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              child: TextField(
+                autofocus: true,
+                onChanged: (value) => setState(() => _query = value),
+                decoration: const InputDecoration(
+                  labelText: 'Search countries',
+                  prefixIcon: Icon(Icons.search),
+                ),
+              ),
+            ),
+            Expanded(
+              child: matches.isEmpty
+                  ? const Center(child: Text('No country matches that.'))
+                  : ListView.builder(
+                      itemCount: matches.length,
+                      itemBuilder: (context, index) => ListTile(
+                        title: Text(matches[index].value),
+                        trailing: Text(matches[index].key),
+                        onTap: () =>
+                            Navigator.of(context).pop(matches[index].key),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
