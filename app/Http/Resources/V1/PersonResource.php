@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources\V1;
 
 use App\Enums\DatePrecision;
+use App\Enums\Gender;
 use App\Models\Person;
 use App\Services\Privacy\FieldMask;
 use App\Services\Privacy\PersonVisibilityResolver;
@@ -82,6 +83,14 @@ class PersonResource extends JsonResource
             // Whether a family of their own is recorded. For somebody who
             // married in this is the difference between a name beside a
             // husband and a person with parents, and the chart says so.
+            // Who their parents were, for a search result with no dates to
+            // show. A list of names with nothing under them is unusable in a
+            // family where a dozen people are called Thawng.
+            'parents' => $this->when(
+                $this->resource->relationLoaded('parents'),
+                fn () => $this->parentNames(),
+            ),
+
             'has_parents' => $this->when(
                 $this->resource->relationLoaded('parents'),
                 fn () => $this->parents->isNotEmpty(),
@@ -448,6 +457,45 @@ class PersonResource extends JsonResource
         return $media instanceof MissingValue || $media === null
             ? null
             : ($media->conversions['thumb'] ?? $media->path);
+    }
+
+    /**
+     * The father's and mother's names, each masked by their own visibility.
+     *
+     * A parent is a person: somebody who may not be seen is not named here
+     * either, however visible their child is. Told apart by sex, because
+     * "Father" and "Mother" is how a family says it — a parent whose sex was
+     * never recorded is left out rather than guessed at.
+     *
+     * @return array<string, string>
+     */
+    private function parentNames(): array
+    {
+        self::$resolver ??= app(PersonVisibilityResolver::class);
+        self::$viewer ??= app(ViewerScope::class);
+
+        $viewer = $this->scope ?? self::$viewer;
+        $names = [];
+
+        foreach ($this->parents as $parent) {
+            $mask = self::$resolver->mask($viewer, $parent);
+
+            if (! $mask->visible || ! $mask->name) {
+                continue;
+            }
+
+            $slot = match ($parent->gender) {
+                Gender::Male => 'father',
+                Gender::Female => 'mother',
+                default => null,
+            };
+
+            if ($slot !== null && ! isset($names[$slot])) {
+                $names[$slot] = $parent->display_name;
+            }
+        }
+
+        return $names;
     }
 
     private function mask(): FieldMask

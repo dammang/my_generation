@@ -71,7 +71,10 @@ class PersonController extends Controller
             ->visibleTo($this->viewer)
             ->notMerged()
             ->inGraph()
-            ->with(['tribe:id,ulid,name', 'clan:id,ulid,name', 'familyBranch:id,ulid,name', 'profileMedia'])
+            // Parents in full, not a column subset: their names are shown
+            // only if the viewer may see *them*, and deciding that reads their
+            // own privacy, placement and dates.
+            ->with(['tribe:id,ulid,name', 'clan:id,ulid,name', 'familyBranch:id,ulid,name', 'profileMedia', 'parents'])
             ->when($request->filled('q'), fn (Builder $q) => $q->where(
                 fn (Builder $q) => $q
                     ->where('display_name', 'like', $request->string('q').'%')

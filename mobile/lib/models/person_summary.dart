@@ -4,6 +4,12 @@
 /// withheld, `placeholder` means the record exists but this viewer may not see
 /// who it is — the node still occupies its position, because hiding it would
 /// misrepresent everybody else's lineage.
+/// Read defensively: no parents at all arrives as a JSON array rather than an
+/// object, and casting that to a Map throws — which is how one empty row once
+/// failed the parse of an entire list.
+String? _parent(Object? raw, String which) =>
+    raw is Map ? raw[which] as String? : null;
+
 class PersonSummary {
   const PersonSummary({
     required this.ulid,
@@ -25,6 +31,8 @@ class PersonSummary {
     this.depth,
     this.deceasedDeclared = false,
     this.hasParents = false,
+    this.fatherName,
+    this.motherName,
     this.birthOrder,
     this.relationshipType,
   });
@@ -63,6 +71,12 @@ class PersonSummary {
   /// this is the difference between a name beside a husband and a person with
   /// parents.
   final bool hasParents;
+
+  /// Their parents' names, where the archive holds them and the reader may
+  /// see them. Carried on a search result because a column of names with
+  /// nothing under them cannot be told apart.
+  final String? fatherName;
+  final String? motherName;
 
   /// Where they come among their siblings, and how they joined the family.
   /// Present only where a child was read through the marriage they belong to.
@@ -117,6 +131,8 @@ class PersonSummary {
       generationLabel: json['generation_label'] as String?,
       deceasedDeclared: json['deceased_declared'] as bool? ?? false,
       hasParents: json['has_parents'] as bool? ?? false,
+      fatherName: _parent(json['parents'], 'father'),
+      motherName: _parent(json['parents'], 'mother'),
       birthOrder: json['birth_order'] as int?,
       relationshipType: json['relationship_type'] as String?,
       generation: json['generation'] == null

@@ -99,15 +99,37 @@ class PersonTile extends StatelessWidget {
                         ),
                       ),
                     const SizedBox(height: 2),
-                    Text(
-                      person.dateLine,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: person.redacted
-                            ? AppTheme.redacted
-                            : theme.colorScheme.onSurfaceVariant,
-                        fontStyle: person.redacted ? FontStyle.italic : null,
+
+                    // Parents where there are no dates. A column of names all
+                    // reading "No dates recorded" cannot be told apart, and in
+                    // a family with a dozen Thawngs the parents are what
+                    // distinguishes them. Dates win where they exist: they are
+                    // shorter and they place somebody in time.
+                    if (person.lifespan == null &&
+                        (person.fatherName != null ||
+                            person.motherName != null))
+                      for (final line in [
+                        if (person.fatherName != null)
+                          'Father: ${person.fatherName}',
+                        if (person.motherName != null)
+                          'Mother: ${person.motherName}',
+                      ])
+                        Text(
+                          line,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                    else
+                      Text(
+                        person.dateLine,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: person.redacted
+                              ? AppTheme.redacted
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontStyle: person.redacted ? FontStyle.italic : null,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
