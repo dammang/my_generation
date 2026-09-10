@@ -4,6 +4,7 @@ import '../models/family_bundle.dart';
 import '../models/person_detail.dart';
 import '../models/media_item.dart';
 import '../models/person_event.dart';
+import '../models/note.dart';
 import '../repositories/person_repository.dart';
 import '../core/errors/api_exception.dart';
 import 'app_providers.dart';
@@ -18,7 +19,10 @@ final personRepositoryProvider = Provider<PersonRepository>((ref) {
 /// Separate providers rather than one combined fetch: the header should appear
 /// as soon as the person does, instead of waiting on a timeline the viewer may
 /// not even be permitted to see.
-final personProvider = FutureProvider.family<PersonDetail, String>((ref, ulid) async {
+final personProvider = FutureProvider.family<PersonDetail, String>((
+  ref,
+  ulid,
+) async {
   try {
     return await ref.watch(personRepositoryProvider).person(ulid);
   } on ApiException catch (error) {
@@ -35,7 +39,10 @@ final personProvider = FutureProvider.family<PersonDetail, String>((ref, ulid) a
   }
 });
 
-final familyProvider = FutureProvider.family<FamilyBundle, String>((ref, ulid) async {
+final familyProvider = FutureProvider.family<FamilyBundle, String>((
+  ref,
+  ulid,
+) async {
   try {
     return await ref.watch(personRepositoryProvider).family(ulid);
   } on ApiException catch (error) {
@@ -49,7 +56,10 @@ final familyProvider = FutureProvider.family<FamilyBundle, String>((ref, ulid) a
   }
 });
 
-final timelineProvider = FutureProvider.family<Timeline, String>((ref, ulid) async {
+final timelineProvider = FutureProvider.family<Timeline, String>((
+  ref,
+  ulid,
+) async {
   try {
     return await ref.watch(personRepositoryProvider).timeline(ulid);
   } on ApiException catch (error) {
@@ -65,8 +75,10 @@ final timelineProvider = FutureProvider.family<Timeline, String>((ref, ulid) asy
 ///
 /// Not cached offline: a signed URL expires, so a cached album would become a
 /// grid of broken images rather than a useful offline copy.
-final personMediaProvider =
-    FutureProvider.family<MediaAlbum, String>((ref, ulid) {
+final personMediaProvider = FutureProvider.family<MediaAlbum, String>((
+  ref,
+  ulid,
+) {
   return ref.watch(personRepositoryProvider).media(ulid);
 });
 
@@ -92,3 +104,8 @@ void invalidatePerson(WidgetRef ref, String ulid, {String? alsoUlid}) {
 
   ref.invalidate(treeProvider);
 }
+
+/// Notes on one person, filtered by the server to what this reader may see.
+final personNotesProvider = FutureProvider.family<List<Note>, String>(
+  (ref, ulid) => ref.watch(personRepositoryProvider).notes(ulid),
+);

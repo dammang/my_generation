@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\FamilyBranchController;
 use App\Http\Controllers\Api\V1\GenerationController;
 use App\Http\Controllers\Api\V1\MediaController;
 use App\Http\Controllers\Api\V1\MembershipController;
+use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PersonController;
 use App\Http\Controllers\Api\V1\PersonEventController;
@@ -190,6 +191,9 @@ Route::prefix('v1')->as('api.v1.')->group(function (): void {
             // is a claim about who somebody is, and it merges two records.
             Route::post('people/{person}/identity', [PersonController::class, 'claimIdentity'])->name('people.identity');
             Route::patch('people/{person}/visibility', [PersonController::class, 'visibility'])->name('people.visibility');
+            Route::get('people/{person}/notes', [NoteController::class, 'index'])->name('people.notes');
+            Route::post('people/{person}/notes', [NoteController::class, 'store'])->name('people.notes.store');
+            Route::delete('notes/{note}', [NoteController::class, 'destroy'])->name('notes.destroy');
 
             Route::post('people/{person}/names', [PersonController::class, 'storeName'])->name('people.names.store');
             Route::delete('people/{person}/names/{person_name}', [PersonController::class, 'destroyName'])->name('people.names.destroy');

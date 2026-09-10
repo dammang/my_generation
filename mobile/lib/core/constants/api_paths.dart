@@ -32,6 +32,8 @@ class ApiPaths {
   static String personFamily(String ulid) => '$prefix/people/$ulid/family';
   static String personVisibility(String ulid) =>
       '$prefix/people/$ulid/visibility';
+  static String personNotes(String ulid) => '$prefix/people/$ulid/notes';
+  static String note(String ulid) => '$prefix/notes/$ulid';
   static String personRelatives(String ulid) =>
       '$prefix/people/$ulid/relatives';
   static String personTimeline(String ulid) => '$prefix/people/$ulid/timeline';

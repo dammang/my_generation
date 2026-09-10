@@ -5,6 +5,7 @@ import '../core/network/api_client.dart';
 import '../core/network/api_envelope.dart';
 import '../models/family_bundle.dart';
 import '../models/media_item.dart';
+import '../models/note.dart';
 import '../models/person_detail.dart';
 import '../models/person_event.dart';
 import '../models/family_branch_summary.dart';
@@ -136,6 +137,36 @@ class PersonRepository {
         body: {'privacy_level': level},
         parse: (data) => (data as Map).cast<String, dynamic>(),
       );
+
+  /// Notes on a person, as far as this reader is entitled to them. The server
+  /// filters; the app is only ever shown what it may show.
+  Future<List<Note>> notes(String ulid) async {
+    final envelope = await _api.get<List<dynamic>>(
+      ApiPaths.personNotes(ulid),
+      parse: (data) => data as List<dynamic>,
+    );
+
+    return (envelope.data ?? const [])
+        .whereType<Map>()
+        .map((n) => Note.fromJson(n.cast<String, dynamic>()))
+        .toList(growable: false);
+  }
+
+  Future<Note> addNote({
+    required String personUlid,
+    required String body,
+    required String audience,
+  }) async {
+    final envelope = await _api.post<Map<String, dynamic>>(
+      ApiPaths.personNotes(personUlid),
+      body: {'body': body, 'audience': audience},
+      parse: (data) => (data as Map).cast<String, dynamic>(),
+    );
+
+    return Note.fromJson(envelope.data!);
+  }
+
+  Future<void> deleteNote(String ulid) => _api.delete(ApiPaths.note(ulid));
 
   /// A soft delete on the server: the person leaves the graph, the history of
   /// what was recorded about them does not.

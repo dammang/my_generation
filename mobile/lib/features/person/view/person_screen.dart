@@ -15,6 +15,7 @@ import '../../../providers/review_provider.dart';
 import '../../../providers/story_provider.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/tree_provider.dart';
+import '../widgets/person_notes.dart';
 import '../widgets/visibility_setting.dart';
 import '../../../repositories/person_repository.dart';
 import '../../../routing/app_router.dart';
@@ -634,6 +635,8 @@ class _OverviewTab extends ConsumerWidget {
           :final user,
         ) when user.personUlid == person.ulid)
           VisibilitySetting(detail: detail),
+
+        PersonNotes(ulid: person.ulid),
 
         _Descendants(ulid: person.ulid),
 
