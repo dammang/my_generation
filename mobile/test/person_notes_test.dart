@@ -26,8 +26,9 @@ Map<String, dynamic> _note({
 Future<FakeAdapter> _pump(
   WidgetTester tester, {
   List<Map<String, dynamic>>? notes,
+  double height = 1400,
 }) async {
-  await tester.binding.setSurfaceSize(const Size(402, 1400));
+  await tester.binding.setSurfaceSize(Size(402, height));
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   final adapter = FakeAdapter({
@@ -124,6 +125,40 @@ void main() {
 
     expect(find.text('Write something first.'), findsOneWidget);
     expect(adapter.received.where((r) => r.method == 'POST'), isEmpty);
+  });
+
+  testWidgets('the save button stays on screen with a keyboard up', (
+    tester,
+  ) async {
+    await _pump(tester, notes: [], height: 800);
+
+    // The keyboard itself, which is the whole condition: the sheet is padded
+    // by the view insets, and it used to grow past the bottom of the screen
+    // and take Save with it, so the note could be written and never sent.
+    tester.view.viewInsets = FakeViewPadding(
+      bottom: 420 * tester.view.devicePixelRatio,
+    );
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+
+    final button = tester.getRect(
+      find.widgetWithText(FilledButton, 'Save note'),
+    );
+
+    expect(
+      button.bottom,
+      lessThanOrEqualTo(
+        tester.view.physicalSize.height / tester.view.devicePixelRatio,
+      ),
+      reason: 'the save button was below the bottom of the screen',
+    );
+
+    // And it is genuinely usable, not merely laid out somewhere.
+    await tester.enterText(find.byType(TextField), 'He is my grandfather.');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save note'));
+    await tester.pumpAndSettle();
   });
 
   test('every audience the app offers has a name and an explanation', () {

@@ -191,69 +191,101 @@ class _ComposeState extends ConsumerState<_Compose> {
     final theme = Theme.of(context);
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Write a note', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _body,
-              maxLines: 4,
-              maxLength: 2000,
-              autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'Who they are, and how you know',
-                border: OutlineInputBorder(),
+      child: ConstrainedBox(
+        // Never taller than the screen, so the sheet cannot push its own
+        // button past the bottom of it.
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Write a note', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 12),
+
+              // The middle scrolls and the button does not. With the keyboard
+              // up there was no room for both, and it was Save that went off
+              // the bottom — a sheet you cannot finish.
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _body,
+                        maxLines: 4,
+                        maxLength: 2000,
+                        autofocus: true,
+                        // Tapping anywhere else puts the keyboard away. In a
+                        // sheet there is nothing else that will.
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        decoration: const InputDecoration(
+                          hintText: 'Who they are, and how you know',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      Text(
+                        'Who can read this?',
+                        style: theme.textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 4),
+                      RadioGroup<NoteAudience>(
+                        groupValue: _audience,
+                        onChanged: (value) {
+                          if (value == null) return;
+
+                          // Choosing the audience means the writing is done.
+                          FocusScope.of(context).unfocus();
+                          setState(() => _audience = value);
+                        },
+                        child: Column(
+                          children: [
+                            for (final audience in NoteAudience.values)
+                              RadioListTile<NoteAudience>(
+                                value: audience,
+                                enabled: !_saving,
+                                contentPadding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                                title: Text(audience.label),
+                                subtitle: Text(audience.describe),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _error!,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-            Text('Who can read this?', style: theme.textTheme.labelLarge),
-            const SizedBox(height: 4),
-            RadioGroup<NoteAudience>(
-              groupValue: _audience,
-              onChanged: (value) {
-                if (value != null) setState(() => _audience = value);
-              },
-              child: Column(
-                children: [
-                  for (final audience in NoteAudience.values)
-                    RadioListTile<NoteAudience>(
-                      value: audience,
-                      enabled: !_saving,
-                      contentPadding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                      title: Text(audience.label),
-                      subtitle: Text(audience.describe),
-                    ),
-                ],
-              ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _error!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.error,
+
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _saving ? null : _save,
+                  child: _saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.2),
+                        )
+                      : const Text('Save note'),
                 ),
               ),
             ],
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
-                      )
-                    : const Text('Save note'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
