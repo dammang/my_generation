@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/countries.dart';
 import '../../../models/membership.dart';
 import '../../tree/export/pdf_text.dart';
+import 'xlsx.dart';
 
 /// The members of a family, as something you can send somebody.
 ///
@@ -48,25 +49,14 @@ class MemberRoll {
     day(member.joinedAt),
   ];
 
-  /// A spreadsheet, as comma-separated values.
+  /// Every row, header first.
+  List<List<String>> get rows => [columns, ...members.map(_row)];
+
+  /// A real workbook, not comma-separated text wearing the name.
   ///
-  /// Excel, Numbers and Sheets all open it directly. A real .xlsx would need a
-  /// library to write one byte differently from this, and this can be read by
-  /// anything — including a person, in a text editor, in thirty years.
-  String get csv {
-    final rows = [columns, ...members.map(_row)];
-
-    return rows.map((row) => row.map(_escape).join(',')).join('\r\n');
-  }
-
-  /// Quoted where it has to be. A name with a comma in it silently becomes two
-  /// columns otherwise, and every row after it shifts.
-  static String _escape(String value) {
-    final needsQuotes =
-        value.contains(',') || value.contains('"') || value.contains('\n');
-
-    return needsQuotes ? '"${value.replaceAll('"', '""')}"' : value;
-  }
+  /// A committee opens the roll, sorts it, adds a column and saves it back;
+  /// CSV can be opened but not saved back as a workbook.
+  Uint8List get workbook => Xlsx.sheet(name: title, rows: rows);
 
   Future<Uint8List> documentBytes() async {
     final document = pw.Document(title: plainForPdf(title));
@@ -126,8 +116,8 @@ class MemberRoll {
       _share(await _write(await documentBytes(), 'pdf'), 'application/pdf');
 
   Future<void> shareSpreadsheet() async => _share(
-    await _write(Uint8List.fromList(csv.codeUnits), 'csv'),
-    'text/csv',
+    await _write(workbook, 'xlsx'),
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   );
 
   Future<String> _write(Uint8List bytes, String extension) async {

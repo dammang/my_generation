@@ -72,6 +72,10 @@ dependencies:
   # The system share sheet, so an exported chart can go to Photos, a message
   # or Files without the app inventing its own file browser.
   share_plus: ^13.3.0
+  # Zipping a workbook. An .xlsx is a zip of XML parts, and this writes the
+  # zip; the parts are written by hand because the packages that would do it
+  # all pin an older xml than pdf does, and the chart exports need pdf.
+  archive: ^4.0.0
   # A lineage exported as a document rather than a picture: real text, so it
   # stays sharp at any zoom and a thirty-generation line breaks across pages
   # instead of becoming one very tall image.

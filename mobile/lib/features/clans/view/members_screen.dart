@@ -314,27 +314,10 @@ class _Photo extends StatelessWidget {
     return InkWell(
       // A thumbnail of a face is not enough to recognise somebody by, which is
       // the only reason it was asked for.
-      onTap: () => showDialog<void>(
-        context: context,
-        builder: (context) => Dialog(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InteractiveViewer(
-                child: Image.network(
-                  member.photoUrl!,
-                  errorBuilder: (context, _, _) => const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('The photograph could not be loaded.'),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Text(member.name, style: theme.textTheme.titleMedium),
-              ),
-            ],
-          ),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => _FullScreenPhoto(member: member),
         ),
       ),
       child: CircleAvatar(
@@ -344,6 +327,50 @@ class _Photo extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The photograph, filling the screen.
+///
+/// Dark and chromeless: a face is what is being looked at, and a dialog's
+/// border and background are just things in the way of it.
+class _FullScreenPhoto extends StatelessWidget {
+  const _FullScreenPhoto({required this.member});
+
+  final Membership member;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.black,
+    appBar: AppBar(
+      backgroundColor: Colors.black,
+      foregroundColor: Colors.white,
+      title: Text(member.name),
+      elevation: 0,
+    ),
+    body: Center(
+      child: InteractiveViewer(
+        minScale: 1,
+        maxScale: 5,
+        child: Image.network(
+          member.photoUrl!,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          errorBuilder: (context, _, _) => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'The photograph could not be loaded. The link it was fetched '
+              'with is short-lived; go back and open it again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+          loadingBuilder: (context, child, progress) => progress == null
+              ? child
+              : const Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    ),
+  );
 }
 
 /// Two facts stacked, the second quieter than the first.

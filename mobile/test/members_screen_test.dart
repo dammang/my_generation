@@ -1,8 +1,12 @@
+import 'dart:convert';
+
+import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_generation/core/constants/countries.dart';
 import 'package:my_generation/features/clans/export/member_roll.dart';
+import 'package:my_generation/features/clans/export/xlsx.dart';
 import 'package:my_generation/features/clans/view/members_screen.dart';
 import 'package:my_generation/models/membership.dart';
 import 'package:my_generation/providers/app_providers.dart';
@@ -165,25 +169,104 @@ void main() {
     expect(find.text('You do not run a family yet.'), findsOneWidget);
   });
 
-  test('the spreadsheet is a spreadsheet', () {
+  test('the spreadsheet is a real workbook', () {
     final roll = MemberRoll(
       members: [
-        Membership.fromJson(_member(name: 'Cing, Za Man')),
+        Membership.fromJson(_member(name: 'Cing Za Man')),
         Membership.fromJson(_member(name: 'Abroad', country: 'MY')),
       ],
       title: 'JK',
     );
 
-    final lines = roll.csv.split('\r\n');
+    final bytes = roll.workbook;
 
-    expect(lines.first, MemberRoll.columns.join(','));
-    expect(lines, hasLength(3));
+    // PK: a zip, which is what an .xlsx is.
+    expect(bytes.take(2).toList(), [0x50, 0x4b]);
 
-    // A name with a comma in it silently becomes two columns otherwise, and
-    // every row after it shifts.
-    expect(lines[1], startsWith('"Cing, Za Man",'));
-    expect(lines[1], contains('Myanmar (Burma)'));
-    expect(lines[2], contains('Malaysia'));
+    final parts = {
+      for (final file in ZipDecoder().decodeBytes(bytes))
+        file.name: utf8.decode(file.content as List<int>),
+    };
+
+    // Every part a reader looks for. A workbook missing one of these opens as
+    // "the file is corrupt", which is indistinguishable from having exported
+    // nothing.
+    for (final required in [
+      '[Content_Types].xml',
+      '_rels/.rels',
+      'xl/workbook.xml',
+      'xl/_rels/workbook.xml.rels',
+      'xl/worksheets/sheet1.xml',
+      'xl/styles.xml',
+    ]) {
+      expect(parts.keys, contains(required));
+    }
+
+    final sheet = parts['xl/worksheets/sheet1.xml']!;
+
+    expect(sheet, contains('Cing Za Man'));
+    expect(sheet, contains('Myanmar (Burma)'));
+    expect(sheet, contains('Malaysia'));
+    expect(sheet, contains('<c r="A1"'));
+
+    // Header plus two members.
+    expect(RegExp('<row ').allMatches(sheet).length, 3);
+    expect(parts['xl/workbook.xml'], contains('name="JK"'));
+  });
+
+  test('a name that would break the file is escaped', () {
+    // An unescaped ampersand in a surname makes the whole workbook unreadable
+    // rather than that one cell wrong.
+    final bytes = Xlsx.sheet(
+      name: 'JK',
+      rows: [
+        ['Name'],
+        ['Tom & Jerry <"x">'],
+      ],
+    );
+
+    final sheet = ZipDecoder()
+        .decodeBytes(bytes)
+        .firstWhere((f) => f.name == 'xl/worksheets/sheet1.xml');
+
+    final xml = utf8.decode(sheet.content as List<int>);
+
+    expect(xml, contains('Tom &amp; Jerry &lt;&quot;x&quot;&gt;'));
+    expect(xml, isNot(contains('Tom & Jerry')));
+  });
+
+  test('a sheet name Excel would refuse is cleaned', () {
+    // Excel rejects these outright and truncates past 31 characters, so a tab
+    // named after a filter would have produced a file that would not open.
+    final bytes = Xlsx.sheet(
+      name: 'JK / Myanmar [2026] : a very long tab name indeed',
+      rows: [
+        ['Name'],
+      ],
+    );
+
+    final workbook = ZipDecoder()
+        .decodeBytes(bytes)
+        .firstWhere((f) => f.name == 'xl/workbook.xml');
+
+    final name = RegExp(
+      'name="([^"]*)"',
+    ).firstMatch(utf8.decode(workbook.content as List<int>))!.group(1)!;
+
+    expect(name, isNot(contains('/')));
+    expect(name, isNot(contains('[')));
+    expect(name.length, lessThanOrEqualTo(31));
+  });
+
+  test('columns keep counting past Z', () {
+    // Only the first nine are needed today; getting this wrong at column 27 is
+    // the kind of thing found a year later.
+    expect(Xlsx.columnName(0), 'A');
+    expect(Xlsx.columnName(25), 'Z');
+    expect(Xlsx.columnName(26), 'AA');
+    expect(Xlsx.columnName(27), 'AB');
+    expect(Xlsx.columnName(51), 'AZ');
+    expect(Xlsx.columnName(52), 'BA');
   });
 
   test('every country in the picker has a code and a name', () {
