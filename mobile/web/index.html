@@ -30,6 +30,65 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>My Generation</title>
+  <style>
+    /* The app's own light ground, so the hand-off to Flutter is not a flash
+       of a different colour. */
+    html, body { margin: 0; padding: 0; background: #F7F8F5; }
+
+    #boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      background: #F7F8F5;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        Helvetica, Arial, sans-serif;
+      color: #17201D;
+      transition: opacity 300ms ease;
+      z-index: 2147483647;
+    }
+
+    #boot.boot-done { opacity: 0; pointer-events: none; }
+
+    #boot h1 { margin: 18px 0 0; font-size: 26px; font-weight: 700; }
+
+    #boot p { margin: 6px 0 0; font-size: 14px; color: #5C6B63; }
+
+    #boot-spinner {
+      margin-top: 28px;
+      width: 26px;
+      height: 26px;
+      border: 3px solid rgba(31, 74, 61, 0.18);
+      border-top-color: #1F4A3D;
+      border-radius: 50%;
+      animation: boot-spin 900ms linear infinite;
+    }
+
+    @keyframes boot-spin { to { transform: rotate(360deg); } }
+
+    /* Somebody who has asked for less movement gets a mark that simply
+       breathes rather than one that spins. */
+    @media (prefers-reduced-motion: reduce) {
+      #boot-spinner {
+        animation: boot-pulse 1.6s ease-in-out infinite;
+        border-top-color: rgba(31, 74, 61, 0.18);
+      }
+
+      @keyframes boot-pulse { 50% { opacity: 0.35; } }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      html, body, #boot { background: #11150F; }
+      #boot { color: #E6EAE5; }
+      #boot p { color: #9AA79F; }
+      #boot svg g[fill] { fill: #7FC2A6; }
+      #boot svg g[stroke] { stroke: #7FC2A6; }
+      #boot-spinner { border-color: rgba(127, 194, 166, 0.2); border-top-color: #7FC2A6; }
+    }
+  </style>
   <link rel="manifest" href="manifest.json">
   <script>
     // Dart reports an uncaught startup error as an opaque wrapper object, so
@@ -45,13 +104,44 @@
 </head>
 <body>
   <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+    Something to look at while the engine downloads and starts.
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
+    Nothing paints until Flutter's first frame, and on a phone over mobile data
+    that is several seconds of a white page — which reads as a site that is
+    broken rather than one that is loading. This is plain HTML and CSS so it
+    appears with the document itself, before any script has run.
   -->
+  <div id="boot">
+    <svg width="72" height="72" viewBox="0 0 100 100" aria-hidden="true">
+      <g fill="none" stroke="#1F4A3D" stroke-width="4.5" stroke-linecap="round">
+        <path d="M50 16 V34 M26 34 H74 M26 34 V52 M74 34 V52 M26 52 L14 86 M74 52 L86 86"/>
+      </g>
+      <g fill="#1F4A3D">
+        <circle cx="50" cy="16" r="8.5"/>
+        <circle cx="26" cy="52" r="8.5"/>
+        <circle cx="74" cy="52" r="8.5"/>
+        <circle cx="14" cy="86" r="8.5"/>
+        <circle cx="86" cy="86" r="8.5"/>
+      </g>
+    </svg>
+    <h1>My Generation</h1>
+    <p>Family tree &middot; Genealogy &middot; Heritage</p>
+    <div id="boot-spinner" role="progressbar" aria-label="Loading"></div>
+  </div>
+
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Removed on the first frame Flutter paints, which is the moment there is
+    // something behind this to see. Faded rather than cut, so the two do not
+    // appear to flicker past each other.
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('boot');
+
+      if (!boot) return;
+
+      boot.classList.add('boot-done');
+      window.setTimeout(function () { boot.remove(); }, 320);
+    });
+  </script>
 </body>
 </html>

@@ -31,52 +31,10 @@ import '../features/tree/view/tree_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
 
-class Routes {
-  const Routes._();
+import 'route_decision.dart';
+import 'routes.dart';
 
-  static const String startup = '/';
-  static const String signIn = '/sign-in';
-  static const String register = '/register';
-  static const String forgotPassword = '/forgot-password';
-  static const String joinTribe = '/join';
-  static const String joinClan = '/join-clan';
-  static const String joinRequests = '/join-requests';
-  static const String members = '/members';
-  static const String claimProfile = '/claim';
-
-  /// The five sections of the bottom bar, in the order they appear there.
-  static const String home = '/home';
-  static const String tree = '/tree';
-  static const String contributions = '/contributions';
-  static const String pendingChanges = '/pending';
-  static const String profile = '/profile';
-
-  /// A person is addressable so a link to one survives being shared — the
-  /// ulid is the public identifier precisely so it can appear in a URL.
-  static const String person = '/person';
-
-  /// A child of the tree branch, so finding somebody keeps the bottom bar
-  /// and returns to the tree rather than to wherever you came from.
-  static const String personSearch = '/tree/search';
-
-  /// The line from the top of the clan down to the signed-in person.
-  ///
-  /// Not "my generation": that is the name of the application, and a menu
-  /// entry that reads like the app you are already in tells nobody anything.
-  static const String myLineage = '/tree/my-lineage';
-
-  /// Running a family: asking to start a clan, and appointing the people who
-  /// run one. Children of the profile branch, because they are things this
-  /// account does rather than places in the archive.
-  static const String clanRegistrations = '/profile/clans';
-  static const String startClan = '/profile/clans/new';
-  static const String committees = '/profile/committee';
-
-  static String personPath(String ulid) => '$person/$ulid';
-
-  static String committeePath(String scopeType, String scopeUlid) =>
-      '$committees/$scopeType/$scopeUlid';
-}
+export 'routes.dart';
 
 /// What sends screen views to Firebase.
 ///
@@ -116,29 +74,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     observers: _analyticsObservers(),
     redirect: (context, state) {
       final auth = ref.read(authProvider);
-      final location = state.matchedLocation;
 
-      // Screens a signed-out person may reach on their own.
-      const signedOutRoutes = {
-        Routes.signIn,
-        Routes.register,
-        Routes.forgotPassword,
-      };
-
-      return switch (auth) {
-        // The stored token has not been checked yet. Waiting is better than
-        // flashing sign-in at somebody who is already signed in.
-        AuthUnknown() => location == Routes.startup ? null : Routes.startup,
-
-        AuthSignedOut() =>
-          signedOutRoutes.contains(location) ? null : Routes.signIn,
-
-        // Somebody with no membership can see almost nothing, so they are asked
-        // to join before being shown an empty home. The check is a cached
-        // future: it never blocks navigation, and once they have asked, the
-        // redirect stops.
-        AuthSignedIn() => _afterSignIn(ref, location),
-      };
+      return RouteDecision.forRequest(
+        location: state.matchedLocation,
+        uri: state.uri,
+        tokenChecked: auth is! AuthUnknown,
+        signedIn: auth is AuthSignedIn,
+        // A cached future: it never blocks navigation, and once they have
+        // asked to join, the redirect stops.
+        mustJoin: ref.read(needsOnboardingProvider).value ?? false,
+        devRoute: kDebugMode ? Env.devRoute : '',
+      );
     },
     routes: [
       // Outside the shell, and so without a bottom bar: the doors into the app,
@@ -268,41 +214,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
-
-/// Where a signed-in person belongs.
-///
-/// Claiming a profile is optional and reachable from the profile screen, so it
-/// is never forced here; only the tribe question is worth interrupting for.
-String? _afterSignIn(Ref ref, String location) {
-  final needsOnboarding = ref.read(needsOnboardingProvider);
-
-  // While the answer is still loading, stay put rather than bouncing somebody
-  // between two screens on a slow connection.
-  final mustJoin = needsOnboarding.value ?? false;
-
-  if (mustJoin) {
-    return location == Routes.joinTribe ? null : Routes.joinTribe;
-  }
-
-  // Debug-only: open straight onto a named screen, so a reload does not mean
-  // tapping back to where you were.
-  if (kDebugMode && Env.devRoute.isNotEmpty && location == Routes.startup) {
-    return Env.devRoute;
-  }
-
-  // Anywhere except the doors somebody has already come through. A whitelist
-  // of signed-in routes has to be edited for every new screen, and forgetting
-  // shows up as that screen silently bouncing to home — which reads as the
-  // screen being broken rather than the list being stale.
-  const entryRoutes = {
-    Routes.startup,
-    Routes.signIn,
-    Routes.register,
-    Routes.forgotPassword,
-  };
-
-  return entryRoutes.contains(location) ? Routes.home : null;
-}
 
 /// Bridges Riverpod's auth state to GoRouter's listener contract.
 class _AuthRefresh extends ChangeNotifier {

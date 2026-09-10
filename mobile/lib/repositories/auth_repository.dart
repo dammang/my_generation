@@ -126,7 +126,12 @@ class AuthRepository {
 
   Future<void> logout() async {
     try {
-      await _api.post<void>(ApiPaths.logout, parse: (_) {});
+      // Bounded here as well as by the caller: the local clear-down runs in
+      // the finally, and a request that never settles would mean it never
+      // ran — leaving a token behind on a shared computer.
+      await _api
+          .post<void>(ApiPaths.logout, parse: (_) {})
+          .timeout(const Duration(seconds: 4));
     } finally {
       // Local state is cleared whatever the server said. A failed sign-out that
       // leaves a token and a populated cache on the device is worse than a
@@ -135,11 +140,14 @@ class AuthRepository {
     }
   }
 
-  Future<bool> hasToken() async => (await _storage.readToken())?.isNotEmpty ?? false;
+  Future<bool> hasToken() async =>
+      (await _storage.readToken())?.isNotEmpty ?? false;
 
   Future<ApiUser> _persist(Map<String, dynamic> payload) async {
     final token = payload['token'] as String;
-    final user = ApiUser.fromJson((payload['user'] as Map).cast<String, dynamic>());
+    final user = ApiUser.fromJson(
+      (payload['user'] as Map).cast<String, dynamic>(),
+    );
 
     // Anything cached belongs to whoever was signed in before.
     await _database.wipe();

@@ -164,41 +164,51 @@ class AuthNotifier extends Notifier<AuthState> {
   ///
   /// Ten seconds is far longer than any of these should take and short enough
   /// that nobody concludes the button is broken.
-  Future<void> _bounded(Future<void> Function() work, String what) async {
+  Future<void> _bounded(
+    Future<void> Function() work,
+    String what, {
+    Duration within = const Duration(seconds: 10),
+  }) async {
     try {
-      await work().timeout(const Duration(seconds: 10));
+      await work().timeout(within);
     } catch (error) {
       if (kDebugMode) debugPrint('Could not $what: $error');
     }
   }
 
   Future<void> signOut() async {
-    // Before the token goes: the next person to hold this phone must not
-    // receive notifications about a family they have nothing to do with.
-    // Bounded, not merely guarded. Every one of these talks to something
-    // outside the app, and the failure that actually happened was not an
-    // exception but a call that never returned: Firebase Messaging's getToken
-    // on a web build hangs, so sign-out stopped here and the person stayed
-    // signed in with no error and nothing in the network log.
+    // Two calls that talk to somebody else's server, and neither of them
+    // decides whether this person is signed out. Run together and bounded
+    // tightly: they used to run one after another at ten seconds each, and on
+    // the web the first of them always hangs — Firebase Messaging's getToken
+    // never returns there — so pressing sign out meant waiting ten seconds
+    // watching nothing happen.
     //
-    // A try/catch cannot rescue an await that never completes. A timeout can.
-    await _bounded(
-      () => ref.read(pushServiceProvider).unregister(),
-      'unregister this device',
-    );
-
-    // Two sessions, ended together. Leaving the Firebase one behind means the
-    // next sign-in silently reuses the previous account without asking.
-    //
-    // Guarded, like everything else touching Firebase: somebody pressing sign
-    // out on a shared phone must end up signed out whether or not a third
-    // party is reachable. Local state is cleared below regardless.
-    await _bounded(() => _firebase.signOut(), 'sign out of Firebase');
+    // Before the token goes, because unregistering the device needs it: the
+    // next person to hold this phone must not receive notifications about a
+    // family they have nothing to do with. Ending the Firebase session with
+    // it, or the next sign-in silently reuses the previous account.
+    await Future.wait([
+      _bounded(
+        () => ref.read(pushServiceProvider).unregister(),
+        'unregister this device',
+        within: const Duration(seconds: 3),
+      ),
+      _bounded(
+        () => _firebase.signOut(),
+        'sign out of Firebase',
+        within: const Duration(seconds: 3),
+      ),
+    ]);
 
     // Local state goes last and unconditionally. Somebody who pressed sign out
     // on a shared computer must end up signed out whatever any third party did
     // or failed to do.
-    await _bounded(() => _repository.logout(), 'clear the local session');
+    await _bounded(
+      () => _repository.logout(),
+      'clear the local session',
+      within: const Duration(seconds: 5),
+    );
 
     state = const AuthSignedOut();
   }
