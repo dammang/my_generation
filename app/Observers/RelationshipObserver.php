@@ -34,7 +34,7 @@ class RelationshipObserver
         }
 
         $this->projector->project($relationship);
-        $this->refreshDepths($relationship);
+        $this->extendDepths($relationship);
         $this->bump($relationship);
     }
 
@@ -88,6 +88,29 @@ class RelationshipObserver
      * Only descent moves them. A marriage changes who somebody is beside, not
      * how far down they stand.
      */
+    /**
+     * A new edge, costed as one.
+     *
+     * An addition is the hot path — it is what somebody is doing when they sit
+     * with a relative and type in their children — and rebuilding every
+     * counted root for it put 320ms of a 350ms request into work that a
+     * newcomer one generation below their parent does not need.
+     *
+     * Removal and re-pointing still rebuild: both can lengthen a line, and
+     * nothing local can know by how much.
+     */
+    private function extendDepths(Relationship $relationship): void
+    {
+        if ($relationship->relationship_type !== RelationshipType::ParentChild) {
+            return;
+        }
+
+        app(LineageDepthService::class)->extendFrom(
+            (int) $relationship->person_id,
+            (int) $relationship->related_person_id,
+        );
+    }
+
     private function refreshDepths(Relationship $relationship): void
     {
         if ($relationship->relationship_type !== RelationshipType::ParentChild) {

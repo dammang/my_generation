@@ -126,6 +126,92 @@ class LineageDepthService
         return $total;
     }
 
+    /**
+     * One new parent-child edge, without recomputing the world.
+     *
+     * Adding a person used to rebuild the depths of every counted root: 3,531
+     * rows and 320ms of a 350ms request, on every single "add a child", and
+     * growing with the archive. The work an addition actually implies is tiny
+     * — the newcomer stands one generation below their parent on every scale
+     * the parent stands on, and so does anybody already beneath them.
+     *
+     * Additions only. Removing or re-pointing an edge can *lengthen* a line,
+     * and nothing local can know by how much, so those still rebuild.
+     *
+     * Merged in PHP and written as a delete-and-insert rather than an upsert:
+     * production is MariaDB and development is MySQL 9, and there is no
+     * ON DUPLICATE KEY UPDATE syntax the two of them share.
+     *
+     * @return int rows written
+     */
+    public function extendFrom(int $parentId, int $childId): int
+    {
+        $anchors = DB::table('lineage_depths')
+            ->where('person_id', $parentId)
+            ->get(['root_person_id', 'min_depth', 'max_depth']);
+
+        if ($anchors->isEmpty()) {
+            return 0;
+        }
+
+        // Usually just the child: somebody added through the app is new and
+        // has nobody beneath them yet. A subtree attached wholesale is rarer,
+        // and this bounds that case too.
+        $minBelow = $this->walker->descend($childId, self::MAX_DESCENT);
+        $maxBelow = $this->walker->longestDescent($childId, $minBelow);
+        $minBelow[$childId] ??= 0;
+
+        $rootIds = $anchors->pluck('root_person_id')->map(fn ($id) => (int) $id)->all();
+        $personIds = array_map('intval', array_keys($minBelow));
+
+        // The cross product of these two is exactly what is rewritten below,
+        // so deleting by both lists removes precisely that and nothing else.
+        $existing = DB::table('lineage_depths')
+            ->whereIn('root_person_id', $rootIds)
+            ->whereIn('person_id', $personIds)
+            ->get()
+            ->keyBy(fn ($row) => $row->root_person_id.':'.$row->person_id);
+
+        $now = now();
+        $rows = [];
+
+        foreach ($anchors as $anchor) {
+            foreach ($minBelow as $personId => $below) {
+                $min = (int) $anchor->min_depth + 1 + $below;
+                $max = (int) $anchor->max_depth + 1 + ($maxBelow[$personId] ?? $below);
+
+                // An added edge can only shorten the shortest line or lengthen
+                // the longest, never the reverse, so the existing figures are
+                // kept where they already say more.
+                if ($was = $existing->get($anchor->root_person_id.':'.$personId)) {
+                    $min = min($min, (int) $was->min_depth);
+                    $max = max($max, (int) $was->max_depth);
+                }
+
+                $rows[] = [
+                    'root_person_id' => (int) $anchor->root_person_id,
+                    'person_id' => (int) $personId,
+                    'depth' => $min,
+                    'min_depth' => $min,
+                    'max_depth' => $max,
+                    'path_count' => $min === $max ? 1 : 2,
+                    'computed_at' => $now,
+                ];
+            }
+        }
+
+        DB::table('lineage_depths')
+            ->whereIn('root_person_id', $rootIds)
+            ->whereIn('person_id', $personIds)
+            ->delete();
+
+        foreach (array_chunk($rows, 1000) as $chunk) {
+            DB::table('lineage_depths')->insert($chunk);
+        }
+
+        return count($rows);
+    }
+
     public function forPerson(Person $person): ?array
     {
         $rootId = DB::table('family_branches')
