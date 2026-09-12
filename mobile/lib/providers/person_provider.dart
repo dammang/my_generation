@@ -102,7 +102,10 @@ void invalidatePerson(WidgetRef ref, String ulid, {String? alsoUlid}) {
     ref.invalidate(familyProvider(alsoUlid));
   }
 
-  ref.invalidate(treeProvider);
+  // Marked, not fetched. The chart is mounted on its own tab whether or not
+  // anybody is looking at it, so invalidating here pulled the whole thing down
+  // again on every change — including changes made by people who never open it.
+  ref.read(treeStaleProvider.notifier).mark();
 }
 
 /// Notes on one person, filtered by the server to what this reader may see.

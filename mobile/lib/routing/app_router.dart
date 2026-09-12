@@ -67,11 +67,21 @@ List<NavigatorObserver> _analyticsObservers() {
 /// Screens never decide where somebody belongs — a redirect driven by one
 /// source of truth is the only way to avoid two screens disagreeing about
 /// whether a person is signed in.
+/// Watches pushes and pops on the root navigator.
+///
+/// Person screens are pushed above the shell, so this is what tells the chart
+/// underneath that the screen covering it has gone away.
+final routeObserverProvider = Provider<RouteObserver<ModalRoute<void>>>(
+  (ref) => RouteObserver<ModalRoute<void>>(),
+);
+
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: Routes.startup,
     refreshListenable: _AuthRefresh(ref),
-    observers: _analyticsObservers(),
+    // Plus a route observer, so the chart can tell when somebody has come
+    // back to it and fetch again only then.
+    observers: [..._analyticsObservers(), ref.read(routeObserverProvider)],
     redirect: (context, state) {
       final auth = ref.read(authProvider);
 

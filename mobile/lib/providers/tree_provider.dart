@@ -179,3 +179,41 @@ class TreeChromeNotifier extends Notifier<bool> {
 final treeChromeHiddenProvider = NotifierProvider<TreeChromeNotifier, bool>(
   TreeChromeNotifier.new,
 );
+
+/// Whether the chart has fallen behind the archive.
+///
+/// The tree is a tab in an IndexedStack: it stays mounted and listening whether
+/// or not anybody is looking at it. Invalidating it therefore refetched the
+/// whole chart — 138KB and a rebuild on the server — on every add, correction
+/// and approval, including ones made by somebody who never opens that tab, and
+/// while they were still looking at the screen they made the change on.
+///
+/// Marked instead, and acted on when somebody actually comes back to the
+/// chart. Many changes collapse into one fetch, and a change nobody looks at
+/// costs nothing.
+class TreeStaleNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void mark() {
+    if (!state) state = true;
+  }
+
+  void settled() {
+    if (state) state = false;
+  }
+}
+
+final treeStaleProvider = NotifierProvider<TreeStaleNotifier, bool>(
+  TreeStaleNotifier.new,
+);
+
+/// Fetches the chart again if anything has changed since it was drawn.
+///
+/// Called when somebody returns to it, not when the change is made.
+void refreshTreeIfStale(WidgetRef ref) {
+  if (!ref.read(treeStaleProvider)) return;
+
+  ref.read(treeStaleProvider.notifier).settled();
+  ref.invalidate(treeProvider);
+}

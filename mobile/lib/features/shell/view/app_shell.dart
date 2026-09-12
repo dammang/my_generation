@@ -52,13 +52,21 @@ class AppShell extends ConsumerWidget {
         curve: Curves.easeOut,
         child: NavigationBar(
           selectedIndex: shell.currentIndex,
-          onDestinationSelected: (index) => shell.goBranch(
-            index,
-            // Tapping the tab you are already on returns to the root of that
-            // section, which is the behaviour people expect from every other app
-            // and the only way back out of a deep stack without the back button.
-            initialLocation: index == shell.currentIndex,
-          ),
+          onDestinationSelected: (index) {
+            // Coming back to the chart from another section pops nothing, so
+            // the route observer never hears about it. This is the other
+            // moment somebody arrives at the tree.
+            if (index == treeTab) refreshTreeIfStale(ref);
+
+            shell.goBranch(
+              index,
+              // Tapping the tab you are already on returns to the root of that
+              // section, which is the behaviour people expect from every other
+              // app and the only way back out of a deep stack without the back
+              // button.
+              initialLocation: index == shell.currentIndex,
+            );
+          },
           destinations: [
             const NavigationDestination(
               icon: Icon(Icons.home_outlined),

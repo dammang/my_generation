@@ -35,7 +35,7 @@ class TreeScreen extends ConsumerStatefulWidget {
   ConsumerState<TreeScreen> createState() => _TreeScreenState();
 }
 
-class _TreeScreenState extends ConsumerState<TreeScreen> {
+class _TreeScreenState extends ConsumerState<TreeScreen> with RouteAware {
   final _controller = TransformationController();
 
   /// Rebuilt per frame from the device's text scale: the card is a fixed box
@@ -64,8 +64,34 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     });
   }
 
+  /// Held, rather than read back when the widget is going away: `ref` is not
+  /// safe to touch during dispose, and letting go of the observer is exactly
+  /// something that has to happen then.
+  RouteObserver<ModalRoute<void>>? _routes;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final route = ModalRoute.of(context);
+
+    if (route is ModalRoute<void>) {
+      final observer = ref.read(routeObserverProvider);
+
+      _routes = observer;
+      observer.subscribe(this, route);
+    }
+  }
+
+  /// The screen that was covering the chart has gone. If anything changed
+  /// while it was there — a child added, a name corrected — this is the moment
+  /// to fetch it, rather than the moment the change was made.
+  @override
+  void didPopNext() => refreshTreeIfStale(ref);
+
   @override
   void dispose() {
+    _routes?.unsubscribe(this);
     _controller.dispose();
     super.dispose();
   }
