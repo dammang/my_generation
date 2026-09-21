@@ -5,6 +5,7 @@ import '../../../core/errors/api_exception.dart';
 import '../../../models/change_request.dart';
 import '../../../providers/person_provider.dart';
 import '../../../providers/review_provider.dart';
+import '../../person/view/family_link_actions.dart';
 import '../widgets/diff_table.dart';
 
 /// The review queue, from whichever side the viewer is on.
@@ -142,6 +143,16 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
   bool _busy = false;
 
   ChangeRequestSummary get request => widget.request;
+
+  /// A family link on a record this device can still name.
+  bool get _canRelink =>
+      request.familyLinkKind != null && request.targetUlid != null;
+
+  /// The family the link names, from the proposal's own diff.
+  String? get _linkedFamilyName => request.diff
+      .where((entry) => entry.field == 'family_branch_id')
+      .map((entry) => entry.after)
+      .firstOrNull;
 
   Future<void> _decide(Future<void> Function() action) async {
     setState(() => _busy = true);
@@ -361,10 +372,65 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
             else if (!widget.reviewing && request.isPending)
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () =>
-                      _decide(() => repository.withdraw(request.ulid)),
-                  child: const Text('Withdraw'),
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  children: [
+                    // A link to the wrong family is chosen again rather than
+                    // withdrawn and filed from scratch.
+                    if (_canRelink && request.familyLinkKind != 'unlink')
+                      TextButton(
+                        onPressed: () => changeFamilyLink(
+                          context,
+                          ref,
+                          personUlid: request.targetUlid!,
+                          personName: request.targetLabel ?? 'them',
+                          replacing: request.ulid,
+                        ),
+                        child: const Text('Change'),
+                      ),
+                    TextButton(
+                      onPressed: () =>
+                          _decide(() => repository.withdraw(request.ulid)),
+                      child: const Text('Withdraw'),
+                    ),
+                  ],
+                ),
+              )
+            // Approved, and still true of the person: a link made by mistake
+            // is taken back here, by the person who made it.
+            else if (!widget.reviewing &&
+                _canRelink &&
+                request.familyLinkInEffect &&
+                request.familyLinkKind == 'branch')
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => changeFamilyLink(
+                        context,
+                        ref,
+                        personUlid: request.targetUlid!,
+                        personName: request.targetLabel ?? 'them',
+                      ),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Change'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => unlinkFamily(
+                        context,
+                        ref,
+                        personUlid: request.targetUlid!,
+                        personName: request.targetLabel ?? 'them',
+                        familyName: _linkedFamilyName,
+                      ),
+                      icon: const Icon(Icons.link_off, size: 18),
+                      label: const Text('Unlink'),
+                    ),
+                  ],
                 ),
               ),
           ],

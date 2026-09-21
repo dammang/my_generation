@@ -166,13 +166,16 @@ class TreeController extends Controller
      * What a family recites: one name per generation, in the order they are
      * said, each carrying both of the numbers the clan counts by.
      */
-    public function directLine(Person $person, LineageDepthService $lineage): JsonResponse
+    public function directLine(Request $request, Person $person, LineageDepthService $lineage): JsonResponse
     {
         $this->authorize('view', $person);
 
-        return ApiResponse::success(
-            PersonResource::collection(collect($lineage->directLine($person))),
-        );
+        // `?side=mother` recites the mother's line instead, ending with her.
+        $line = $request->query('side') === 'mother'
+            ? $lineage->maternalLine($person)
+            : $lineage->directLine($person);
+
+        return ApiResponse::success(PersonResource::collection(collect($line)));
     }
 
     /** "How am I related to this person?" */

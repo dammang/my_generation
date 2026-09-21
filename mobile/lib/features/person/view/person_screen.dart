@@ -28,6 +28,7 @@ import '../widgets/timeline_tab.dart';
 import 'add_event_screen.dart';
 import 'add_photo_screen.dart';
 import 'add_relative_screen.dart';
+import 'family_link_actions.dart';
 import 'link_family_sheet.dart';
 import 'edit_person_screen.dart';
 import 'photo_screen.dart';
@@ -467,6 +468,19 @@ class _LoadedState extends ConsumerState<_Loaded>
                 onOpenPerson: _openPerson,
                 onAddRelative: _addRelative,
                 onLinkFamily: () => _linkFamily(detail),
+                onChangeLink: (_) => changeFamilyLink(
+                  context,
+                  ref,
+                  personUlid: detail.ulid,
+                  personName: detail.displayName,
+                ),
+                onUnlink: (link) => unlinkFamily(
+                  context,
+                  ref,
+                  personUlid: detail.ulid,
+                  personName: detail.displayName,
+                  familyName: link.label,
+                ),
                 onReorderChildren: _reorderChildren,
                 onDeletePerson: _deletePerson,
                 onMoveChild: (from, child) => _moveChild(bundle, from, child),

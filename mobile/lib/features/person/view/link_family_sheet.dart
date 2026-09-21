@@ -127,7 +127,9 @@ class _LinkFamilySheetState extends ConsumerState<LinkFamilySheet> {
 
       if (!mounted) return;
 
-      Navigator.of(context).pop();
+      // True: something was sent, so a caller replacing an older proposal
+      // knows it may now withdraw that one.
+      Navigator.of(context).pop(true);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -164,7 +166,9 @@ class _LinkFamilySheetState extends ConsumerState<LinkFamilySheet> {
 
       if (!mounted) return;
 
-      Navigator.of(context).pop();
+      // True: something was sent, so a caller replacing an older proposal
+      // knows it may now withdraw that one.
+      Navigator.of(context).pop(true);
 
       // Always a proposal, never an immediate write: the server enforces that
       // for family links whoever is asking, so there is no "saved" case to

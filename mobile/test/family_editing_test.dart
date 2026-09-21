@@ -63,6 +63,8 @@ Future<List<String>> pumpFamily(
           onOpenPerson: (_) {},
           onAddRelative: (_) {},
           onLinkFamily: () {},
+          onChangeLink: (_) {},
+          onUnlink: (_) {},
           onReorderChildren: (_, ulids) => sent.addAll(ulids),
           onDeletePerson: onDelete ?? (_) {},
           onMoveChild: onMove ?? (_, _) {},

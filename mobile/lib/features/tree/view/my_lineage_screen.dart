@@ -8,6 +8,7 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/tree_provider.dart';
 import '../../../routing/app_router.dart';
 import '../export/lineage_export.dart';
+import '../export/lineage_rows.dart';
 
 /// The line, said the way a family says it.
 ///
@@ -65,6 +66,8 @@ class _ExportButtonState extends ConsumerState<_ExportButton> {
   @override
   Widget build(BuildContext context) {
     final people = ref.watch(directLineProvider(widget.ulid)).value;
+    final mothers =
+        ref.watch(maternalLineProvider(widget.ulid)).value ?? const [];
 
     // Nothing to export until the line has arrived, and a button that does
     // nothing is read as a broken one.
@@ -84,7 +87,8 @@ class _ExportButtonState extends ConsumerState<_ExportButton> {
     return PopupMenuButton<String>(
       tooltip: 'Export',
       icon: const Icon(Icons.ios_share),
-      onSelected: (choice) => _export(people, asDocument: choice == 'pdf'),
+      onSelected: (choice) =>
+          _export(people, mothers, asDocument: choice == 'pdf'),
       itemBuilder: (context) => const [
         PopupMenuItem(
           value: 'pdf',
@@ -111,7 +115,8 @@ class _ExportButtonState extends ConsumerState<_ExportButton> {
   }
 
   Future<void> _export(
-    List<PersonSummary> people, {
+    List<PersonSummary> people,
+    List<PersonSummary> mothers, {
     required bool asDocument,
   }) async {
     setState(() => _working = true);
@@ -120,6 +125,7 @@ class _ExportButtonState extends ConsumerState<_ExportButton> {
 
     final export = LineageExport(
       people: people,
+      mothers: mothers,
       title: people.last.displayName.isEmpty
           ? widget.fallbackTitle
           : '${people.last.displayName} — lineage',
@@ -158,8 +164,15 @@ class _Line extends ConsumerWidget {
     final theme = Theme.of(context);
     final line = ref.watch(directLineProvider(ulid));
 
+    // Her side is an extra, not the answer: while it loads, or if it fails,
+    // his line shows exactly as it did before there was a second column.
+    final mothers = ref.watch(maternalLineProvider(ulid)).value ?? const [];
+
     return RefreshIndicator(
-      onRefresh: () async => ref.invalidate(directLineProvider(ulid)),
+      onRefresh: () async {
+        ref.invalidate(directLineProvider(ulid));
+        ref.invalidate(maternalLineProvider(ulid));
+      },
       child: line.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => ListView(
@@ -188,6 +201,8 @@ class _Line extends ConsumerWidget {
           }
 
           final standing = people.last.generation;
+          final rows = LineageRow.pair(people, mothers);
+          final withMother = mothers.isNotEmpty;
 
           return CustomScrollView(
             slivers: [
@@ -200,6 +215,7 @@ class _Line extends ConsumerWidget {
                 delegate: _PinnedHeader(
                   outerOrigin: _outerOrigin(people),
                   origin: standing?.origin ?? _origin(people),
+                  withMother: withMother,
                   colour: theme.colorScheme.surface,
                 ),
               ),
@@ -214,15 +230,16 @@ class _Line extends ConsumerWidget {
                   32 + MediaQuery.paddingOf(context).bottom,
                 ),
                 sliver: SliverList.builder(
-                  itemCount: people.length,
+                  itemCount: rows.length,
                   itemBuilder: (context, index) => _Row(
-                    person: people[index],
+                    row: rows[index],
+                    withMother: withMother,
                     // The last row is where the line stops, which is the
                     // reason anybody opened this screen.
-                    isEnd: index == people.length - 1,
-                    isMe: isMe && index == people.length - 1,
-                    onTap: () =>
-                        context.push(Routes.personPath(people[index].ulid)),
+                    isEnd: index == rows.length - 1,
+                    isMe: isMe && index == rows.length - 1,
+                    onOpen: (person) =>
+                        context.push(Routes.personPath(person.ulid)),
                   ),
                 ),
               ),
@@ -244,19 +261,33 @@ class _Line extends ConsumerWidget {
       .firstWhere((name) => name != null, orElse: () => null);
 }
 
+/// How wide each column is. Four columns on a phone leave no room for the
+/// word "generation" after every number; the heading already says it.
+class _Columns {
+  const _Columns(this.withMother);
+
+  final bool withMother;
+
+  int get number => withMother ? 2 : 3;
+  int get name => 4;
+}
+
 /// The column headings, which stay put.
 class _PinnedHeader extends SliverPersistentHeaderDelegate {
   const _PinnedHeader({
     required this.outerOrigin,
     required this.origin,
+    required this.withMother,
     required this.colour,
   });
 
   final String? outerOrigin;
   final String? origin;
+  final bool withMother;
   final Color colour;
 
-  static const double _height = 44;
+  // Taller with four columns: "From PU ZO" in a narrow column takes two lines.
+  double get _height => withMother ? 56 : 44;
 
   @override
   double get minExtent => _height;
@@ -269,21 +300,31 @@ class _PinnedHeader extends SliverPersistentHeaderDelegate {
       Material(
         color: colour,
         elevation: overlaps || shrinkOffset > 0 ? 1 : 0,
-        child: _Header(outerOrigin: outerOrigin, origin: origin),
+        child: _Header(
+          outerOrigin: outerOrigin,
+          origin: origin,
+          withMother: withMother,
+        ),
       );
 
   @override
   bool shouldRebuild(_PinnedHeader old) =>
       old.outerOrigin != outerOrigin ||
       old.origin != origin ||
+      old.withMother != withMother ||
       old.colour != colour;
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.outerOrigin, required this.origin});
+  const _Header({
+    required this.outerOrigin,
+    required this.origin,
+    required this.withMother,
+  });
 
   final String? outerOrigin;
   final String? origin;
+  final bool withMother;
 
   @override
   Widget build(BuildContext context) {
@@ -292,15 +333,17 @@ class _Header extends StatelessWidget {
       color: theme.colorScheme.onSurfaceVariant,
       fontWeight: FontWeight.w700,
     );
+    final columns = _Columns(withMother);
 
     // The list's own padding (12) plus the row's (10), so a heading sits over
     // the column it names rather than near it.
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 12, 22, 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            flex: 3,
+            flex: columns.number,
             child: Text(
               outerOrigin == null ? 'Generation' : 'From $outerOrigin',
               style: style,
@@ -309,11 +352,21 @@ class _Header extends StatelessWidget {
           // A gap, or "From JASUAN" and "Name" touch and read as one label.
           const SizedBox(width: 10),
           Expanded(
-            flex: 3,
+            flex: columns.number,
             child: Text(origin == null ? '' : 'From $origin', style: style),
           ),
           const SizedBox(width: 10),
-          Expanded(flex: 4, child: Text('Name', style: style)),
+          Expanded(
+            flex: columns.name,
+            child: Text(withMother ? "Father's side" : 'Name', style: style),
+          ),
+          if (withMother) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              flex: columns.name,
+              child: Text("Mother's side", style: style),
+            ),
+          ],
         ],
       ),
     );
@@ -322,57 +375,65 @@ class _Header extends StatelessWidget {
 
 class _Row extends StatelessWidget {
   const _Row({
-    required this.person,
+    required this.row,
+    required this.withMother,
     required this.isEnd,
     required this.isMe,
-    required this.onTap,
+    required this.onOpen,
   });
 
-  final PersonSummary person;
+  final LineageRow row;
+  final bool withMother;
   final bool isEnd;
   final bool isMe;
-  final VoidCallback onTap;
+  final void Function(PersonSummary person) onOpen;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final standing = person.generation;
+    final person = row.person;
+    final standing = person?.generation;
+    final columns = _Columns(withMother);
+
+    String number(int? n) => withMother
+        ? (n == null ? '—' : LineageExport.ordinal(n))
+        : _ordinalOrDash(n);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 2),
       color: isEnd ? theme.colorScheme.primaryContainer : null,
       child: InkWell(
-        onTap: onTap,
+        onTap: person == null ? null : () => onOpen(person),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           child: Row(
             children: [
               Expanded(
-                flex: 3,
+                flex: columns.number,
                 child: Text(
-                  _ordinalOrDash(standing?.outerNumber),
+                  person == null ? '' : number(standing?.outerNumber),
                   style: theme.textTheme.bodyMedium,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                flex: 3,
+                flex: columns.number,
                 child: Text(
                   // A dash, not a blank: above the origin the clan does not
                   // count, and saying nothing there reads as missing data.
-                  _ordinalOrDash(standing?.number),
+                  person == null ? '' : number(standing?.number),
                   style: theme.textTheme.bodyMedium,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                flex: 4,
+                flex: columns.name,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      person.displayName,
+                      person?.displayName ?? '',
                       style: theme.textTheme.titleSmall,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -387,6 +448,13 @@ class _Row extends StatelessWidget {
                   ],
                 ),
               ),
+              if (withMother) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: columns.name,
+                  child: _MothersSide(person: row.mothers, onOpen: onOpen),
+                ),
+              ],
             ],
           ),
         ),
@@ -395,17 +463,60 @@ class _Row extends StatelessWidget {
   }
 
   static String _ordinalOrDash(int? number) =>
-      number == null ? '—' : '${_ordinal(number)} generation';
+      number == null ? '—' : '${LineageExport.ordinal(number)} generation';
+}
 
-  static String _ordinal(int n) => switch (n % 100) {
-    11 || 12 || 13 => '${n}th',
-    _ => switch (n % 10) {
-      1 => '${n}st',
-      2 => '${n}nd',
-      3 => '${n}rd',
-      _ => '${n}th',
-    },
-  };
+/// Her line at the same distance back, with its own count beside the name —
+/// her line usually starts from a different founder, so his numbers are not
+/// hers.
+class _MothersSide extends StatelessWidget {
+  const _MothersSide({required this.person, required this.onOpen});
+
+  final PersonSummary? person;
+  final void Function(PersonSummary person) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final person = this.person;
+
+    if (person == null) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    final standing = person.generation;
+    final counted = [
+      if (standing?.outerNumber case final n?)
+        '${LineageExport.ordinal(n)}'
+            '${standing?.outerOrigin == null ? '' : ' from ${standing!.outerOrigin}'}',
+      if (standing?.number case final n?)
+        if (standing?.origin != standing?.outerOrigin)
+          '${LineageExport.ordinal(n)}'
+              '${standing?.origin == null ? '' : ' from ${standing!.origin}'}',
+    ];
+
+    return InkWell(
+      onTap: () => onOpen(person),
+      borderRadius: BorderRadius.circular(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            person.displayName,
+            style: theme.textTheme.titleSmall,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (counted.isNotEmpty)
+            Text(
+              counted.join(' · '),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 /// An account with no record of its own has no line to show.

@@ -37,7 +37,13 @@ class FakeAdapter implements HttpClientAdapter {
   ) async {
     received.add(options);
 
-    final key = '${options.method} ${options.path}';
+    // "GET /path?side=mother" answers that query alone, where a test says
+    // so; otherwise the path answers whatever query it was asked with.
+    final plain = '${options.method} ${options.path}';
+    final withQuery = options.queryParameters.isEmpty
+        ? plain
+        : '$plain?${Uri(queryParameters: options.queryParameters.map((k, v) => MapEntry(k, '$v'))).query}';
+    final key = replies.containsKey(withQuery) ? withQuery : plain;
     final queue = replies[key];
 
     if (queue == null || queue.isEmpty) {

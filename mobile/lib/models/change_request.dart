@@ -42,6 +42,8 @@ class ChangeRequestSummary {
     this.submittedAt,
     this.decidedAt,
     this.reviewComments = const [],
+    this.familyLinkKind,
+    this.familyLinkInEffect = false,
   });
 
   final String ulid;
@@ -56,6 +58,14 @@ class ChangeRequestSummary {
   final DateTime? submittedAt;
   final DateTime? decidedAt;
   final List<String> reviewComments;
+
+  /// `branch`, `merge` or `unlink` when this is about which family somebody
+  /// came from; null for any other edit.
+  final String? familyLinkKind;
+
+  /// An approved link to the family the person is in now — the one there is
+  /// still something to change or take back about.
+  final bool familyLinkInEffect;
 
   bool get isPending => status == 'pending';
   bool get isSuperseded => status == 'superseded';
@@ -99,6 +109,9 @@ class ChangeRequestSummary {
           .whereType<String>()
           .where((c) => c.trim().isNotEmpty)
           .toList(growable: false),
+      familyLinkKind: (json['family_link'] as Map?)?['kind'] as String?,
+      familyLinkInEffect:
+          (json['family_link'] as Map?)?['in_effect'] as bool? ?? false,
     );
   }
 }

@@ -83,6 +83,42 @@ void main() {
     );
   });
 
+  test('the mother\'s side prints beside his, and drops nothing', () async {
+    final export = LineageExport(
+      people: [
+        _person('PU ZO', outer: 1),
+        _person('KIP MANG', outer: 2),
+        _person('NANG LAM THANG', outer: 3),
+      ],
+      mothers: [_person('KHUP LIAN', outer: 1), _person('CIIN MAN', outer: 2)],
+      title: 'Nang Lam Thang \u2014 lineage',
+      outerOrigin: 'Pu Zo',
+      origin: 'JASUAN',
+    );
+
+    expect(
+      [for (final row in export.rows) LineageExport.mothersCell(row.mothers)],
+      ['KHUP LIAN (1st)', 'CIIN MAN (2nd)', ''],
+    );
+
+    // "Father's side" and "Mother's side" carry an apostrophe the font must
+    // have, or the headings print with a hole in them.
+    final complaints = <String>[];
+    final bytes = await runZoned(
+      export.documentBytes,
+      zoneSpecification: ZoneSpecification(
+        print: (self, parent, zone, line) => complaints.add(line),
+      ),
+    );
+
+    expect(String.fromCharCodes(bytes.take(4)), '%PDF');
+    expect(
+      complaints.where((line) => line.contains('Unable to find a font')),
+      isEmpty,
+      reason: 'a character was dropped from the document: $complaints',
+    );
+  });
+
   test('it is text, not a picture of text', () async {
     final bytes = await _export(4).documentBytes();
     final body = String.fromCharCodes(bytes);

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Resources\V1;
 
 use App\Models\ChangeRequest;
+use App\Models\FamilyBranch;
+use App\Services\Verification\FamilyLinkStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,6 +28,9 @@ class ChangeRequestResource extends JsonResource
             'status' => $this->status->value,
             'reason' => $this->reason,
             'diff' => $this->readableDiff(),
+            // A family link gets its own actions on the card: change it, or
+            // take it back when it was made by mistake.
+            'family_link' => app(FamilyLinkStatus::class)->forRequest($this->resource),
             'target' => [
                 'type' => $this->target_type,
                 'ulid' => $this->targetUlid(),
@@ -74,20 +79,33 @@ class ChangeRequestResource extends JsonResource
             'privacy_level' => 'Privacy',
             'occupation' => 'Occupation',
             'notes' => 'Notes',
+            'family_branch_id' => 'Family',
         ];
 
         $diff = [];
 
         foreach ($this->diff ?? [] as $field => $pair) {
+            [$before, $after] = [$pair[0] ?? null, $pair[1] ?? null];
+
+            // A branch id means nothing to the person deciding; its name does.
+            if ($field === 'family_branch_id') {
+                [$before, $after] = [$this->branchName($before), $this->branchName($after)];
+            }
+
             $diff[] = [
                 'field' => $field,
                 'label' => $labels[$field] ?? ucfirst(str_replace('_', ' ', $field)),
-                'before' => $pair[0] ?? null,
-                'after' => $pair[1] ?? null,
+                'before' => $before,
+                'after' => $after,
             ];
         }
 
         return $diff;
+    }
+
+    private function branchName(mixed $id): ?string
+    {
+        return $id === null ? null : FamilyBranch::whereKey($id)->value('name');
     }
 
     private function targetUlid(): ?string

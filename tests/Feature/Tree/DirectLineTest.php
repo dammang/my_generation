@@ -88,6 +88,41 @@ class DirectLineTest extends TestCase
     }
 
     #[Test]
+    public function the_mothers_side_is_her_own_line_ending_with_her(): void
+    {
+        $fathers = $this->chain(['Pu Zo', 'Kip Mang']);
+        $mothers = $this->chain(['Khup Lian', 'Ciin Man']);
+        $mothers->last()->forceFill(['gender' => 'female'])->save();
+
+        $union = Union::factory()->create([
+            'partner_1_id' => $fathers->last()->id,
+            'partner_2_id' => $mothers->last()->id,
+        ]);
+
+        $child = Person::factory()->bornExactly(1960)->create(['clan_id' => $this->clan->id]);
+        app(AddChildToUnion::class)->handle($union, $child);
+
+        $line = fn (array $query) => collect(
+            $this->actingAs($this->user)
+                ->getJson(route('api.v1.tree.line', [$child, ...$query]))
+                ->assertOk()
+                ->json('data')
+        )->pluck('display_name')->all();
+
+        $this->assertSame(['Khup Lian', 'Ciin Man'], $line(['side' => 'mother']));
+
+        // Asking for the mother's side changes nothing about the father's.
+        $this->assertSame(['Pu Zo', 'Kip Mang', $child->display_name], $line([]));
+
+        // Nobody recorded as her mother: nothing, rather than his line again.
+        $this->assertSame([], collect(
+            $this->actingAs($this->user)
+                ->getJson(route('api.v1.tree.line', [$fathers->last(), 'side' => 'mother']))
+                ->json('data')
+        )->all());
+    }
+
+    #[Test]
     public function every_name_carries_both_of_the_clans_numbers(): void
     {
         $line = $this->chain(['Pu Zo', 'Kip Mang', 'Jasuan', 'Thawng Dam']);

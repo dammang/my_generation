@@ -167,6 +167,13 @@ final directLineProvider = FutureProvider.family<List<PersonSummary>, String>(
   (ref, ulid) => ref.watch(treeRepositoryProvider).directLine(ulid),
 );
 
+/// The same, through the mother: her line, ending with her. Empty when no
+/// mother is recorded.
+final maternalLineProvider = FutureProvider.family<List<PersonSummary>, String>(
+  (ref, ulid) =>
+      ref.watch(treeRepositoryProvider).directLine(ulid, mother: true),
+);
+
 class TreeChromeNotifier extends Notifier<bool> {
   @override
   bool build() => false;

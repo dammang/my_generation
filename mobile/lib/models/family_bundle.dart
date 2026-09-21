@@ -100,6 +100,7 @@ class FamilyBundle {
     required this.siblings,
     required this.unions,
     this.fromCache = false,
+    this.link,
   });
 
   final PersonSummary person;
@@ -112,6 +113,9 @@ class FamilyBundle {
   /// Assembled from the device. Marriages are not grouped offline, so the
   /// screen must not imply that a flat list of children is the whole truth.
   final bool fromCache;
+
+  /// The family link already asked for, if any.
+  final FamilyLink? link;
 
   bool get isEmpty =>
       parents.isEmpty &&
@@ -147,6 +151,55 @@ class FamilyBundle {
           .whereType<Map>()
           .map((e) => FamilyUnion.fromJson(e.cast<String, dynamic>()))
           .toList(growable: false),
+      link: json['family_link'] is Map
+          ? FamilyLink.fromJson(
+              (json['family_link'] as Map).cast<String, dynamic>(),
+            )
+          : null,
     );
   }
+}
+
+/// "Link to another family", once it has been answered.
+///
+/// Either waiting for review or in effect. Asking a second time would file a
+/// second proposal about the same woman, so the button stands down and says
+/// where to change it instead.
+class FamilyLink {
+  const FamilyLink({
+    required this.pending,
+    required this.kind,
+    required this.changeRequestUlid,
+    this.label,
+  });
+
+  final bool pending;
+
+  /// `branch` (a family line), `merge` (her own record) or `unlink`.
+  final String kind;
+  final String changeRequestUlid;
+
+  /// The family's name, for a family-line link.
+  final String? label;
+
+  /// What the family tab says instead of offering the button.
+  String get summary => switch ((kind, pending)) {
+    ('unlink', _) =>
+      'Unlinking from her family is waiting for review. Withdraw it from Edits.',
+    ('merge', true) =>
+      'Claimed as her own record — waiting for review. Change or withdraw it '
+          'from Edits.',
+    ('merge', false) => 'Linked to her own record.',
+    (_, true) =>
+      'Linking to the ${label ?? 'chosen'} family — waiting for review. '
+          'Change or withdraw it from Edits.',
+    (_, false) => 'Linked to the ${label ?? 'chosen'} family.',
+  };
+
+  factory FamilyLink.fromJson(Map<String, dynamic> json) => FamilyLink(
+    pending: json['state'] == 'pending',
+    kind: json['kind'] as String? ?? 'branch',
+    changeRequestUlid: json['change_request_ulid'] as String? ?? '',
+    label: json['label'] as String?,
+  );
 }

@@ -18,9 +18,15 @@ class TreeRepository {
   /// than silently clamping — and expansion is asking for a deeper slice
   /// around a new focus, not fetching "the rest".
   /// The line from the top of the clan down to one person, oldest first.
-  Future<List<PersonSummary>> directLine(String ulid) async {
+  ///
+  /// With [mother], her line instead — oldest first, ending with her.
+  Future<List<PersonSummary>> directLine(
+    String ulid, {
+    bool mother = false,
+  }) async {
     final envelope = await _api.get<List<dynamic>>(
       ApiPaths.treeLine(ulid),
+      query: mother ? const {'side': 'mother'} : null,
       parse: (data) => data as List<dynamic>,
     );
 

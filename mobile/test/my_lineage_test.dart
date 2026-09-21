@@ -53,12 +53,16 @@ Future<void> pumpLine(
   WidgetTester tester, {
   String? personUlid = _me,
   List<Map<String, dynamic>>? line,
+  List<Map<String, dynamic>> mothers = const [],
   double bottomInset = 0,
 }) async {
   await tester.binding.setSurfaceSize(const Size(402, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   final adapter = FakeAdapter({
+    'GET /api/v1/tree/$_me/line?side=mother': [
+      FakeReply(200, {'success': true, 'data': mothers}),
+    ],
     'GET /api/v1/tree/$_me/line': [
       FakeReply(200, {
         'success': true,
@@ -192,6 +196,53 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.getRect(find.text("I'M HERE")).bottom, lessThan(900 - 80));
+  });
+
+  testWidgets('no mother recorded: no second column', (tester) async {
+    await pumpLine(tester);
+
+    expect(find.text("Mother's side"), findsNothing);
+    expect(find.text('Name'), findsOneWidget);
+  });
+
+  testWidgets('her line sits beside his, one row above me', (tester) async {
+    await pumpLine(
+      tester,
+      line: [
+        _person('01A', 'PU ZO', outer: 1),
+        _person('01B', 'KIP MANG', outer: 2),
+        _person(_me, 'NANG LAM THANG', outer: 3),
+      ],
+      mothers: [
+        _person('01X', 'KHUP LIAN', outer: 1),
+        _person('01Y', 'CIIN MAN', outer: 2),
+      ],
+    );
+
+    expect(find.text("Father's side"), findsOneWidget);
+    expect(find.text("Mother's side"), findsOneWidget);
+
+    Card rowOf(String name) => tester.widget<Card>(
+      find.ancestor(of: find.text(name), matching: find.byType(Card)),
+    );
+
+    // Her mother beside his father, her grandfather beside his: a row is a
+    // distance back from me, not a number on either scale.
+    expect(rowOf('CIIN MAN'), same(rowOf('KIP MANG')));
+    expect(rowOf('KHUP LIAN'), same(rowOf('PU ZO')));
+
+    // My own row has nobody on her side: she is a generation above me.
+    final mine = find.ancestor(
+      of: find.text("I'M HERE"),
+      matching: find.byType(Card),
+    );
+    expect(
+      find.descendant(of: mine, matching: find.text('CIIN MAN')),
+      findsNothing,
+    );
+
+    // Her count, not his, beside her name.
+    expect(find.text('2nd from Pu Zo'), findsOneWidget);
   });
 
   testWidgets('an account with no record of its own is told what to do', (

@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../models/person_summary.dart';
+import 'lineage_rows.dart';
 import 'pdf_text.dart';
 import 'tree_export_image.dart';
 
@@ -29,9 +30,21 @@ class LineageExport {
     required this.title,
     required this.outerOrigin,
     required this.origin,
+    this.mothers = const [],
   });
 
   final List<PersonSummary> people;
+
+  /// The mother's line, oldest first and ending with her. Empty when not
+  /// recorded, and then the columns are exactly what they were without it.
+  final List<PersonSummary> mothers;
+
+  /// Both lines, lined up by how far back each row is.
+  List<LineageRow> get rows => LineageRow.pair(people, mothers);
+
+  bool get _withMother => mothers.isNotEmpty;
+
+  int get _numberFlex => _withMother ? 2 : 3;
 
   /// Whose lineage it is.
   final String title;
@@ -69,7 +82,7 @@ class LineageExport {
           pw.SizedBox(height: 14),
           _headings(),
           pw.Divider(height: 6),
-          for (final (index, person) in people.indexed) _row(index, person),
+          for (final (index, row) in rows.indexed) _row(index, row),
         ],
       ),
     );
@@ -109,12 +122,13 @@ class LineageExport {
 
   pw.Widget _headings() => pw.Row(
     children: [
-      pw.Expanded(flex: 3, child: _heading(_outerHeading)),
+      pw.Expanded(flex: _numberFlex, child: _heading(_outerHeading)),
       pw.Expanded(
-        flex: 3,
+        flex: _numberFlex,
         child: _heading(origin == null ? '' : 'From $origin'),
       ),
-      pw.Expanded(flex: 4, child: _heading('Name')),
+      pw.Expanded(flex: 4, child: _heading(_nameHeading)),
+      if (_withMother) pw.Expanded(flex: 4, child: _heading(mothersHeading)),
     ],
   );
 
@@ -127,9 +141,11 @@ class LineageExport {
     ),
   );
 
-  pw.Widget _row(int index, PersonSummary person) {
-    final standing = person.generation;
-    final last = index == people.length - 1;
+  pw.Widget _row(int index, LineageRow row) {
+    final person = row.person;
+    final standing = person?.generation;
+    final last = index == rows.length - 1;
+    final name = person?.displayName ?? '';
 
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(vertical: 5),
@@ -141,16 +157,16 @@ class LineageExport {
       child: pw.Row(
         children: [
           pw.Expanded(
-            flex: 3,
+            flex: _numberFlex,
             child: pw.Text(
-              _ordinalOrDash(standing?.outerNumber),
+              plainForPdf(number(person, standing?.outerNumber)),
               style: const pw.TextStyle(fontSize: 11),
             ),
           ),
           pw.Expanded(
-            flex: 3,
+            flex: _numberFlex,
             child: pw.Text(
-              _ordinalOrDash(standing?.number),
+              plainForPdf(number(person, standing?.number)),
               style: const pw.TextStyle(fontSize: 11),
             ),
           ),
@@ -158,13 +174,21 @@ class LineageExport {
             flex: 4,
             child: pw.Text(
               // Where the line stops is the reason anybody printed it.
-              plainForPdf(last ? '${person.displayName}  <-' : person.displayName),
+              plainForPdf(last ? '$name  <-' : name),
               style: pw.TextStyle(
                 fontSize: 11,
                 fontWeight: last ? pw.FontWeight.bold : pw.FontWeight.normal,
               ),
             ),
           ),
+          if (_withMother)
+            pw.Expanded(
+              flex: 4,
+              child: pw.Text(
+                plainForPdf(mothersCell(row.mothers)),
+                style: const pw.TextStyle(fontSize: 11),
+              ),
+            ),
         ],
       ),
     );
@@ -172,6 +196,31 @@ class LineageExport {
 
   String get _outerHeading =>
       outerOrigin == null ? 'Generation' : 'From $outerOrigin';
+
+  String get _nameHeading => _withMother ? "Father's side" : 'Name';
+
+  static const mothersHeading = "Mother's side";
+
+  /// A generation cell. Blank above the top of his line; with four columns,
+  /// the number alone, because the heading already says "generation".
+  String number(PersonSummary? person, int? n) {
+    if (person == null) return '';
+    if (!_withMother) return _ordinalOrDash(n);
+
+    return n == null ? '-' : ordinal(n);
+  }
+
+  /// Her side of a row: the name, with her own line's count — it usually
+  /// starts from a different founder, so his numbers are not hers.
+  static String mothersCell(PersonSummary? person) {
+    if (person == null) return '';
+
+    final outer = person.generation?.outerNumber;
+
+    return outer == null
+        ? person.displayName
+        : '${person.displayName} (${ordinal(outer)})';
+  }
 
   String get _subtitle {
     final ends = people.isEmpty ? null : people.last.displayName;
@@ -240,8 +289,10 @@ class _PictureView extends StatelessWidget {
   static const double _padding = 48;
   static const double _headHeight = 108;
 
-  Size get size =>
-      Size(900, _padding * 2 + _headHeight + export.people.length * _rowHeight);
+  Size get size => Size(
+    export._withMother ? 1100 : 900,
+    _padding * 2 + _headHeight + export.rows.length * _rowHeight,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -272,52 +323,69 @@ class _PictureView extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        flex: 3,
+                        flex: export._numberFlex,
                         child: _head(theme, export._outerHeading),
                       ),
                       Expanded(
-                        flex: 3,
+                        flex: export._numberFlex,
                         child: _head(
                           theme,
                           export.origin == null ? '' : 'From ${export.origin}',
                         ),
                       ),
-                      Expanded(flex: 4, child: _head(theme, 'Name')),
+                      Expanded(
+                        flex: 4,
+                        child: _head(theme, export._nameHeading),
+                      ),
+                      if (export._withMother)
+                        Expanded(
+                          flex: 4,
+                          child: _head(theme, LineageExport.mothersHeading),
+                        ),
                     ],
                   ),
                   const Divider(),
-                  for (final (index, person) in export.people.indexed)
+                  for (final (index, row) in export.rows.indexed)
                     SizedBox(
                       height: _rowHeight,
                       child: Row(
                         children: [
                           Expanded(
-                            flex: 3,
+                            flex: export._numberFlex,
                             child: Text(
-                              LineageExport._ordinalOrDash(
-                                person.generation?.outerNumber,
+                              export.number(
+                                row.person,
+                                row.person?.generation?.outerNumber,
                               ),
                             ),
                           ),
                           Expanded(
-                            flex: 3,
+                            flex: export._numberFlex,
                             child: Text(
-                              LineageExport._ordinalOrDash(
-                                person.generation?.number,
+                              export.number(
+                                row.person,
+                                row.person?.generation?.number,
                               ),
                             ),
                           ),
                           Expanded(
                             flex: 4,
                             child: Text(
-                              person.displayName,
+                              row.person?.displayName ?? '',
                               style: TextStyle(
-                                fontWeight: index == export.people.length - 1
+                                fontWeight: index == export.rows.length - 1
                                     ? FontWeight.bold
                                     : FontWeight.normal,
                               ),
                             ),
                           ),
+                          if (export._withMother)
+                            Expanded(
+                              flex: 4,
+                              child: Text(
+                                LineageExport.mothersCell(row.mothers),
+                              ),
+                            ),
                         ],
                       ),
                     ),

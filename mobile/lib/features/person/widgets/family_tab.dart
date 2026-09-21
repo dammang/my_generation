@@ -17,6 +17,8 @@ class FamilyTab extends StatelessWidget {
     required this.onOpenPerson,
     required this.onAddRelative,
     required this.onLinkFamily,
+    required this.onChangeLink,
+    required this.onUnlink,
     required this.onReorderChildren,
     required this.onDeletePerson,
     required this.onMoveChild,
@@ -41,22 +43,72 @@ class FamilyTab extends StatelessWidget {
   /// has no way to work out which. Asked for rather than guessed at.
   final VoidCallback onLinkFamily;
 
+  /// A family-line link already in effect, made by mistake or to the wrong
+  /// family: choose again, or take it back.
+  final void Function(FamilyLink link) onChangeLink;
+  final void Function(FamilyLink link) onUnlink;
+
   @override
   Widget build(BuildContext context) {
     final unattached = bundle.unattachedChildren;
+    final theme = Theme.of(context);
+
+    // Already answered: a link waiting for review or in effect, or parents on
+    // record, which is her own family already. Asking again would file a second
+    // proposal about the same person.
+    final linkedBecause =
+        bundle.link?.summary ??
+        (bundle.parents.isNotEmpty
+            ? 'Their family is on record through their parents.'
+            : null);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(6, 4, 6, 12),
-          child: OutlinedButton.icon(
-            onPressed: onLinkFamily,
-            icon: const Icon(Icons.link),
-            label: const Text('Link to another family'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(44),
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              OutlinedButton.icon(
+                onPressed: linkedBecause == null ? onLinkFamily : null,
+                icon: Icon(linkedBecause == null ? Icons.link : Icons.check),
+                label: const Text('Link to another family'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                ),
+              ),
+              if (linkedBecause != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+                  child: Text(
+                    linkedBecause,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              // Only a family-line link in effect can be changed from here. One
+              // waiting for review is withdrawn from Edits by whoever sent it;
+              // two records made one cannot be pulled apart by a tap.
+              if (bundle.link case final link?
+                  when !link.pending && link.kind == 'branch')
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => onChangeLink(link),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Change'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => onUnlink(link),
+                      icon: const Icon(Icons.link_off, size: 18),
+                      label: const Text('Unlink'),
+                    ),
+                  ],
+                ),
+            ],
           ),
         ),
         if (bundle.fromCache)

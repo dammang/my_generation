@@ -35,6 +35,7 @@ use App\Services\Integrity\GenealogyWarnings;
 use App\Services\Permissions\PermissionResolver;
 use App\Services\Privacy\ViewerScope;
 use App\Services\Privacy\ViewerScopeResolver;
+use App\Services\Verification\FamilyLinkStatus;
 use App\Services\Verification\WriteGate;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -295,6 +296,9 @@ class PersonController extends Controller
                     ->orderBy('order_index')
                     ->get()
             ),
+            // Whether "Link to another family" has already been answered, so
+            // the button is not there to be pressed twice.
+            'family_link' => app(FamilyLinkStatus::class)->forPerson($person),
         ]);
     }
 

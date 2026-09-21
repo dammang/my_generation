@@ -336,6 +336,29 @@ class LineageDepthService
             ->all();
     }
 
+    /**
+     * The same line, recited through the mother instead.
+     *
+     * A mother descends from a founder too — often through a clan of her own —
+     * and a family that knows her line counts itself by it as well. Her chain,
+     * oldest first and ending with her, or nothing when no mother is recorded.
+     *
+     * @return array<int, Person>
+     */
+    public function maternalLine(Person $person, int $maxDepth = 40): array
+    {
+        $motherId = DB::table('family_edges')
+            ->join('people', 'people.id', '=', 'family_edges.parent_id')
+            ->where('family_edges.child_id', $person->getKey())
+            ->where('people.gender', 'female')
+            ->whereNull('people.deleted_at')
+            ->value('people.id');
+
+        $mother = $motherId === null ? null : Person::with('clan')->find($motherId);
+
+        return $mother === null ? [] : $this->directLine($mother, $maxDepth);
+    }
+
     public function lineage(Person $person, int $maxDepth = 30): array
     {
         $depths = $this->walker->ascend($person->getKey(), $maxDepth);
